@@ -6,7 +6,32 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
 
-export async function wallet(opts: { generate?: boolean }) {
+export async function wallet(opts: { generate?: boolean; setPrivateKey?: string }) {
+  // Set an existing private key
+  if (opts.setPrivateKey) {
+    const key = (opts.setPrivateKey.startsWith('0x') ? opts.setPrivateKey : `0x${opts.setPrivateKey}`) as `0x${string}`;
+    const account = privateKeyToAccount(key);
+
+    mkdirSync(ENV_DIR, { recursive: true });
+
+    // Replace existing key or append
+    if (existsSync(ENV_PATH)) {
+      const content = readFileSync(ENV_PATH, 'utf-8');
+      if (content.includes('PRIVATE_KEY=')) {
+        writeFileSync(ENV_PATH, content.replace(/PRIVATE_KEY=.*/g, `PRIVATE_KEY=${key}`));
+      } else {
+        writeFileSync(ENV_PATH, content + (content.endsWith('\n') || !content ? '' : '\n') + `PRIVATE_KEY=${key}\n`);
+      }
+    } else {
+      writeFileSync(ENV_PATH, `PRIVATE_KEY=${key}\n`);
+    }
+
+    console.log('✅ Private key saved!\n');
+    console.log(`   Address: ${account.address}`);
+    console.log(`   Saved to: ~/.mintclub/.env`);
+    return;
+  }
+
   // If --generate, create a new key
   if (opts.generate) {
     if (existsSync(ENV_PATH)) {

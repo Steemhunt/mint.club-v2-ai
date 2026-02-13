@@ -119,6 +119,7 @@ cli.command('zap-sell')
 cli.command('wallet')
   .description('Show wallet address or generate a new one')
   .option('-g, --generate', 'Generate a new wallet and save to ~/.mintclub/.env')
+  .option('-s, --set-private-key <key>', 'Import an existing private key to ~/.mintclub/.env')
   .action((opts) => run(() => wallet(opts))());
 
 cli.parse();
