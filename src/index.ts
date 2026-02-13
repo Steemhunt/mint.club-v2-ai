@@ -11,6 +11,7 @@ import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
+import { resolveToken, listTokens } from './utils/tokens';
 import { resolve } from 'path';
 import { homedir } from 'os';
 declare const __VERSION__: string;
@@ -22,6 +23,11 @@ function requireKey(): `0x${string}` {
   const k = process.env.PRIVATE_KEY;
   if (!k) { console.error('❌ Set PRIVATE_KEY in ~/.mintclub/.env or export it'); process.exit(1); }
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
+}
+
+/** Resolve token: address or cached symbol */
+function tok(input: string): Address {
+  return resolveToken(input);
 }
 
 function cleanError(e: unknown): string {
@@ -44,16 +50,16 @@ function run(fn: () => Promise<void>) {
 
 const cli = new Command().name('mc').description('Mint Club V2 CLI — bonding curve tokens on Base').version(__VERSION__);
 
-cli.command('info').description('Get token info').argument('<token>', 'Token address')
-  .action((token) => run(() => info(token as Address))());
+cli.command('info').description('Get token info').argument('<token>', 'Token address or symbol')
+  .action((token) => run(() => info(tok(token)))());
 
-cli.command('buy').description('Buy (mint) tokens with reserve token').argument('<token>', 'Token address')
+cli.command('buy').description('Buy (mint) tokens with reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to buy').option('-m, --max-cost <n>', 'Max reserve cost')
-  .action((token, opts) => run(() => buy(token as Address, opts.amount, opts.maxCost, requireKey()))());
+  .action((token, opts) => run(() => buy(tok(token), opts.amount, opts.maxCost, requireKey()))());
 
-cli.command('sell').description('Sell (burn) tokens for reserve token').argument('<token>', 'Token address')
+cli.command('sell').description('Sell (burn) tokens for reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to sell').option('-m, --min-refund <n>', 'Min reserve refund')
-  .action((token, opts) => run(() => sell(token as Address, opts.amount, opts.minRefund, requireKey()))());
+  .action((token, opts) => run(() => sell(tok(token), opts.amount, opts.minRefund, requireKey()))());
 
 cli.command('create').description('Create a bonding curve token')
   .requiredOption('-n, --name <name>', 'Token name').requiredOption('-s, --symbol <sym>', 'Token symbol')
@@ -63,30 +69,38 @@ cli.command('create').description('Create a bonding curve token')
   .option('--initial-price <n>', 'Starting price (with --curve)').option('--final-price <n>', 'Final price (with --curve)')
   .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100').option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
   .option('-y, --yes', 'Skip confirmation prompt')
-  .action((opts) => run(() => create(opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply, requireKey(), {
+  .action((opts) => run(() => create(opts.name, opts.symbol, tok(opts.reserve), opts.maxSupply, requireKey(), {
     steps: opts.steps, curve: opts.curve, initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
     mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty), yes: opts.yes,
   }))());
 
-cli.command('zap-buy').description('Buy tokens with any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address')
-  .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address)')
+cli.command('zap-buy').description('Buy tokens with any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address or symbol')
+  .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address/symbol)')
   .requiredOption('-a, --amount <n>', 'Amount of input token to spend (e.g. 0.01 ETH)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-tokens <n>', 'Min tokens out')
-  .action((token, opts) => run(() => zapBuy(token as Address, opts.inputToken as Address, opts.amount, opts.minTokens, opts.path, requireKey()))());
+  .action((token, opts) => run(() => zapBuy(tok(token), tok(opts.inputToken), opts.amount, opts.minTokens, opts.path, requireKey()))());
 
-cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address')
-  .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address)')
+cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address or symbol')
+  .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address/symbol)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-output <n>', 'Min output')
-  .action((token, opts) => run(() => zapSell(token as Address, opts.amount, opts.outputToken as Address, opts.minOutput, opts.path, requireKey()))());
+  .action((token, opts) => run(() => zapSell(tok(token), opts.amount, tok(opts.outputToken), opts.minOutput, opts.path, requireKey()))());
 
 cli.command('send').description('Send ETH, ERC-20, or ERC-1155 tokens').argument('<to>', 'Recipient address')
   .requiredOption('-a, --amount <n>', 'Amount to send').option('-t, --token <addr>', 'Token contract (omit for ETH)')
   .option('--token-id <id>', 'ERC-1155 token ID')
-  .action((to, opts) => run(() => send(to as Address, opts.amount, requireKey(), { token: opts.token, tokenId: opts.tokenId }))());
+  .action((to, opts) => run(() => send(to as Address, opts.amount, requireKey(), { token: opts.token ? tok(opts.token) : undefined, tokenId: opts.tokenId }))());
 
 cli.command('wallet').description('Show wallet address and balances, or generate/import a key')
   .option('-g, --generate', 'Generate a new wallet').option('-s, --set-private-key <key>', 'Import an existing private key')
   .action((opts) => run(() => wallet(opts))());
+
+cli.command('tokens').description('List cached token symbols').action(() => {
+  const tokens = listTokens();
+  const entries = Object.entries(tokens);
+  if (entries.length === 0) { console.log('No cached tokens. Interact with a token to auto-cache it.'); return; }
+  console.log('📋 Cached tokens:\n');
+  for (const [symbol, addr] of entries) console.log(`   ${symbol.padEnd(12)} ${addr}`);
+});
 
 cli.command('upgrade').description('Upgrade mint.club-cli to the latest version').action(() => {
   const { execSync } = require('child_process');

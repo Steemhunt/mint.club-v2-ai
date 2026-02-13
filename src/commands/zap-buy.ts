@@ -1,9 +1,10 @@
+import { cacheTokenIfNeeded } from '../utils/tokens';
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND, ZAP_V2, WETH as WETH_ADDR } from '../config/contracts';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { BOND_ABI } from '../abi/bond';
-import { fmt, parse, shortHash } from '../utils/format';
+import { fmt, parse, shortHash, txUrl } from '../utils/format';
 import { encodeV3SwapInput, V3_SWAP_COMMAND, WRAP_ETH_COMMAND, encodeWrapEthInput, parsePath, encodeV3Path } from '../utils/swap';
 import { findBestRoute } from '../utils/router';
 
@@ -23,6 +24,7 @@ export async function zapBuy(
   const isETH = inputToken.toLowerCase() === ZERO_ADDR.toLowerCase() || inputToken.toUpperCase() === 'ETH';
   const actualInputToken: Address = isETH ? ZERO_ADDR : inputToken;
 
+  cacheTokenIfNeeded(token, pub).catch(() => {});
   // Get reserve token
   const bondData = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] });
   const reserveToken = bondData[4] as Address;
@@ -68,6 +70,7 @@ export async function zapBuy(
 
   const hash = await wallet.writeContract({ address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapMint', args, value: isETH ? amountIn : 0n });
   console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
 
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status === 'success') console.log(`✅ Zap bought ${fmt(result[0])} tokens (block ${receipt.blockNumber})`);

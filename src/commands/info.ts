@@ -4,6 +4,7 @@ import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { ERC20_ABI } from '../abi/erc20';
 import { fmt, printTokenInfo } from '../utils/format';
+import { saveToken } from '../utils/tokens';
 
 export async function info(token: Address) {
   console.log(`🔍 Fetching token info for ${token} on Base...\n`);
@@ -19,6 +20,8 @@ export async function info(token: Address) {
     ],
   });
   if (bondRes.status === 'failure') throw new Error('Not a Mint Club token');
+  // Cache symbol → address
+  if (symbolRes.result) saveToken(symbolRes.result, token);
   const [creator, mintRoyalty, burnRoyalty, createdAt, reserveToken, reserveBalance] = bondRes.result!;
   printTokenInfo({
     name: nameRes.result ?? 'Unknown', symbol: symbolRes.result ?? 'Unknown', address: token,

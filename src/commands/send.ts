@@ -1,7 +1,7 @@
 import { type Address, parseEther } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { ERC20_ABI } from '../abi/erc20';
-import { parse, shortHash, shortAddr } from '../utils/format';
+import { parse, shortHash, shortAddr, txUrl } from '../utils/format';
 
 const ERC1155_ABI = [{
   type: 'function', name: 'safeTransferFrom', stateMutability: 'nonpayable',
@@ -19,6 +19,7 @@ export async function send(to: Address, amount: string, privateKey: `0x${string}
     console.log(`📦 Sending ${qty} of ERC-1155 #${tokenId} (${shortAddr(opts.token)}) to ${shortAddr(to)} on Base...`);
     const hash = await wallet.writeContract({ address: opts.token, abi: ERC1155_ABI, functionName: 'safeTransferFrom', args: [account.address, to, tokenId, qty, '0x'] });
     console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
     const receipt = await pub.waitForTransactionReceipt({ hash });
     if (receipt.status === 'success') console.log(`✅ Sent (block ${receipt.blockNumber})`); else throw new Error('Transaction failed');
     return;
@@ -36,6 +37,7 @@ export async function send(to: Address, amount: string, privateKey: `0x${string}
       functionName: 'transfer', args: [to, value],
     });
     console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
     const receipt = await pub.waitForTransactionReceipt({ hash });
     if (receipt.status === 'success') console.log(`✅ Sent (block ${receipt.blockNumber})`); else throw new Error('Transaction failed');
     return;
@@ -45,6 +47,7 @@ export async function send(to: Address, amount: string, privateKey: `0x${string}
   console.log(`💸 Sending ${amount} ETH to ${shortAddr(to)} on Base...`);
   const hash = await wallet.sendTransaction({ to, value });
   console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status === 'success') console.log(`✅ Sent (block ${receipt.blockNumber})`); else throw new Error('Transaction failed');
 }

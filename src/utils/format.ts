@@ -3,7 +3,8 @@ import { formatUnits, parseUnits, type Address } from 'viem';
 export const fmt = (v: bigint, decimals = 18) => formatUnits(v, decimals);
 export const parse = (v: string, decimals = 18) => parseUnits(v, decimals);
 export const shortAddr = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`;
-export const shortHash = (h: string) => `${h.slice(0, 10)}...${h.slice(-8)}`;
+export const shortHash = (h: string) => h; // show full hash
+export const txUrl = (h: string) => `https://basescan.org/tx/${h}`;
 
 export function parseSteps(input: string): { ranges: bigint[]; prices: bigint[] } {
   const ranges: bigint[] = [];

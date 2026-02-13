@@ -3,7 +3,7 @@ import { createInterface } from 'readline';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
-import { fmt, parse, parseSteps, shortHash } from '../utils/format';
+import { fmt, parse, parseSteps, shortHash, txUrl } from '../utils/format';
 import { generateCurve, isCurveType, calculateMilestones, compactNum, type CurveType } from '../utils/curves';
 
 function confirm(question: string): Promise<boolean> {
@@ -72,6 +72,7 @@ export async function create(
 
   const hash = await wallet.writeContract({ address: BOND, abi: BOND_ABI, functionName: 'createToken', args: [tp, bp], value: creationFee });
   console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
 
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status === 'success') console.log(`✅ Token created at ${tokenAddr} (block ${receipt.blockNumber})`);

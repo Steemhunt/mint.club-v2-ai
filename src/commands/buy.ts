@@ -1,8 +1,9 @@
+import { cacheTokenIfNeeded } from '../utils/tokens';
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
-import { fmt, parse, shortHash } from '../utils/format';
+import { fmt, parse, shortHash, txUrl } from '../utils/format';
 
 export async function buy(token: Address, amount: string, maxCost: string | undefined, privateKey: `0x${string}`) {
   const pub = getPublicClient();
@@ -10,6 +11,7 @@ export async function buy(token: Address, amount: string, maxCost: string | unde
   const account = wallet.account;
   const tokensToMint = parse(amount);
   console.log(`🛒 Buying ${amount} tokens of ${token} on Base...`);
+  cacheTokenIfNeeded(token, pub).catch(() => {});
   const [reserveAmount, royalty] = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getReserveForToken', args: [token, tokensToMint] });
   const totalCost = reserveAmount + royalty;
   console.log(`   Reserve: ${fmt(reserveAmount)} | Royalty: ${fmt(royalty)} | Total: ${fmt(totalCost)}`);
@@ -19,6 +21,7 @@ export async function buy(token: Address, amount: string, maxCost: string | unde
   console.log('📤 Sending...');
   const hash = await wallet.writeContract({ address: BOND, abi: BOND_ABI, functionName: 'mint', args });
   console.log(`   TX: ${shortHash(hash)}`);
+  console.log(`   ${txUrl(hash)}`);
   const receipt = await pub.waitForTransactionReceipt({ hash });
   if (receipt.status === 'success') console.log(`✅ Bought ${amount} tokens for ${fmt(totalCost)} reserve (block ${receipt.blockNumber})`);
   else throw new Error('Transaction failed');
