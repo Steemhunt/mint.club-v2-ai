@@ -1,4 +1,3 @@
-import { cacheTokenIfNeeded } from '../utils/tokens';
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND } from '../config/contracts';
@@ -11,7 +10,6 @@ export async function buy(token: Address, amount: string, maxCost: string | unde
   const account = wallet.account;
   const tokensToMint = parse(amount);
   console.log(`🛒 Buying ${amount} tokens of ${token} on Base...`);
-  cacheTokenIfNeeded(token, pub).catch(() => {});
   const [reserveAmount, royalty] = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getReserveForToken', args: [token, tokensToMint] });
   const totalCost = reserveAmount + royalty;
   console.log(`   Reserve: ${fmt(reserveAmount)} | Royalty: ${fmt(royalty)} | Total: ${fmt(totalCost)}`);

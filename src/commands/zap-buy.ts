@@ -1,4 +1,3 @@
-import { cacheTokenIfNeeded } from '../utils/tokens';
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND, ZAP_V2, WETH as WETH_ADDR } from '../config/contracts';
@@ -24,7 +23,6 @@ export async function zapBuy(
   const isETH = inputToken.toLowerCase() === ZERO_ADDR.toLowerCase() || inputToken.toUpperCase() === 'ETH';
   const actualInputToken: Address = isETH ? ZERO_ADDR : inputToken;
 
-  cacheTokenIfNeeded(token, pub).catch(() => {});
   // Get reserve token
   const bondData = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] });
   const reserveToken = bondData[4] as Address;

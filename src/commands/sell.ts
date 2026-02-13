@@ -1,4 +1,3 @@
-import { cacheTokenIfNeeded } from '../utils/tokens';
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND } from '../config/contracts';
@@ -11,7 +10,6 @@ export async function sell(token: Address, amount: string, minRefund: string | u
   const account = wallet.account;
   const tokensToBurn = parse(amount);
   console.log(`🔥 Selling ${amount} tokens of ${token} on Base...`);
-  cacheTokenIfNeeded(token, pub).catch(() => {});
   const [refundAmount, royalty] = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getRefundForTokens', args: [token, tokensToBurn] });
   const netRefund = refundAmount - royalty;
   console.log(`   Refund: ${fmt(refundAmount)} | Royalty: ${fmt(royalty)} | Net: ${fmt(netRefund)}`);

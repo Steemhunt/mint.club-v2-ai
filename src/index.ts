@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { config } from 'dotenv';
-import { type Address } from 'viem';
+import { type Address, getAddress } from 'viem';
 import { info } from './commands/info';
 import { buy } from './commands/buy';
 import { sell } from './commands/sell';
@@ -11,7 +11,6 @@ import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
-import { resolveToken, listTokens } from './utils/tokens';
 import { validateChain } from './config/chains';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -26,9 +25,11 @@ function requireKey(): `0x${string}` {
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
-/** Resolve token: address or cached symbol */
+/** Parse token address */
 function tok(input: string): Address {
-  return resolveToken(input);
+  if (input.toUpperCase() === 'ETH') return '0x0000000000000000000000000000000000000000' as Address;
+  if (!input.startsWith('0x') || input.length !== 42) { console.error('❌ Invalid token address'); process.exit(1); }
+  return getAddress(input);
 }
 
 /** Validate chain and throw friendly error if not Base */
@@ -106,14 +107,6 @@ cli.command('wallet').description('Show wallet address and balances, or generate
   .option('-g, --generate', 'Generate a new wallet').option('-s, --set-private-key <key>', 'Import an existing private key')
   .option('-c, --chain <chain>', 'Chain', 'base')
   .action((opts) => run(() => { chain(opts); return wallet(opts); })());
-
-cli.command('tokens').description('List cached token symbols').action(() => {
-  const tokens = listTokens();
-  const entries = Object.entries(tokens);
-  if (entries.length === 0) { console.log('No cached tokens. Interact with a token to auto-cache it.'); return; }
-  console.log('📋 Cached tokens:\n');
-  for (const [symbol, addr] of entries) console.log(`   ${symbol.padEnd(12)} ${addr}`);
-});
 
 cli.command('upgrade').description('Upgrade mint.club-cli to the latest version').action(() => {
   const { execSync } = require('child_process');
