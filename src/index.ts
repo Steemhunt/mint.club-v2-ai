@@ -144,4 +144,18 @@ cli.command('wallet')
   .option('-c, --chain <chain>', 'Chain for balance check', 'base')
   .action((opts) => run(() => wallet(opts))());
 
+cli.command('upgrade')
+  .description('Upgrade mint.club-cli to the latest version')
+  .action(() => {
+    const { execSync } = require('child_process');
+    console.log('⬆️  Upgrading mint.club-cli...');
+    try {
+      execSync('npm update -g mint.club-cli', { stdio: 'inherit' });
+      console.log('✅ Upgraded! Run `mc --version` to check.');
+    } catch {
+      console.error('❌ Upgrade failed. Try: npm update -g mint.club-cli');
+      process.exit(1);
+    }
+  });
+
 cli.parse();
