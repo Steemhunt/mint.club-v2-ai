@@ -10,14 +10,7 @@ export function loadTokens(): Address[] {
   if (!existsSync(TOKEN_FILE)) return [];
   try {
     const data = JSON.parse(readFileSync(TOKEN_FILE, 'utf-8'));
-    if (Array.isArray(data)) return data;
-    // Migrate old {symbol: address} format
-    if (typeof data === 'object' && data !== null) {
-      const addrs = Object.values(data).filter(v => typeof v === 'string' && (v as string).startsWith('0x')) as Address[];
-      writeFileSync(TOKEN_FILE, JSON.stringify(addrs, null, 2) + '\n');
-      return addrs;
-    }
-    return [];
+    return Array.isArray(data) ? data : [];
   } catch { return []; }
 }
 
