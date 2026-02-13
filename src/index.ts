@@ -150,9 +150,14 @@ cli.command('upgrade')
     const { execSync } = require('child_process');
     console.log('⬆️  Upgrading mint.club-cli...');
     try {
-      execSync('npm update -g mint.club-cli', { stdio: 'inherit' });
-      const newVersion = execSync('mc --version', { encoding: 'utf-8' }).trim();
-      console.log(`✅ Upgraded to v${newVersion}`);
+      const before = execSync('mc --version', { encoding: 'utf-8' }).trim();
+      execSync('npm install -g mint.club-cli@latest', { stdio: 'pipe' });
+      const after = execSync('mc --version', { encoding: 'utf-8' }).trim();
+      if (before === after) {
+        console.log(`✅ Already on latest (v${after})`);
+      } else {
+        console.log(`✅ Upgraded: v${before} → v${after}`);
+      }
     } catch {
       console.error('❌ Upgrade failed. Try: npm update -g mint.club-cli');
       process.exit(1);
