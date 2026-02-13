@@ -6,6 +6,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
 
+function printKeyWarning() {
+  console.log('⚠️  WARNING: Back up your private key! If you lose ~/.mintclub/.env');
+  console.log('   or your private key, your funds are gone forever — there is no recovery.');
+  console.log('   If your key is leaked, anyone can drain your wallet immediately.');
+}
+
 export async function wallet(opts: { generate?: boolean; setPrivateKey?: string }) {
   // Set an existing private key
   if (opts.setPrivateKey) {
@@ -28,7 +34,8 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
 
     console.log('✅ Private key saved!\n');
     console.log(`   Address: ${account.address}`);
-    console.log(`   Saved to: ~/.mintclub/.env`);
+    console.log(`   Saved to: ~/.mintclub/.env\n`);
+    printKeyWarning();
     return;
   }
 
@@ -55,7 +62,8 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
     console.log('✅ New wallet created!\n');
     console.log(`   Address: ${account.address}`);
     console.log(`   Saved to: ~/.mintclub/.env\n`);
-    console.log('💰 Fund this address to start using mc buy/sell/create.');
+    console.log('💰 Fund this address to start using mc buy/sell/create.\n');
+    printKeyWarning();
     return;
   }
 
