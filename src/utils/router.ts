@@ -1,6 +1,6 @@
 import { type Address, type PublicClient } from 'viem';
 import { encodeV3Path } from './swap';
-import { WETH, USDC, USDbC } from '../config/contracts';
+import { WETH, INTERMEDIARIES } from '../config/contracts';
 
 const QUOTER_V2: Address = '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a';
 
@@ -10,13 +10,8 @@ const QUOTER_V2_ABI = [{
   outputs: [{ name: 'amountOut', type: 'uint256' }, { name: 'sqrtPriceX96AfterList', type: 'uint160[]' }, { name: 'initializedTicksCrossedList', type: 'uint32[]' }, { name: 'gasEstimate', type: 'uint256' }],
 }] as const;
 
-const INTERMEDIARIES: { address: Address; symbol: string }[] = [
-  { address: WETH, symbol: 'WETH' },
-  { address: USDC, symbol: 'USDC' },
-  { address: USDbC, symbol: 'USDbC' },
-];
-
 const FEE_TIERS = [100, 500, 3000, 10000];
+const ZERO = '0x0000000000000000000000000000000000000000';
 
 export interface Route {
   path: `0x${string}`;
@@ -38,7 +33,7 @@ async function tryQuote(client: PublicClient, path: `0x${string}`, amountIn: big
 export async function findBestRoute(
   client: PublicClient, inputToken: Address, outputToken: Address, amountIn: bigint,
 ): Promise<Route | null> {
-  const actualInput = inputToken.toLowerCase() === '0x0000000000000000000000000000000000000000' ? WETH : inputToken;
+  const actualInput = inputToken.toLowerCase() === ZERO ? WETH : inputToken;
   if (actualInput.toLowerCase() === outputToken.toLowerCase()) return null;
 
   const candidates: Route[] = [];

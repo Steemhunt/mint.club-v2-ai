@@ -1,19 +1,14 @@
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { type Address, formatUnits } from 'viem';
+import { formatUnits } from 'viem';
 import { resolve } from 'path';
 import { homedir } from 'os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getPublicClient } from '../client';
 import { ERC20_ABI } from '../abi/erc20';
+import { TOKENS } from '../config/contracts';
 
 const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
-
-const KNOWN_TOKENS: { symbol: string; address: Address; decimals: number }[] = [
-  { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
-  { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
-  { symbol: 'HUNT', address: '0x37f0A65b0491c49F4bDdE04F0b5dF27b214FfCf5', decimals: 18 },
-];
 
 function printKeyWarning() {
   console.log('⚠️  WARNING: Back up your private key in a secure, encrypted location!');
@@ -64,10 +59,10 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
   console.log(`💰 Balances on Base:\n   ETH: ${formatUnits(ethBalance, 18)}`);
 
   const results = await client.multicall({
-    contracts: KNOWN_TOKENS.map(t => ({ address: t.address, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] })),
+    contracts: TOKENS.map(t => ({ address: t.address, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] })),
   });
-  for (let i = 0; i < KNOWN_TOKENS.length; i++) {
+  for (let i = 0; i < TOKENS.length; i++) {
     const bal = results[i].status === 'success' ? results[i].result as bigint : 0n;
-    if (bal > 0n) console.log(`   ${KNOWN_TOKENS[i].symbol}: ${formatUnits(bal, KNOWN_TOKENS[i].decimals)}`);
+    if (bal > 0n) console.log(`   ${TOKENS[i].symbol}: ${formatUnits(bal, TOKENS[i].decimals)}`);
   }
 }
