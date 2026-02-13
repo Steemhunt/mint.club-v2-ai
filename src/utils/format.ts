@@ -22,16 +22,17 @@ export function parseSteps(input: string): { ranges: bigint[]; prices: bigint[] 
 
 export function printTokenInfo(t: {
   name: string; symbol: string; address: string; creator: string;
-  reserveToken: string; reserveBalance: bigint; currentSupply: bigint;
+  reserveToken: string; reserveSymbol?: string; reserveBalance: bigint; currentSupply: bigint;
   maxSupply: bigint; mintRoyalty: number; burnRoyalty: number;
   createdAt: number; steps: readonly { rangeTo: bigint; price: bigint }[];
 }) {
+  const rSym = t.reserveSymbol ?? shortAddr(t.reserveToken);
   console.log([
     `\n🪙 Token: ${t.name} (${t.symbol})`,
     `📍 Address: ${t.address}`,
     `👤 Creator: ${shortAddr(t.creator)}`,
-    `💰 Reserve Token: ${shortAddr(t.reserveToken)}`,
-    `💎 Reserve Balance: ${fmt(t.reserveBalance)}`,
+    `💰 Reserve: ${rSym} (${shortAddr(t.reserveToken)})`,
+    `💎 Reserve Balance: ${fmt(t.reserveBalance)} ${rSym}`,
     `📊 Supply: ${fmt(t.currentSupply)} / ${fmt(t.maxSupply)}`,
     `💸 Mint Royalty: ${(t.mintRoyalty / 100).toFixed(2)}%`,
     `🔥 Burn Royalty: ${(t.burnRoyalty / 100).toFixed(2)}%`,

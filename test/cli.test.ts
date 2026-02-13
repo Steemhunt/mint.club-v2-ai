@@ -434,9 +434,9 @@ describe('Config', () => {
 
   it('TOKENS list — has required entries', () => {
     const symbols = TOKENS.map(t => t.symbol);
+    expect(symbols).toContain('ETH');
     expect(symbols).toContain('WETH');
     expect(symbols).toContain('USDC');
-    expect(symbols).toContain('USDbC');
     expect(symbols).toContain('HUNT');
     expect(symbols).toContain('MT');
   });

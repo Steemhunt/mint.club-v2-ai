@@ -2,7 +2,7 @@
 
 import { Command } from 'commander';
 import { config } from 'dotenv';
-import { type Address, getAddress } from 'viem';
+import { type Address } from 'viem';
 import { info } from './commands/info';
 import { buy } from './commands/buy';
 import { sell } from './commands/sell';
@@ -13,6 +13,7 @@ import { wallet } from './commands/wallet';
 import { send } from './commands/send';
 import { price } from './commands/price';
 import { validateChain } from './config/chains';
+import { resolveToken } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
 declare const __VERSION__: string;
@@ -26,11 +27,10 @@ function requireKey(): `0x${string}` {
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
-/** Parse token address */
+/** Parse token address or symbol */
 function tok(input: string): Address {
-  if (input.toUpperCase() === 'ETH') return '0x0000000000000000000000000000000000000000' as Address;
-  if (!input.startsWith('0x') || input.length !== 42) { console.error('❌ Invalid token address'); process.exit(1); }
-  return getAddress(input);
+  try { return resolveToken(input); }
+  catch (e) { console.error(`❌ ${(e as Error).message}`); process.exit(1); }
 }
 
 /** Validate chain and throw friendly error if not Base */

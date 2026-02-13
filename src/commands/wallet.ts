@@ -60,9 +60,10 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
   const client = getPublicClient();
   const ethBalance = await client.getBalance({ address: account.address });
 
-  // Fetch all token balances
+  // Fetch all ERC20 token balances (skip ETH — not an ERC20)
+  const erc20Tokens = TOKENS.filter(t => t.symbol !== 'ETH');
   const results = await client.multicall({
-    contracts: TOKENS.map(t => ({ address: t.address, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] })),
+    contracts: erc20Tokens.map(t => ({ address: t.address, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] })),
   });
 
   // Get USD prices for ETH + all tokens with balances
@@ -77,14 +78,14 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
   console.log(`💰 Balances on Base:\n`);
   console.log(`   ETH: ${formatUnits(ethBalance, 18)}${ethUsdVal !== null ? ` (~$${fmtUsd(ethUsdVal)})` : ''}`);
 
-  for (let i = 0; i < TOKENS.length; i++) {
+  for (let i = 0; i < erc20Tokens.length; i++) {
     const bal = results[i].status === 'success' ? results[i].result as bigint : 0n;
     if (bal > 0n) {
-      const amount = Number(formatUnits(bal, TOKENS[i].decimals));
-      const tokenUsd = await getUsdPrice(TOKENS[i].address);
+      const amount = Number(formatUnits(bal, erc20Tokens[i].decimals));
+      const tokenUsd = await getUsdPrice(erc20Tokens[i].address);
       const usdVal = tokenUsd !== null ? amount * tokenUsd : null;
       if (usdVal !== null) totalUsd += usdVal;
-      console.log(`   ${TOKENS[i].symbol}: ${formatUnits(bal, TOKENS[i].decimals)}${usdVal !== null ? ` (~$${fmtUsd(usdVal)})` : ''}`);
+      console.log(`   ${erc20Tokens[i].symbol}: ${formatUnits(bal, erc20Tokens[i].decimals)}${usdVal !== null ? ` (~$${fmtUsd(usdVal)})` : ''}`);
     }
   }
 

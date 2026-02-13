@@ -5,6 +5,7 @@ import { BOND_ABI } from '../abi/bond';
 import { ERC20_ABI } from '../abi/erc20';
 import { fmt, printTokenInfo } from '../utils/format';
 import { getUsdPrice } from '../utils/price';
+import { getSymbol } from '../utils/symbol';
 
 export async function info(token: Address) {
   console.log(`🔍 Fetching token info for ${token} on Base...\n`);
@@ -22,16 +23,17 @@ export async function info(token: Address) {
   if (bondRes.status === 'failure') throw new Error('Not a Mint Club token');
   // Cache symbol → address
   const [creator, mintRoyalty, burnRoyalty, createdAt, reserveToken, reserveBalance] = bondRes.result!;
+  const reserveSym = await getSymbol(client, reserveToken as Address);
   printTokenInfo({
     name: nameRes.result ?? 'Unknown', symbol: symbolRes.result ?? 'Unknown', address: token,
-    creator, reserveToken, reserveBalance, currentSupply: supplyRes.result ?? 0n, maxSupply: maxRes.result ?? 0n,
+    creator, reserveToken, reserveSymbol: reserveSym, reserveBalance, currentSupply: supplyRes.result ?? 0n, maxSupply: maxRes.result ?? 0n,
     mintRoyalty, burnRoyalty, createdAt: Number(createdAt), steps: stepsRes.result ?? [],
   });
   if (supplyRes.result && supplyRes.result > 0n) {
     try {
       const [cost] = await client.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getReserveForToken', args: [token, 10n ** 18n] });
       const sym = symbolRes.result ?? 'token';
-      let priceStr = `\n💱 Current Price: ${fmt(cost)} reserve per 1 ${sym}`;
+      let priceStr = `\n💱 Current Price: ${fmt(cost)} ${reserveSym} per 1 ${sym}`;
 
       // Try to get USD price of reserve token via 1inch
       const reserveUsd = await getUsdPrice(reserveToken as Address);
