@@ -37,7 +37,17 @@ import { BOND, ZAP_V2, WETH, TOKENS, SPOT_PRICE_AGGREGATOR } from '../src/config
 
 const ANVIL_PORT = 8546;
 const ANVIL_URL = `http://127.0.0.1:${ANVIL_PORT}`;
-const FORK_RPC = 'https://mainnet.base.org';
+// Rotate through RPCs to avoid rate limits
+const RPCS = [
+  'https://base-rpc.publicnode.com',
+  'https://base.meowrpc.com',
+  'https://mainnet.base.org',
+  'https://developer-access-mainnet.base.org',
+  'https://base-mainnet.public.blastapi.io',
+  'https://base-public.nodies.app',
+  'https://1rpc.io/base',
+];
+const FORK_RPC = RPCS[Math.floor(Math.random() * RPCS.length)];
 
 // Well-known addresses
 const HUNT: Address = '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C';
