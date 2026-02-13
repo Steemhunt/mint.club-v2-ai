@@ -1,6 +1,6 @@
 {
   "name": "mint.club-cli",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "CLI for Mint Club V2 bonding curve tokens",
   "main": "dist/index.js",
   "files": ["dist", "README.md", "build.sh"],

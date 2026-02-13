@@ -27,11 +27,37 @@ function requireKey(): `0x${string}` {
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
+/** Extract clean error message from viem's verbose errors */
+function cleanError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const msg = e.message;
+
+  // "insufficient funds" → show balance vs needed
+  const funds = msg.match(/insufficient funds.*have (\d+) want (\d+)/);
+  if (funds) {
+    const have = (Number(funds[1]) / 1e18).toFixed(4);
+    const want = (Number(funds[2]) / 1e18).toFixed(4);
+    return `Insufficient funds: have ${have} ETH, need ${want} ETH`;
+  }
+
+  // "execution reverted" with reason
+  const revert = msg.match(/execution reverted[:\s]*(.+?)(?:\n|$)/);
+  if (revert) return `Transaction reverted: ${revert[1].trim()}`;
+
+  // "Details:" line from viem
+  const details = msg.match(/Details:\s*(.+?)(?:\n|$)/);
+  if (details) return details[1].trim();
+
+  // First meaningful line (skip empty/whitespace)
+  const firstLine = msg.split('\n').find(l => l.trim().length > 0);
+  return firstLine?.trim() ?? msg;
+}
+
 /** Wrap command action with error handling */
 function run(fn: () => Promise<void>) {
   return async () => {
     try { await fn(); }
-    catch (e) { console.error('❌', e instanceof Error ? e.message : e); process.exit(1); }
+    catch (e) { console.error('❌', cleanError(e)); process.exit(1); }
   };
 }
 
