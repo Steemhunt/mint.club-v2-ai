@@ -1,78 +1,46 @@
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits, parseUnits, type Address } from 'viem';
 
-export function formatAmount(amount: bigint, decimals: number = 18): string {
-  return formatUnits(amount, decimals);
-}
+export const fmt = (v: bigint, decimals = 18) => formatUnits(v, decimals);
+export const parse = (v: string, decimals = 18) => parseUnits(v, decimals);
+export const shortAddr = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`;
+export const shortHash = (h: string) => `${h.slice(0, 10)}...${h.slice(-8)}`;
 
-export function parseAmount(amount: string, decimals: number = 18): bigint {
-  return parseUnits(amount, decimals);
-}
+export function parseSteps(input: string): { ranges: bigint[]; prices: bigint[] } {
+  const ranges: bigint[] = [];
+  const prices: bigint[] = [];
 
-export function formatAddress(address: string): string {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-export function formatTxHash(hash: string): string {
-  return `${hash.slice(0, 10)}...${hash.slice(-8)}`;
-}
-
-export function formatTokenInfo(tokenInfo: {
-  name: string;
-  symbol: string;
-  address: string;
-  creator: string;
-  reserveToken: string;
-  reserveBalance: bigint;
-  currentSupply: bigint;
-  maxSupply: bigint;
-  mintRoyalty: number;
-  burnRoyalty: number;
-  createdAt: number;
-  steps: readonly { rangeTo: bigint; price: bigint }[];
-}): string {
-  const lines = [
-    `🪙 Token: ${tokenInfo.name} (${tokenInfo.symbol})`,
-    `📍 Address: ${tokenInfo.address}`,
-    `👤 Creator: ${formatAddress(tokenInfo.creator)}`,
-    `💰 Reserve Token: ${formatAddress(tokenInfo.reserveToken)}`,
-    `💎 Reserve Balance: ${formatAmount(tokenInfo.reserveBalance)} tokens`,
-    `📊 Supply: ${formatAmount(tokenInfo.currentSupply)} / ${formatAmount(tokenInfo.maxSupply)}`,
-    `💸 Mint Royalty: ${(tokenInfo.mintRoyalty / 100).toFixed(2)}%`,
-    `🔥 Burn Royalty: ${(tokenInfo.burnRoyalty / 100).toFixed(2)}%`,
-    `📅 Created: ${new Date(tokenInfo.createdAt * 1000).toLocaleString()}`,
-  ];
-
-  if (tokenInfo.steps.length > 0) {
-    lines.push('📈 Bonding Curve Steps:');
-    tokenInfo.steps.forEach((step, i) => {
-      lines.push(`   Step ${i + 1}: Up to ${formatAmount(step.rangeTo)} at ${formatAmount(step.price)} per token`);
-    });
+  for (const step of input.split(',')) {
+    const [r, p] = step.trim().split(':');
+    if (!r || !p) throw new Error(`Invalid step: "${step}". Expected "range:price"`);
+    ranges.push(parse(r));
+    prices.push(parse(p));
   }
 
-  return lines.join('\n');
+  return { ranges, prices };
 }
 
-export function displayError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
-}
+export function printTokenInfo(t: {
+  name: string; symbol: string; address: string; creator: string;
+  reserveToken: string; reserveBalance: bigint; currentSupply: bigint;
+  maxSupply: bigint; mintRoyalty: number; burnRoyalty: number;
+  createdAt: number; steps: readonly { rangeTo: bigint; price: bigint }[];
+}) {
+  console.log([
+    `\n🪙 Token: ${t.name} (${t.symbol})`,
+    `📍 Address: ${t.address}`,
+    `👤 Creator: ${shortAddr(t.creator)}`,
+    `💰 Reserve Token: ${shortAddr(t.reserveToken)}`,
+    `💎 Reserve Balance: ${fmt(t.reserveBalance)}`,
+    `📊 Supply: ${fmt(t.currentSupply)} / ${fmt(t.maxSupply)}`,
+    `💸 Mint Royalty: ${(t.mintRoyalty / 100).toFixed(2)}%`,
+    `🔥 Burn Royalty: ${(t.burnRoyalty / 100).toFixed(2)}%`,
+    `📅 Created: ${new Date(t.createdAt * 1000).toLocaleString()}`,
+  ].join('\n'));
 
-export function parseStepsInput(stepsStr: string): { stepRanges: bigint[]; stepPrices: bigint[] } {
-  const steps = stepsStr.split(',').map(s => s.trim());
-  const stepRanges: bigint[] = [];
-  const stepPrices: bigint[] = [];
-  
-  for (const step of steps) {
-    const [range, price] = step.split(':').map(s => s.trim());
-    if (!range || !price) {
-      throw new Error(`Invalid step format: ${step}. Expected format: "range:price"`);
-    }
-    
-    stepRanges.push(parseAmount(range));
-    stepPrices.push(parseAmount(price));
+  if (t.steps.length > 0) {
+    console.log('📈 Bonding Curve Steps:');
+    t.steps.forEach((s, i) =>
+      console.log(`   Step ${i + 1}: Up to ${fmt(s.rangeTo)} at ${fmt(s.price)} per token`),
+    );
   }
-  
-  return { stepRanges, stepPrices };
 }

@@ -1,120 +1,56 @@
-import { getPublicClient, getWalletClient } from '../client.js';
-import { getZapV2Address, isZapV2Supported } from '../config/contracts.js';
-import { MCV2_ZAP_V2_ABI } from '../abi/zap-v2.js';
-import { formatAmount, parseAmount, formatTxHash } from '../utils/format.js';
-import { encodeV3SwapPath, encodeV3SwapInput, createSwapCommands, parseSwapPath } from '../utils/swap.js';
-import type { SupportedChain } from '../config/chains.js';
+import { type Address } from 'viem';
+import { getPublicClient, getWalletClient } from '../client';
+import { getZapV2Address } from '../config/contracts';
+import { ZAP_V2_ABI } from '../abi/zap-v2';
+import { fmt, parse, shortHash } from '../utils/format';
+import { encodeV3Path, encodeV3SwapInput, V3_SWAP_COMMAND, parsePath } from '../utils/swap';
+import type { SupportedChain } from '../config/chains';
 
-export async function zapBuyCommand(
-  tokenAddress: string,
-  inputToken: string,
-  inputAmount: string,
-  minTokens: string | undefined,
-  path: string,
-  chain: SupportedChain,
-  privateKey: `0x${string}`
+const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
+export async function zapBuy(
+  token: Address, inputToken: Address, inputAmount: string,
+  minTokens: string | undefined, pathStr: string,
+  chain: SupportedChain, privateKey: `0x${string}`,
 ) {
-  try {
-    if (!isZapV2Supported(chain)) {
-      throw new Error(`ZapV2 is not supported on ${chain}. Currently only available on Base.`);
-    }
-    
-    console.log(`⚡ Zap buying ${tokenAddress} with ${inputAmount} ${inputToken} on ${chain}...`);
-    
-    const publicClient = getPublicClient(chain);
-    const walletClient = getWalletClient(chain, privateKey);
-    const zapV2Address = getZapV2Address(chain);
-    
-    if (!zapV2Address) {
-      throw new Error('ZapV2 contract not available on this chain');
-    }
-    
-    const inputAmountWei = parseAmount(inputAmount);
-    const minTokensOut = minTokens ? parseAmount(minTokens) : 0n;
-    
-    // Parse swap path
-    const { tokens, fees } = parseSwapPath(path);
-    console.log(`   Input: ${inputAmount} ${inputToken}`);
-    console.log(`   Path: ${tokens.join(' -> ')} (fees: ${fees.join(', ')})`);
-    console.log(`   Min tokens out: ${minTokens || '0'}`);
-    
-    // Encode swap path and commands
-    const swapPath = encodeV3SwapPath(tokens, fees);
-    const commands = createSwapCommands();
-    
-    const swapInput = encodeV3SwapInput(
-      zapV2Address, // recipient (ZapV2 contract)
-      inputAmountWei,
-      0n, // amountOutMin for swap (we'll enforce minTokensOut at the zap level)
-      swapPath,
-      false // payerIsUser = false (ZapV2 handles token transfers)
-    );
-    
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200); // 20 minutes from now
-    
-    // Check if input token is ETH (0x0000000000000000000000000000000000000000)
-    const isETH = inputToken.toLowerCase() === '0x0000000000000000000000000000000000000000' ||
-                  inputToken.toLowerCase() === '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee';
-    
-    console.log('🔍 Simulating zap transaction...');
-    const { result } = await publicClient.simulateContract({
-      account: walletClient.account,
-      address: zapV2Address,
-      abi: MCV2_ZAP_V2_ABI,
-      functionName: 'zapMint',
-      args: [
-        tokenAddress as `0x${string}`,
-        inputToken as `0x${string}`,
-        inputAmountWei,
-        minTokensOut,
-        commands,
-        [swapInput],
-        deadline,
-        walletClient.account!.address,
-      ],
-      value: isETH ? inputAmountWei : 0n,
-    });
-    
-    console.log(`   Expected tokens received: ${formatAmount(result[0])}`);
-    console.log(`   Reserve tokens used: ${formatAmount(result[1])}`);
-    
-    // Execute the transaction
-    console.log('📤 Sending transaction...');
-    const hash = await walletClient.writeContract({
-      chain: walletClient.chain,
-      address: zapV2Address,
-      abi: MCV2_ZAP_V2_ABI,
-      functionName: 'zapMint',
-      args: [
-        tokenAddress as `0x${string}`,
-        inputToken as `0x${string}`,
-        inputAmountWei,
-        minTokensOut,
-        commands,
-        [swapInput],
-        deadline,
-        walletClient.account!.address,
-      ],
-      value: isETH ? inputAmountWei : 0n,
-    });
-    
-    console.log(`   Transaction hash: ${formatTxHash(hash)}`);
-    
-    // Wait for confirmation
-    console.log('⏳ Waiting for confirmation...');
-    const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    
-    if (receipt.status === 'success') {
-      console.log('✅ Zap transaction confirmed!');
-      console.log(`   Input: ${inputAmount} ${inputToken}`);
-      console.log(`   Tokens received: ${formatAmount(result[0])}`);
-      console.log(`   Block: ${receipt.blockNumber}`);
-    } else {
-      console.log('❌ Transaction failed');
-    }
-    
-  } catch (error) {
-    console.error('❌ Error:', error instanceof Error ? error.message : error);
-    process.exit(1);
+  const zapV2 = getZapV2Address(chain);
+  if (!zapV2) throw new Error(`ZapV2 not available on ${chain} (Base only)`);
+
+  const pub = getPublicClient(chain);
+  const wallet = getWalletClient(chain, privateKey);
+  const account = wallet.account;
+
+  const amountIn = parse(inputAmount);
+  const minOut = minTokens ? parse(minTokens) : 0n;
+  const isETH = inputToken.toLowerCase() === ZERO_ADDR;
+
+  const { tokens, fees } = parsePath(pathStr);
+  console.log(`⚡ Zap buying ${token} with ${inputAmount} of ${inputToken} on ${chain}`);
+  console.log(`   Path: ${tokens.map(t => t.slice(0, 8)).join(' → ')} (fees: ${fees.join(',')})`);
+
+  const path = encodeV3Path(tokens, fees);
+  const swapInput = encodeV3SwapInput(zapV2, amountIn, 0n, path);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+  const args = [token, inputToken, amountIn, minOut, V3_SWAP_COMMAND, [swapInput], deadline, account.address] as const;
+  const { result } = await pub.simulateContract({
+    account, address: zapV2, abi: ZAP_V2_ABI, functionName: 'zapMint',
+    args, value: isETH ? amountIn : 0n,
+  });
+
+  console.log(`   Expected: ${fmt(result[0])} tokens | Reserve used: ${fmt(result[1])}`);
+  console.log('📤 Sending...');
+
+  const hash = await wallet.writeContract({
+    address: zapV2, abi: ZAP_V2_ABI, functionName: 'zapMint',
+    args, value: isETH ? amountIn : 0n,
+  });
+  console.log(`   TX: ${shortHash(hash)}`);
+
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  if (receipt.status === 'success') {
+    console.log(`✅ Zap bought ${fmt(result[0])} tokens (block ${receipt.blockNumber})`);
+  } else {
+    throw new Error('Transaction failed');
   }
 }

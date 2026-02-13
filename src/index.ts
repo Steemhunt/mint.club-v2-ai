@@ -2,200 +2,113 @@
 
 import { Command } from 'commander';
 import { config } from 'dotenv';
-import { validateChain } from './client.js';
-import { infoCommand } from './commands/info.js';
-import { buyCommand } from './commands/buy.js';
-import { sellCommand } from './commands/sell.js';
-import { createCommand } from './commands/create.js';
-import { zapBuyCommand } from './commands/zap-buy.js';
-import { zapSellCommand } from './commands/zap-sell.js';
-import { isZapV2Supported } from './config/contracts.js';
+import { type Address } from 'viem';
+import { validateChain } from './client';
+import { info } from './commands/info';
+import { buy } from './commands/buy';
+import { sell } from './commands/sell';
+import { create } from './commands/create';
+import { zapBuy } from './commands/zap-buy';
+import { zapSell } from './commands/zap-sell';
+import { getZapV2Address } from './config/contracts';
 
-// Load environment variables
 config();
 
-const program = new Command();
-
-program
-  .name('mintclub')
-  .description('CLI for Mint Club V2 bonding curve tokens')
-  .version('1.0.0');
-
-// Global options
-const defaultChain = 'base';
-
-function getPrivateKey(): `0x${string}` {
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) {
-    console.error('❌ PRIVATE_KEY environment variable is required for this operation');
-    console.error('   Please set it in your .env file or environment');
-    process.exit(1);
-  }
-  
-  if (!privateKey.startsWith('0x')) {
-    return `0x${privateKey}`;
-  }
-  
-  return privateKey as `0x${string}`;
+function requireKey(): `0x${string}` {
+  const k = process.env.PRIVATE_KEY;
+  if (!k) { console.error('❌ Set PRIVATE_KEY in .env'); process.exit(1); }
+  return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
-// Info command
-program
-  .command('info')
-  .description('Get token information')
-  .argument('<token>', 'Token contract address')
-  .option('-c, --chain <chain>', 'Blockchain to use', defaultChain)
-  .action(async (token, options) => {
-    try {
-      const chain = validateChain(options.chain);
-      await infoCommand(token, chain);
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+/** Wrap command action with error handling */
+function run(fn: () => Promise<void>) {
+  return async () => {
+    try { await fn(); }
+    catch (e) { console.error('❌', e instanceof Error ? e.message : e); process.exit(1); }
+  };
+}
 
-// Buy command
-program
-  .command('buy')
+const cli = new Command()
+  .name('mintclub')
+  .description('Mint Club V2 CLI — bonding curve tokens')
+  .version('1.0.0');
+
+cli.command('info')
+  .description('Get token info')
+  .argument('<token>', 'Token address')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => info(token as Address, validateChain(opts.chain)))());
+
+cli.command('buy')
   .description('Buy (mint) tokens with reserve token')
-  .argument('<token>', 'Token contract address')
-  .requiredOption('-a, --amount <amount>', 'Amount of tokens to buy')
-  .option('-m, --max-cost <amount>', 'Maximum cost in reserve tokens')
-  .option('-c, --chain <chain>', 'Blockchain to use', defaultChain)
-  .action(async (token, options) => {
-    try {
-      const chain = validateChain(options.chain);
-      const privateKey = getPrivateKey();
-      await buyCommand(token, options.amount, options.maxCost, chain, privateKey);
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+  .argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to buy')
+  .option('-m, --max-cost <n>', 'Max reserve cost')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() =>
+    buy(token as Address, opts.amount, opts.maxCost, validateChain(opts.chain), requireKey())
+  )());
 
-// Sell command
-program
-  .command('sell')
+cli.command('sell')
   .description('Sell (burn) tokens for reserve token')
-  .argument('<token>', 'Token contract address')
-  .requiredOption('-a, --amount <amount>', 'Amount of tokens to sell')
-  .option('-m, --min-refund <amount>', 'Minimum refund in reserve tokens')
-  .option('-c, --chain <chain>', 'Blockchain to use', defaultChain)
-  .action(async (token, options) => {
-    try {
-      const chain = validateChain(options.chain);
-      const privateKey = getPrivateKey();
-      await sellCommand(token, options.amount, options.minRefund, chain, privateKey);
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+  .argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to sell')
+  .option('-m, --min-refund <n>', 'Min reserve refund')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() =>
+    sell(token as Address, opts.amount, opts.minRefund, validateChain(opts.chain), requireKey())
+  )());
 
-// Create command
-program
-  .command('create')
-  .description('Create a new bonding curve token')
+cli.command('create')
+  .description('Create a bonding curve token')
   .requiredOption('-n, --name <name>', 'Token name')
-  .requiredOption('-s, --symbol <symbol>', 'Token symbol')
-  .requiredOption('-r, --reserve <address>', 'Reserve token address')
-  .requiredOption('-m, --max-supply <amount>', 'Maximum token supply')
-  .requiredOption('-t, --steps <steps>', 'Bonding curve steps (format: "range1:price1,range2:price2")')
-  .option('-c, --chain <chain>', 'Blockchain to use', defaultChain)
-  .option('--mint-royalty <royalty>', 'Mint royalty in basis points (default: 0)', '0')
-  .option('--burn-royalty <royalty>', 'Burn royalty in basis points (default: 0)', '0')
-  .action(async (options) => {
-    try {
-      const chain = validateChain(options.chain);
-      const privateKey = getPrivateKey();
-      const mintRoyalty = parseInt(options.mintRoyalty);
-      const burnRoyalty = parseInt(options.burnRoyalty);
-      
-      if (isNaN(mintRoyalty) || isNaN(burnRoyalty)) {
-        throw new Error('Royalty values must be valid numbers');
-      }
-      
-      await createCommand(
-        options.name,
-        options.symbol,
-        options.reserve,
-        options.maxSupply,
-        options.steps,
-        chain,
-        privateKey,
-        mintRoyalty,
-        burnRoyalty
-      );
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+  .requiredOption('-s, --symbol <sym>', 'Token symbol')
+  .requiredOption('-r, --reserve <addr>', 'Reserve token address')
+  .requiredOption('-x, --max-supply <n>', 'Max supply')
+  .requiredOption('-t, --steps <s>', 'Steps: "range:price,range:price,..."')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .option('--mint-royalty <bp>', 'Mint royalty (bps)', '0')
+  .option('--burn-royalty <bp>', 'Burn royalty (bps)', '0')
+  .action((opts) => run(() =>
+    create(
+      opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply, opts.steps,
+      validateChain(opts.chain), requireKey(),
+      parseInt(opts.mintRoyalty), parseInt(opts.burnRoyalty),
+    )
+  )());
 
-// Zap buy command
-program
-  .command('zap-buy')
-  .description('Buy tokens with any input token via ZapV2 (Base only)')
-  .argument('<token>', 'Token contract address')
-  .requiredOption('-i, --input-token <address>', 'Input token address (use 0x0 for ETH)')
-  .requiredOption('-a, --input-amount <amount>', 'Amount of input tokens')
-  .requiredOption('-p, --path <path>', 'Swap path (format: "token0,fee0,token1,fee1,token2")')
-  .option('-m, --min-tokens <amount>', 'Minimum tokens to receive')
-  .option('-c, --chain <chain>', 'Blockchain to use (only base supported)', 'base')
-  .action(async (token, options) => {
-    try {
-      const chain = validateChain(options.chain);
-      if (!isZapV2Supported(chain)) {
-        throw new Error(`ZapV2 is only supported on Base, but you specified ${chain}`);
-      }
-      const privateKey = getPrivateKey();
-      await zapBuyCommand(
-        token,
-        options.inputToken,
-        options.inputAmount,
-        options.minTokens,
-        options.path,
-        chain,
-        privateKey
-      );
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+cli.command('zap-buy')
+  .description('Buy tokens with any token via ZapV2 (Base only)')
+  .argument('<token>', 'Token address')
+  .requiredOption('-i, --input-token <addr>', 'Input token (0x0 for ETH)')
+  .requiredOption('-a, --input-amount <n>', 'Input amount')
+  .requiredOption('-p, --path <p>', 'Swap path: token,fee,token,...')
+  .option('-m, --min-tokens <n>', 'Min tokens out')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => {
+    const chain = validateChain(opts.chain);
+    if (!getZapV2Address(chain)) throw new Error('ZapV2 is Base only');
+    return zapBuy(
+      token as Address, opts.inputToken as Address, opts.inputAmount,
+      opts.minTokens, opts.path, chain, requireKey(),
+    );
+  })());
 
-// Zap sell command
-program
-  .command('zap-sell')
-  .description('Sell tokens for any output token via ZapV2 (Base only)')
-  .argument('<token>', 'Token contract address')
-  .requiredOption('-a, --amount <amount>', 'Amount of tokens to sell')
-  .requiredOption('-o, --output-token <address>', 'Output token address (use 0x0 for ETH)')
-  .requiredOption('-p, --path <path>', 'Swap path (format: "token0,fee0,token1,fee1,token2")')
-  .option('-m, --min-output <amount>', 'Minimum output tokens to receive')
-  .option('-c, --chain <chain>', 'Blockchain to use (only base supported)', 'base')
-  .action(async (token, options) => {
-    try {
-      const chain = validateChain(options.chain);
-      if (!isZapV2Supported(chain)) {
-        throw new Error(`ZapV2 is only supported on Base, but you specified ${chain}`);
-      }
-      const privateKey = getPrivateKey();
-      await zapSellCommand(
-        token,
-        options.amount,
-        options.outputToken,
-        options.minOutput,
-        options.path,
-        chain,
-        privateKey
-      );
-    } catch (error) {
-      console.error('❌ Error:', error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
+cli.command('zap-sell')
+  .description('Sell tokens for any token via ZapV2 (Base only)')
+  .argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to sell')
+  .requiredOption('-o, --output-token <addr>', 'Output token (0x0 for ETH)')
+  .requiredOption('-p, --path <p>', 'Swap path: token,fee,token,...')
+  .option('-m, --min-output <n>', 'Min output')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => {
+    const chain = validateChain(opts.chain);
+    if (!getZapV2Address(chain)) throw new Error('ZapV2 is Base only');
+    return zapSell(
+      token as Address, opts.amount, opts.outputToken as Address,
+      opts.minOutput, opts.path, chain, requireKey(),
+    );
+  })());
 
-// Parse CLI arguments
-program.parse();
+cli.parse();

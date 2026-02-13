@@ -1,29 +1,22 @@
-import { createPublicClient, createWalletClient, http, fallback, type Chain, type Transport, type Account, type HttpTransport } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { supportedChains, chainRpcs, type SupportedChain } from './config/chains.js';
+import { createPublicClient, createWalletClient, type PublicClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { CHAINS, getTransport, type SupportedChain } from './config/chains';
 
-function createTransport(chain: SupportedChain) {
-  const transports = chainRpcs[chain].map(url =>
-    http(url, { retryCount: 0, timeout: 2000, batch: true })
-  );
-  return fallback(transports, { rank: false });
+export function getPublicClient(chain: SupportedChain): PublicClient {
+  return createPublicClient({ chain: CHAINS[chain], transport: getTransport(chain) }) as PublicClient;
 }
 
-export function getPublicClient(chain: SupportedChain) {
-  const c = supportedChains[chain];
-  return createPublicClient({ chain: c, transport: createTransport(chain) }) as any;
-}
-
-export function getWalletClient(chain: SupportedChain, privateKey: `0x${string}`) {
+// Returns a wallet client with account & chain baked in.
+// Using `any` to avoid viem's deeply nested generic types that break tsc serialization.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getWalletClient(chain: SupportedChain, privateKey: `0x${string}`): any {
   const account = privateKeyToAccount(privateKey);
-  const c = supportedChains[chain];
-  return createWalletClient({ account, chain: c, transport: createTransport(chain) }) as any;
+  return createWalletClient({ account, chain: CHAINS[chain], transport: getTransport(chain) });
 }
 
-export function validateChain(chain: string): SupportedChain {
-  if (!(chain in supportedChains)) {
-    const supportedList = Object.keys(supportedChains).join(', ');
-    throw new Error(`Unsupported chain: ${chain}. Supported chains: ${supportedList}`);
+export function validateChain(input: string): SupportedChain {
+  if (!(input in CHAINS)) {
+    throw new Error(`Unsupported chain: ${input}. Supported: ${Object.keys(CHAINS).join(', ')}`);
   }
-  return chain as SupportedChain;
+  return input as SupportedChain;
 }

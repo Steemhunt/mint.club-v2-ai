@@ -1,150 +1,58 @@
-import { getPublicClient } from '../client.js';
-import { getBondAddress } from '../config/contracts.js';
-import { MCV2_BOND_ABI } from '../abi/bond.js';
-import { formatTokenInfo, formatAmount } from '../utils/format.js';
-import type { SupportedChain } from '../config/chains.js';
+import { type Address } from 'viem';
+import { getPublicClient } from '../client';
+import { getBondAddress } from '../config/contracts';
+import { BOND_ABI } from '../abi/bond';
+import { ERC20_ABI } from '../abi/erc20';
+import { fmt, printTokenInfo } from '../utils/format';
+import type { SupportedChain } from '../config/chains';
 
-// ERC20 ABI for name, symbol, totalSupply, decimals
-const ERC20_ABI = [
-  {
-    type: 'function',
-    name: 'name',
-    inputs: [],
-    outputs: [{ name: '', type: 'string', internalType: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'symbol',
-    inputs: [],
-    outputs: [{ name: '', type: 'string', internalType: 'string' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'totalSupply',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint256', internalType: 'uint256' }],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
-    name: 'decimals',
-    inputs: [],
-    outputs: [{ name: '', type: 'uint8', internalType: 'uint8' }],
-    stateMutability: 'view',
-  },
-] as const;
+export async function info(token: Address, chain: SupportedChain) {
+  console.log(`🔍 Fetching token info for ${token} on ${chain}...\n`);
 
-export async function getTokenInfo(tokenAddress: `0x${string}`, chain: SupportedChain) {
   const client = getPublicClient(chain);
-  const bondAddress = getBondAddress(chain);
+  const bond = getBondAddress(chain);
 
-  try {
-    // Get token basic info
-    const [name, symbol, totalSupply, decimals] = await client.multicall({
-      contracts: [
-        {
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'name',
-        },
-        {
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'symbol',
-        },
-        {
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'totalSupply',
-        },
-        {
-          address: tokenAddress,
-          abi: ERC20_ABI,
-          functionName: 'decimals',
-        },
-      ],
-    });
+  // Batch all reads
+  const [nameRes, symbolRes, supplyRes, bondRes, maxRes, stepsRes] = await client.multicall({
+    contracts: [
+      { address: token, abi: ERC20_ABI, functionName: 'name' },
+      { address: token, abi: ERC20_ABI, functionName: 'symbol' },
+      { address: token, abi: ERC20_ABI, functionName: 'totalSupply' },
+      { address: bond, abi: BOND_ABI, functionName: 'tokenBond', args: [token] },
+      { address: bond, abi: BOND_ABI, functionName: 'maxSupply', args: [token] },
+      { address: bond, abi: BOND_ABI, functionName: 'getSteps', args: [token] },
+    ],
+  });
 
-    // Get bond info
-    const [bondInfo, maxSupply, steps] = await client.multicall({
-      contracts: [
-        {
-          address: bondAddress,
-          abi: MCV2_BOND_ABI,
-          functionName: 'tokenBond',
-          args: [tokenAddress],
-        },
-        {
-          address: bondAddress,
-          abi: MCV2_BOND_ABI,
-          functionName: 'maxSupply',
-          args: [tokenAddress],
-        },
-        {
-          address: bondAddress,
-          abi: MCV2_BOND_ABI,
-          functionName: 'getSteps',
-          args: [tokenAddress],
-        },
-      ],
-    });
+  if (bondRes.status === 'failure') throw new Error('Not a Mint Club token');
 
-    if (bondInfo.status === 'failure') {
-      throw new Error('Token not found or not a Mint Club token');
+  const [creator, mintRoyalty, burnRoyalty, createdAt, reserveToken, reserveBalance] = bondRes.result!;
+
+  printTokenInfo({
+    name: nameRes.result ?? 'Unknown',
+    symbol: symbolRes.result ?? 'Unknown',
+    address: token,
+    creator,
+    reserveToken,
+    reserveBalance,
+    currentSupply: supplyRes.result ?? 0n,
+    maxSupply: maxRes.result ?? 0n,
+    mintRoyalty,
+    burnRoyalty,
+    createdAt: Number(createdAt),
+    steps: stepsRes.result ?? [],
+  });
+
+  // Current price
+  if (supplyRes.result && supplyRes.result > 0n) {
+    try {
+      const [cost] = await client.readContract({
+        address: bond, abi: BOND_ABI, functionName: 'getReserveForToken',
+        args: [token, 10n ** 18n],
+      });
+      console.log(`\n💱 Current Price: ${fmt(cost)} reserve per 1 ${symbolRes.result ?? 'token'}`);
+    } catch {
+      console.log('\n⚠️  Could not fetch current price');
     }
-
-    const tokenInfo = {
-      name: name.result || 'Unknown',
-      symbol: symbol.result || 'Unknown',
-      address: tokenAddress,
-      creator: bondInfo.result[0],
-      reserveToken: bondInfo.result[4],
-      reserveBalance: bondInfo.result[5],
-      currentSupply: totalSupply.result || 0n,
-      maxSupply: maxSupply.result || 0n,
-      mintRoyalty: bondInfo.result[1],
-      burnRoyalty: bondInfo.result[2],
-      createdAt: Number(bondInfo.result[3]),
-      steps: steps.result || [],
-    };
-
-    return tokenInfo;
-  } catch (error) {
-    throw new Error(`Failed to fetch token info: ${error instanceof Error ? error.message : error}`);
-  }
-}
-
-export async function infoCommand(tokenAddress: string, chain: SupportedChain) {
-  try {
-    console.log(`🔍 Fetching token info for ${tokenAddress} on ${chain}...`);
-    
-    const tokenInfo = await getTokenInfo(tokenAddress as `0x${string}`, chain);
-    
-    console.log('\n' + formatTokenInfo(tokenInfo));
-
-    // Show current price if there's supply
-    if (tokenInfo.currentSupply > 0n && tokenInfo.steps.length > 0) {
-      const client = getPublicClient(chain);
-      const bondAddress = getBondAddress(chain);
-      
-      try {
-        const [reserveFor1Token] = await client.readContract({
-          address: bondAddress,
-          abi: MCV2_BOND_ABI,
-          functionName: 'getReserveForToken',
-          args: [tokenAddress as `0x${string}`, 1n * (10n ** 18n)], // 1 token with 18 decimals
-        });
-        
-        console.log(`\n💱 Current Price: ${formatAmount(reserveFor1Token)} reserve tokens per 1 ${tokenInfo.symbol}`);
-      } catch (priceError) {
-        console.log('\n⚠️  Could not fetch current price');
-      }
-    }
-    
-  } catch (error) {
-    console.error('❌ Error:', error instanceof Error ? error.message : error);
-    process.exit(1);
   }
 }

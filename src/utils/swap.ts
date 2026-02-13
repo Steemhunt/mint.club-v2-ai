@@ -1,66 +1,60 @@
 import { encodePacked, encodeAbiParameters, parseAbiParameters } from 'viem';
 
-// UniversalRouter V3_SWAP_EXACT_IN command
-export const V3_SWAP_EXACT_IN = '0x00';
-
-export function encodeV3SwapPath(tokens: string[], fees: number[]): `0x${string}` {
+/** Encode a Uniswap V3 multi-hop path: addr(20) + fee(3) + addr(20) + ... */
+export function encodeV3Path(tokens: `0x${string}`[], fees: number[]): `0x${string}` {
   if (tokens.length !== fees.length + 1) {
-    throw new Error('Invalid path: tokens length must be fees length + 1');
+    throw new Error('tokens.length must equal fees.length + 1');
   }
 
-  let path = tokens[0] as `0x${string}`;
-  
+  let path: `0x${string}` = tokens[0];
   for (let i = 0; i < fees.length; i++) {
-    // Encode fee as 3 bytes (uint24)
-    const feeHex = fees[i].toString(16).padStart(6, '0');
-    path = encodePacked(['bytes', 'bytes', 'bytes'], [path, `0x${feeHex}`, tokens[i + 1] as `0x${string}`]);
+    const feeHex = `0x${fees[i].toString(16).padStart(6, '0')}` as `0x${string}`;
+    path = encodePacked(['bytes', 'bytes', 'bytes'], [path, feeHex, tokens[i + 1]]);
   }
-  
   return path;
 }
 
+/** ABI-encode a V3_SWAP_EXACT_IN input for the UniversalRouter */
 export function encodeV3SwapInput(
   recipient: `0x${string}`,
   amountIn: bigint,
   amountOutMin: bigint,
   path: `0x${string}`,
-  payerIsUser: boolean
 ): `0x${string}` {
   return encodeAbiParameters(
-    parseAbiParameters('address,uint256,uint256,bytes,bool'),
-    [recipient, amountIn, amountOutMin, path, payerIsUser]
+    parseAbiParameters('address, uint256, uint256, bytes, bool'),
+    [recipient, amountIn, amountOutMin, path, false], // payerIsUser = false
   );
 }
 
-export function createSwapCommands(swapCommand: string = V3_SWAP_EXACT_IN): `0x${string}` {
-  return swapCommand as `0x${string}`;
-}
+/** Command byte for V3_SWAP_EXACT_IN */
+export const V3_SWAP_COMMAND: `0x${string}` = '0x00';
 
-export function parseSwapPath(pathStr: string): { tokens: string[]; fees: number[] } {
-  const parts = pathStr.split(',').map(s => s.trim());
-  const tokens: string[] = [];
+/**
+ * Parse CLI path string: "0xAddr1,fee1,0xAddr2,fee2,0xAddr3"
+ * Returns tokens and fees arrays for V3 path encoding.
+ */
+export function parsePath(input: string): { tokens: `0x${string}`[]; fees: number[] } {
+  const parts = input.split(',').map(s => s.trim());
+  const tokens: `0x${string}`[] = [];
   const fees: number[] = [];
-  
+
   for (let i = 0; i < parts.length; i++) {
     if (i % 2 === 0) {
-      // Token address
       if (!parts[i].startsWith('0x') || parts[i].length !== 42) {
-        throw new Error(`Invalid token address: ${parts[i]}`);
+        throw new Error(`Invalid token address at position ${i}: ${parts[i]}`);
       }
-      tokens.push(parts[i]);
+      tokens.push(parts[i] as `0x${string}`);
     } else {
-      // Fee
       const fee = parseInt(parts[i]);
-      if (isNaN(fee) || fee < 0) {
-        throw new Error(`Invalid fee: ${parts[i]}`);
-      }
+      if (isNaN(fee) || fee <= 0) throw new Error(`Invalid fee: ${parts[i]}`);
       fees.push(fee);
     }
   }
-  
+
   if (tokens.length !== fees.length + 1) {
-    throw new Error('Invalid path format. Expected: token0,fee0,token1,fee1,token2,...');
+    throw new Error('Path format: token0,fee,token1,fee,token2,...');
   }
-  
+
   return { tokens, fees };
 }
