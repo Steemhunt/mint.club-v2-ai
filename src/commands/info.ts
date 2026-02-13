@@ -4,6 +4,7 @@ import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { ERC20_ABI } from '../abi/erc20';
 import { fmt, printTokenInfo } from '../utils/format';
+import { getUsdPrice } from '../utils/price';
 
 export async function info(token: Address) {
   console.log(`🔍 Fetching token info for ${token} on Base...\n`);
@@ -29,7 +30,26 @@ export async function info(token: Address) {
   if (supplyRes.result && supplyRes.result > 0n) {
     try {
       const [cost] = await client.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getReserveForToken', args: [token, 10n ** 18n] });
-      console.log(`\n💱 Current Price: ${fmt(cost)} reserve per 1 ${symbolRes.result ?? 'token'}`);
+      const sym = symbolRes.result ?? 'token';
+      let priceStr = `\n💱 Current Price: ${fmt(cost)} reserve per 1 ${sym}`;
+
+      // Try to get USD price of reserve token via 1inch
+      const reserveUsd = await getUsdPrice(reserveToken as Address);
+      if (reserveUsd !== null) {
+        const tokenUsd = (Number(cost) / 1e18) * reserveUsd;
+        priceStr += ` (~$${tokenUsd < 0.01 ? tokenUsd.toExponential(2) : tokenUsd.toFixed(4)})`;
+
+        // Show reserve balance in USD too
+        const reserveBalUsd = (Number(reserveBalance) / 1e18) * reserveUsd;
+        priceStr += `\n💵 Reserve Value: ~$${reserveBalUsd.toFixed(2)}`;
+
+        // Market cap = supply * token price
+        if (supplyRes.result) {
+          const mcap = (Number(supplyRes.result) / 1e18) * tokenUsd;
+          priceStr += `\n📊 Market Cap: ~$${mcap.toFixed(2)}`;
+        }
+      }
+      console.log(priceStr);
     } catch { console.log('\n⚠️  Could not fetch current price'); }
   }
 }

@@ -16,5 +16,8 @@ export const TOKENS: { symbol: string; address: Address; decimals: number }[] = 
 // Shorthand lookups
 export const WETH: Address = TOKENS.find(t => t.symbol === 'WETH')!.address;
 
+// 1inch Spot Price Aggregator
+export const SPOT_PRICE_AGGREGATOR: Address = '0x00000000000D6FFc74A8feb35aF5827bf57f6786';
+
 // Router intermediaries (tokens to try 1-hop routes through)
 export const INTERMEDIARIES = TOKENS.filter(t => ['WETH', 'USDC', 'USDbC'].includes(t.symbol));
