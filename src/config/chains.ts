@@ -19,3 +19,10 @@ export function getTransport() {
     { rank: false },
   );
 }
+
+/** Validate chain option. Only Base is supported for now. */
+export function validateChain(input: string): void {
+  if (input.toLowerCase() !== 'base') {
+    throw new Error(`${input} chain is not supported on CLI yet — Request feature: https://onchat.sebayaki.com/mintclub`);
+  }
+}

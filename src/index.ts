@@ -12,6 +12,7 @@ import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
 import { resolveToken, listTokens } from './utils/tokens';
+import { validateChain } from './config/chains';
 import { resolve } from 'path';
 import { homedir } from 'os';
 declare const __VERSION__: string;
@@ -28,6 +29,11 @@ function requireKey(): `0x${string}` {
 /** Resolve token: address or cached symbol */
 function tok(input: string): Address {
   return resolveToken(input);
+}
+
+/** Validate chain and throw friendly error if not Base */
+function chain(opts: { chain?: string }) {
+  validateChain(opts.chain ?? 'base');
 }
 
 function cleanError(e: unknown): string {
@@ -51,15 +57,18 @@ function run(fn: () => Promise<void>) {
 const cli = new Command().name('mc').description('Mint Club V2 CLI — bonding curve tokens on Base').version(__VERSION__);
 
 cli.command('info').description('Get token info').argument('<token>', 'Token address or symbol')
-  .action((token) => run(() => info(tok(token)))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => { chain(opts); return info(tok(token)); })());
 
 cli.command('buy').description('Buy (mint) tokens with reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to buy').option('-m, --max-cost <n>', 'Max reserve cost')
-  .action((token, opts) => run(() => buy(tok(token), opts.amount, opts.maxCost, requireKey()))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => { chain(opts); return buy(tok(token), opts.amount, opts.maxCost, requireKey()); })());
 
 cli.command('sell').description('Sell (burn) tokens for reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to sell').option('-m, --min-refund <n>', 'Min reserve refund')
-  .action((token, opts) => run(() => sell(tok(token), opts.amount, opts.minRefund, requireKey()))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => { chain(opts); return sell(tok(token), opts.amount, opts.minRefund, requireKey()); })());
 
 cli.command('create').description('Create a bonding curve token')
   .requiredOption('-n, --name <name>', 'Token name').requiredOption('-s, --symbol <sym>', 'Token symbol')
@@ -68,31 +77,35 @@ cli.command('create').description('Create a bonding curve token')
   .option('--curve <type>', 'Curve preset: linear, exponential, logarithmic, flat')
   .option('--initial-price <n>', 'Starting price (with --curve)').option('--final-price <n>', 'Final price (with --curve)')
   .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100').option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
+  .option('-c, --chain <chain>', 'Chain', 'base')
   .option('-y, --yes', 'Skip confirmation prompt')
-  .action((opts) => run(() => create(opts.name, opts.symbol, tok(opts.reserve), opts.maxSupply, requireKey(), {
+  .action((opts) => run(() => { chain(opts); return create(opts.name, opts.symbol, tok(opts.reserve), opts.maxSupply, requireKey(), {
     steps: opts.steps, curve: opts.curve, initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
     mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty), yes: opts.yes,
-  }))());
+  }); })());
 
 cli.command('zap-buy').description('Buy tokens with any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address or symbol')
   .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address/symbol)')
   .requiredOption('-a, --amount <n>', 'Amount of input token to spend (e.g. 0.01 ETH)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-tokens <n>', 'Min tokens out')
-  .action((token, opts) => run(() => zapBuy(tok(token), tok(opts.inputToken), opts.amount, opts.minTokens, opts.path, requireKey()))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => { chain(opts); return zapBuy(tok(token), tok(opts.inputToken), opts.amount, opts.minTokens, opts.path, requireKey()); })());
 
 cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address/symbol)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-output <n>', 'Min output')
-  .action((token, opts) => run(() => zapSell(tok(token), opts.amount, tok(opts.outputToken), opts.minOutput, opts.path, requireKey()))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((token, opts) => run(() => { chain(opts); return zapSell(tok(token), opts.amount, tok(opts.outputToken), opts.minOutput, opts.path, requireKey()); })());
 
 cli.command('send').description('Send ETH, ERC-20, or ERC-1155 tokens').argument('<to>', 'Recipient address')
   .requiredOption('-a, --amount <n>', 'Amount to send').option('-t, --token <addr>', 'Token contract (omit for ETH)')
-  .option('--token-id <id>', 'ERC-1155 token ID')
-  .action((to, opts) => run(() => send(to as Address, opts.amount, requireKey(), { token: opts.token ? tok(opts.token) : undefined, tokenId: opts.tokenId }))());
+  .option('--token-id <id>', 'ERC-1155 token ID').option('-c, --chain <chain>', 'Chain', 'base')
+  .action((to, opts) => run(() => { chain(opts); return send(to as Address, opts.amount, requireKey(), { token: opts.token ? tok(opts.token) : undefined, tokenId: opts.tokenId }); })());
 
 cli.command('wallet').description('Show wallet address and balances, or generate/import a key')
   .option('-g, --generate', 'Generate a new wallet').option('-s, --set-private-key <key>', 'Import an existing private key')
-  .action((opts) => run(() => wallet(opts))());
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((opts) => run(() => { chain(opts); return wallet(opts); })());
 
 cli.command('tokens').description('List cached token symbols').action(() => {
   const tokens = listTokens();
