@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 
 // Forked mainnet transactions are slow
-vi.setConfig({ testTimeout: 60_000 });
+vi.setConfig({ testTimeout: 120_000 });
 import {
   createPublicClient, createWalletClient, createTestClient, http,
   formatUnits, parseEther, parseUnits,
@@ -93,7 +93,7 @@ beforeAll(async () => {
   const anvilPath = `${process.env.HOME}/.foundry/bin/anvil`;
   anvil = spawn(
     anvilPath,
-    ['--fork-url', FORK_RPC, '--port', String(ANVIL_PORT)],
+    ['--fork-url', FORK_RPC, '--port', String(ANVIL_PORT), '--retries', '5', '--timeout', '120000'],
     { stdio: ['pipe', 'pipe', 'pipe'], detached: false },
   );
 
@@ -116,7 +116,7 @@ beforeAll(async () => {
     }, 500);
   });
 
-  const transport = http(ANVIL_URL);
+  const transport = http(ANVIL_URL, { timeout: 60_000 });
 
   pub = createPublicClient({ chain: base, transport }) as PublicClient;
   testClient = createTestClient({ chain: base, transport, mode: 'anvil' });
@@ -156,7 +156,43 @@ async function approve(wallet: WalletClient, token: Address, spender: Address, a
   await pub.waitForTransactionReceipt({ hash });
 }
 
-// ─── 1. Direct Buy (Mint) ──────────────────────────────────────────────────
+// ─── 1. Zap Buy (ETH → swap → mint) — runs first to warm anvil cache ───────
+
+describe('Zap Buy', () => {
+  it('should zap-buy SIGNET with ETH (WRAP_ETH + V3 swap)', async () => {
+    const inputAmount = parseEther('0.01');
+
+    // V3 path: WETH → HUNT (fee 3000)
+    const path = encodeV3Path([WETH, HUNT], [3000]);
+    const swapInput = encodeV3SwapInput(ZAP_V2, inputAmount, 0n, path);
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+
+    const commands = ('0x' + WRAP_ETH_COMMAND.slice(2) + V3_SWAP_COMMAND.slice(2)) as `0x${string}`;
+    const inputs = [encodeWrapEthInput(inputAmount), swapInput];
+
+    const signetBefore = await pub.readContract({
+      address: SIGNET, abi: ERC20_ABI, functionName: 'balanceOf', args: [WHALE],
+    }) as bigint;
+
+    const hash = await whaleWallet.writeContract({
+      address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapMint',
+      args: [SIGNET, '0x0000000000000000000000000000000000000000' as Address, inputAmount, 0n, commands, inputs, deadline, WHALE],
+      value: inputAmount,
+    });
+    const receipt = await pub.waitForTransactionReceipt({ hash });
+    expect(receipt.status).toBe('success');
+
+    const signetAfter = await pub.readContract({
+      address: SIGNET, abi: ERC20_ABI, functionName: 'balanceOf', args: [WHALE],
+    }) as bigint;
+    const received = signetAfter - signetBefore;
+    expect(received).toBeGreaterThan(0n);
+    console.log(`    Zap bought ${fmt(received)} SIGNET with 0.01 ETH`);
+  });
+
+});
+
+// ─── 2. Direct Buy (Mint) — after zap-buy warms SIGNET bond cache ──────────
 
 describe('Buy (mint) tokens', () => {
   it('should buy SIGNET with HUNT via Bond contract', async () => {
@@ -192,7 +228,7 @@ describe('Buy (mint) tokens', () => {
   });
 });
 
-// ─── 2. Direct Sell (Burn) ─────────────────────────────────────────────────
+// ─── 3. Direct Sell (Burn) ─────────────────────────────────────────────────
 
 describe('Sell (burn) tokens', () => {
   it('should sell SIGNET for HUNT via Bond contract', async () => {
@@ -234,52 +270,12 @@ describe('Sell (burn) tokens', () => {
     const huntAfter = await pub.readContract({
       address: HUNT, abi: ERC20_ABI, functionName: 'balanceOf', args: [WHALE],
     }) as bigint;
-    // Refund goes to whale; may differ slightly from pre-query due to curve shift from buy
     expect(huntAfter).toBeGreaterThan(huntBefore);
     console.log(`    Sold 50 SIGNET for ${fmt(netRefund)} HUNT`);
   });
 });
 
-// ─── 3. Zap Buy (ETH → swap → mint) ───────────────────────────────────────
-
-describe('Zap Buy', () => {
-  it('should zap-buy SIGNET with ETH (WRAP_ETH + V3 swap)', async () => {
-    const inputAmount = parseEther('0.01');
-
-    // V3 path: WETH → HUNT (fee 3000)
-    const path = encodeV3Path([WETH, HUNT], [3000]);
-    const swapInput = encodeV3SwapInput(ZAP_V2, inputAmount, 0n, path);
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-
-    const commands = ('0x' + WRAP_ETH_COMMAND.slice(2) + V3_SWAP_COMMAND.slice(2)) as `0x${string}`;
-    const inputs = [encodeWrapEthInput(inputAmount), swapInput];
-
-    const signetBefore = await pub.readContract({
-      address: SIGNET, abi: ERC20_ABI, functionName: 'balanceOf', args: [WHALE],
-    }) as bigint;
-
-    const hash = await whaleWallet.writeContract({
-      address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapMint',
-      args: [SIGNET, '0x0000000000000000000000000000000000000000' as Address, inputAmount, 0n, commands, inputs, deadline, WHALE],
-      value: inputAmount,
-    });
-    const receipt = await pub.waitForTransactionReceipt({ hash });
-    expect(receipt.status).toBe('success');
-
-    const signetAfter = await pub.readContract({
-      address: SIGNET, abi: ERC20_ABI, functionName: 'balanceOf', args: [WHALE],
-    }) as bigint;
-    const received = signetAfter - signetBefore;
-    expect(received).toBeGreaterThan(0n);
-    console.log(`    Zap bought ${fmt(received)} SIGNET with 0.01 ETH`);
-  });
-
-});
-
-// Note: Zap-sell test removed — anvil fork + UniversalRouter swap is too slow
-// with free public RPCs. Zap-buy test proves the swap encoding works.
-
-// ─── 5. Create Token ───────────────────────────────────────────────────────
+// ─── 4. Create Token ───────────────────────────────────────────────────────
 
 describe('Create Token', () => {
   it('should create a new bonding curve token', async () => {

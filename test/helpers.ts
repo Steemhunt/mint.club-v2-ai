@@ -24,8 +24,6 @@ export const SPOT_ABI = [{
   ],
   outputs: [
     { name: 'weightedRate', type: 'uint256' },
-    { name: 'srcDecimals', type: 'uint8' },
-    { name: 'dstDecimals', type: 'uint8' },
   ],
 }] as const;
 
