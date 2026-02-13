@@ -5,6 +5,7 @@
   "description": "Model Context Protocol server for Mint Club V2 on Base — trade bonding curve tokens via AI",
   "type": "module",
   "main": "dist/index.js",
+  "module": "./src/index.ts",
   "bin": {
     "mintclub-mcp": "./dist/index.js"
   },
