@@ -110,216 +110,115 @@ function runCli(args: string): string {
   }
 }
 
-// ── MCP Server ──────────────────────────────────────────────────────────
+// ── Server Factory ──────────────────────────────────────────────────────
 
-const server = new Server(
-  { name: 'mintclub', version: '0.1.0' },
-  { capabilities: { tools: {} } },
-);
+function createServer() {
+  const s = new Server(
+    { name: 'mintclub', version: '0.1.2' },
+    { capabilities: { tools: {} } },
+  );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: [
-    {
-      name: 'token_info',
-      description: 'Get Mint Club V2 token info: price, supply, reserve, bonding curve, USD values',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { token: { type: 'string', description: 'Token address or symbol' } },
-        required: ['token'],
+  s.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [
+      {
+        name: 'token_info',
+        description: 'Get Mint Club V2 token info: price, supply, reserve, bonding curve, USD values',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token address or symbol' } }, required: ['token'] },
       },
-    },
-    {
-      name: 'token_price',
-      description: 'Get token price in reserve token and USD',
-      inputSchema: {
-        type: 'object' as const,
-        properties: { token: { type: 'string', description: 'Token address or symbol' } },
-        required: ['token'],
+      {
+        name: 'token_price',
+        description: 'Get token price in reserve token and USD',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token address or symbol' } }, required: ['token'] },
       },
-    },
-    {
-      name: 'wallet_balance',
-      description: 'Get wallet address and balances (ETH + known tokens)',
-      inputSchema: { type: 'object' as const, properties: {} },
-    },
-    {
-      name: 'buy_token',
-      description: 'Buy (mint) bonding curve tokens with reserve token',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          token: { type: 'string', description: 'Token address or symbol' },
-          amount: { type: 'string', description: 'Amount of tokens to buy' },
-        },
-        required: ['token', 'amount'],
+      {
+        name: 'wallet_balance',
+        description: 'Get wallet address and balances (ETH + known tokens)',
+        inputSchema: { type: 'object' as const, properties: {} },
       },
-    },
-    {
-      name: 'sell_token',
-      description: 'Sell (burn) bonding curve tokens for reserve token',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          token: { type: 'string', description: 'Token address or symbol' },
-          amount: { type: 'string', description: 'Amount of tokens to sell' },
-        },
-        required: ['token', 'amount'],
+      {
+        name: 'buy_token',
+        description: 'Buy (mint) bonding curve tokens with reserve token',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token address or symbol' }, amount: { type: 'string', description: 'Amount of tokens to buy' } }, required: ['token', 'amount'] },
       },
-    },
-    {
-      name: 'swap',
-      description: 'Swap tokens via Uniswap V3/V4 (any pair, auto-routes)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          inputToken: { type: 'string', description: 'Input token (ETH, HUNT, USDC, or address)' },
-          outputToken: { type: 'string', description: 'Output token' },
-          amount: { type: 'string', description: 'Amount of input token' },
-          slippage: { type: 'string', description: 'Slippage tolerance % (default: 1)' },
-        },
-        required: ['inputToken', 'outputToken', 'amount'],
+      {
+        name: 'sell_token',
+        description: 'Sell (burn) bonding curve tokens for reserve token',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token address or symbol' }, amount: { type: 'string', description: 'Amount of tokens to sell' } }, required: ['token', 'amount'] },
       },
-    },
-    {
-      name: 'zap_buy',
-      description: 'Buy bonding curve tokens with any token (auto-swaps via Uniswap)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          token: { type: 'string', description: 'Token to buy' },
-          inputToken: { type: 'string', description: 'Token to pay with (ETH, USDC, etc.)' },
-          amount: { type: 'string', description: 'Amount of input token to spend' },
-        },
-        required: ['token', 'inputToken', 'amount'],
+      {
+        name: 'swap',
+        description: 'Smart swap — auto-routes via buy/sell/zap/Uniswap V3/V4',
+        inputSchema: { type: 'object' as const, properties: { inputToken: { type: 'string', description: 'Input token (ETH, HUNT, USDC, or address)' }, outputToken: { type: 'string', description: 'Output token' }, amount: { type: 'string', description: 'Amount of input token' }, slippage: { type: 'string', description: 'Slippage tolerance % (default: 1)' } }, required: ['inputToken', 'outputToken', 'amount'] },
       },
-    },
-    {
-      name: 'zap_sell',
-      description: 'Sell bonding curve tokens for any token (auto-swaps via Uniswap)',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          token: { type: 'string', description: 'Token to sell' },
-          outputToken: { type: 'string', description: 'Token to receive (ETH, USDC, etc.)' },
-          amount: { type: 'string', description: 'Amount of tokens to sell' },
-        },
-        required: ['token', 'outputToken', 'amount'],
+      {
+        name: 'zap_buy',
+        description: 'Buy bonding curve tokens with any token (auto-swaps via Uniswap)',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token to buy' }, inputToken: { type: 'string', description: 'Token to pay with (ETH, USDC, etc.)' }, amount: { type: 'string', description: 'Amount of input token to spend' } }, required: ['token', 'inputToken', 'amount'] },
       },
-    },
-    {
-      name: 'send_token',
-      description: 'Send ETH or ERC-20 tokens to an address',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          to: { type: 'string', description: 'Recipient address' },
-          amount: { type: 'string', description: 'Amount to send' },
-          token: { type: 'string', description: 'Token symbol or address (omit for ETH)' },
-        },
-        required: ['to', 'amount'],
+      {
+        name: 'zap_sell',
+        description: 'Sell bonding curve tokens for any token (auto-swaps via Uniswap)',
+        inputSchema: { type: 'object' as const, properties: { token: { type: 'string', description: 'Token to sell' }, outputToken: { type: 'string', description: 'Token to receive (ETH, USDC, etc.)' }, amount: { type: 'string', description: 'Amount of tokens to sell' } }, required: ['token', 'outputToken', 'amount'] },
       },
-    },
-    {
-      name: 'create_token',
-      description: 'Create a new bonding curve token',
-      inputSchema: {
-        type: 'object' as const,
-        properties: {
-          name: { type: 'string', description: 'Token name' },
-          symbol: { type: 'string', description: 'Token symbol' },
-          reserve: { type: 'string', description: 'Reserve token address or symbol' },
-          maxSupply: { type: 'string', description: 'Maximum supply' },
-          curve: { type: 'string', description: 'Curve preset: linear, exponential, logarithmic, flat' },
-          initialPrice: { type: 'string', description: 'Starting price' },
-          finalPrice: { type: 'string', description: 'Final price' },
-        },
-        required: ['name', 'symbol', 'reserve', 'maxSupply'],
+      {
+        name: 'send_token',
+        description: 'Send ETH or ERC-20 tokens to an address',
+        inputSchema: { type: 'object' as const, properties: { to: { type: 'string', description: 'Recipient address' }, amount: { type: 'string', description: 'Amount to send' }, token: { type: 'string', description: 'Token symbol or address (omit for ETH)' } }, required: ['to', 'amount'] },
       },
-    },
-  ],
-}));
+      {
+        name: 'create_token',
+        description: 'Create a new bonding curve token',
+        inputSchema: { type: 'object' as const, properties: { name: { type: 'string', description: 'Token name' }, symbol: { type: 'string', description: 'Token symbol' }, reserve: { type: 'string', description: 'Reserve token address or symbol' }, maxSupply: { type: 'string', description: 'Maximum supply' }, curve: { type: 'string', description: 'Curve preset: linear, exponential, logarithmic, flat' }, initialPrice: { type: 'string', description: 'Starting price' }, finalPrice: { type: 'string', description: 'Final price' } }, required: ['name', 'symbol', 'reserve', 'maxSupply'] },
+      },
+    ],
+  }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
-
-  try {
-    switch (name) {
-      case 'token_info': {
-        const output = runCli(`info ${args!.token}`);
-        return { content: [{ type: 'text', text: output }] };
+  s.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    try {
+      switch (name) {
+        case 'token_info': return { content: [{ type: 'text', text: runCli(`info ${args!.token}`) }] };
+        case 'token_price': return { content: [{ type: 'text', text: runCli(`price ${args!.token}`) }] };
+        case 'wallet_balance': return { content: [{ type: 'text', text: runCli('wallet') }] };
+        case 'buy_token': return { content: [{ type: 'text', text: runCli(`buy ${args!.token} -a ${args!.amount}`) }] };
+        case 'sell_token': return { content: [{ type: 'text', text: runCli(`sell ${args!.token} -a ${args!.amount}`) }] };
+        case 'swap': return { content: [{ type: 'text', text: runCli(`swap -i ${args!.inputToken} -o ${args!.outputToken} -a ${args!.amount} -s ${args!.slippage || '1'}`) }] };
+        case 'zap_buy': return { content: [{ type: 'text', text: runCli(`zap-buy ${args!.token} -i ${args!.inputToken} -a ${args!.amount}`) }] };
+        case 'zap_sell': return { content: [{ type: 'text', text: runCli(`zap-sell ${args!.token} -a ${args!.amount} -o ${args!.outputToken}`) }] };
+        case 'send_token': return { content: [{ type: 'text', text: runCli(`send ${args!.to} -a ${args!.amount} ${args!.token ? `-t ${args!.token}` : ''}`) }] };
+        case 'create_token': {
+          let cmd = `create -n "${args!.name}" -s ${args!.symbol} -r ${args!.reserve} -x ${args!.maxSupply} -y`;
+          if (args!.curve) cmd += ` --curve ${args!.curve}`;
+          if (args!.initialPrice) cmd += ` --initial-price ${args!.initialPrice}`;
+          if (args!.finalPrice) cmd += ` --final-price ${args!.finalPrice}`;
+          return { content: [{ type: 'text', text: runCli(cmd) }] };
+        }
+        default: return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
       }
-
-      case 'token_price': {
-        const output = runCli(`price ${args!.token}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'wallet_balance': {
-        const output = runCli('wallet');
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'buy_token': {
-        const output = runCli(`buy ${args!.token} -a ${args!.amount}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'sell_token': {
-        const output = runCli(`sell ${args!.token} -a ${args!.amount}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'swap': {
-        const slippage = args!.slippage || '1';
-        const output = runCli(`swap -i ${args!.inputToken} -o ${args!.outputToken} -a ${args!.amount} -s ${slippage}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'zap_buy': {
-        const output = runCli(`zap-buy ${args!.token} -i ${args!.inputToken} -a ${args!.amount}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'zap_sell': {
-        const output = runCli(`zap-sell ${args!.token} -a ${args!.amount} -o ${args!.outputToken}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'send_token': {
-        const tokenFlag = args!.token ? `-t ${args!.token}` : '';
-        const output = runCli(`send ${args!.to} -a ${args!.amount} ${tokenFlag}`);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      case 'create_token': {
-        let cmd = `create -n "${args!.name}" -s ${args!.symbol} -r ${args!.reserve} -x ${args!.maxSupply} -y`;
-        if (args!.curve) cmd += ` --curve ${args!.curve}`;
-        if (args!.initialPrice) cmd += ` --initial-price ${args!.initialPrice}`;
-        if (args!.finalPrice) cmd += ` --final-price ${args!.finalPrice}`;
-        const output = runCli(cmd);
-        return { content: [{ type: 'text', text: output }] };
-      }
-
-      default:
-        return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true };
     }
-  } catch (e: any) {
-    return { content: [{ type: 'text', text: `Error: ${e.message}` }], isError: true };
-  }
-});
+  });
+
+  return s;
+}
 
 // ── Sandbox (for Smithery scanning) ─────────────────────────────────────
 
 export function createSandboxServer() {
-  return server;
+  return createServer();
 }
 
 // ── Start ───────────────────────────────────────────────────────────────
 
 async function main() {
+  const s = createServer();
   const transport = new StdioServerTransport();
-  await server.connect(transport);
+  await s.connect(transport);
   console.error('Mint Club MCP server running on stdio');
 }
 
-main().catch(console.error);
+// Don't auto-start when imported for scanning
+if (!process.env.SMITHERY_SCAN) {
+  main().catch(console.error);
+}
