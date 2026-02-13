@@ -1,7 +1,7 @@
 {
-  "name": "@mintclub/mcp",
+  "name": "mintclub-mcp",
   "version": "0.1.0",
-  "description": "Model Context Protocol server for Mint Club V2 on Base",
+  "description": "Model Context Protocol server for Mint Club V2 on Base — trade bonding curve tokens via AI",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
@@ -11,6 +11,25 @@
     "build": "bun build src/index.ts --outdir dist --target node --format esm",
     "start": "node dist/index.js"
   },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mint-club",
+    "bonding-curve",
+    "defi",
+    "base",
+    "uniswap",
+    "ai",
+    "claude",
+    "cursor"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Steemhunt/mint.club-v2-ai",
+    "directory": "mcp"
+  },
+  "homepage": "https://github.com/Steemhunt/mint.club-v2-ai/tree/main/mcp",
+  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "viem": "^2.45.0"
