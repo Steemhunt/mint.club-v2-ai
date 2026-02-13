@@ -29,7 +29,7 @@ function run(fn: () => Promise<void>) {
 }
 
 const cli = new Command()
-  .name('mintclub')
+  .name('mc')
   .description('Mint Club V2 CLI — bonding curve tokens')
   .version('1.0.0');
 

@@ -4,7 +4,7 @@
   "description": "CLI for Mint Club V2 bonding curve tokens",
   "main": "dist/index.js",
   "bin": {
-    "mintclub": "./dist/index.js"
+    "mc": "./dist/index.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --format esm --target node",
