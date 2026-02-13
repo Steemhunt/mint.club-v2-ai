@@ -1,6 +1,7 @@
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { BOND, ZAP_V2, WETH as WETH_ADDR } from '../config/contracts';
+import { saveToken } from '../utils/tokens';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, shortHash, txUrl } from '../utils/format';
@@ -71,6 +72,6 @@ export async function zapBuy(
   console.log(`   ${txUrl(hash)}`);
 
   const receipt = await pub.waitForTransactionReceipt({ hash });
-  if (receipt.status === 'success') console.log(`✅ Zap bought ${fmt(result[0])} tokens (block ${receipt.blockNumber})`);
+  if (receipt.status === 'success') { saveToken(token); console.log(`✅ Zap bought ${fmt(result[0])} tokens (block ${receipt.blockNumber})`); }
   else throw new Error('Transaction failed');
 }

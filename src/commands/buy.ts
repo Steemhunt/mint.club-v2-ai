@@ -3,6 +3,7 @@ import { getPublicClient, getWalletClient } from '../client';
 import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, shortHash, txUrl } from '../utils/format';
+import { saveToken } from '../utils/tokens';
 
 export async function buy(token: Address, amount: string, maxCost: string | undefined, privateKey: `0x${string}`) {
   const pub = getPublicClient();
@@ -21,6 +22,6 @@ export async function buy(token: Address, amount: string, maxCost: string | unde
   console.log(`   TX: ${shortHash(hash)}`);
   console.log(`   ${txUrl(hash)}`);
   const receipt = await pub.waitForTransactionReceipt({ hash });
-  if (receipt.status === 'success') console.log(`✅ Bought ${amount} tokens for ${fmt(totalCost)} reserve (block ${receipt.blockNumber})`);
+  if (receipt.status === 'success') { saveToken(token); console.log(`✅ Bought ${amount} tokens for ${fmt(totalCost)} reserve (block ${receipt.blockNumber})`); }
   else throw new Error('Transaction failed');
 }

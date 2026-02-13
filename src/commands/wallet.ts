@@ -5,8 +5,10 @@ import { homedir } from 'os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getPublicClient } from '../client';
 import { ERC20_ABI } from '../abi/erc20';
-import { TOKENS, WETH } from '../config/contracts';
+import { TOKENS, WETH, BOND } from '../config/contracts';
+import { BOND_ABI } from '../abi/bond';
 import { getUsdPrice } from '../utils/price';
+import { loadTokens } from '../utils/tokens';
 
 const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
@@ -83,6 +85,52 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
       const usdVal = tokenUsd !== null ? amount * tokenUsd : null;
       if (usdVal !== null) totalUsd += usdVal;
       console.log(`   ${TOKENS[i].symbol}: ${formatUnits(bal, TOKENS[i].decimals)}${usdVal !== null ? ` (~$${fmtUsd(usdVal)})` : ''}`);
+    }
+  }
+
+  // Show balances for saved Mint Club tokens
+  const savedTokens = loadTokens();
+  const knownAddrs = new Set(TOKENS.map(t => t.address.toLowerCase()));
+  const mcTokens = savedTokens.filter(t => !knownAddrs.has(t.toLowerCase()));
+
+  if (mcTokens.length > 0) {
+    // Batch: balanceOf + symbol + tokenBond for each
+    const mcResults = await client.multicall({
+      contracts: mcTokens.flatMap(t => [
+        { address: t, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] },
+        { address: t, abi: ERC20_ABI, functionName: 'symbol' },
+        { address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [t] },
+      ]),
+    });
+
+    let hasMcHeader = false;
+    for (let i = 0; i < mcTokens.length; i++) {
+      const bal = mcResults[i * 3].status === 'success' ? mcResults[i * 3].result as bigint : 0n;
+      if (bal === 0n) continue;
+
+      if (!hasMcHeader) { console.log(`\n🪙 Mint Club Tokens:\n`); hasMcHeader = true; }
+
+      const sym = mcResults[i * 3 + 1].status === 'success' ? mcResults[i * 3 + 1].result as string : mcTokens[i].slice(0, 10);
+      let line = `   ${sym}: ${formatUnits(bal, 18)}`;
+
+      // Try to get USD price via bond + 1inch
+      if (mcResults[i * 3 + 2].status === 'success') {
+        const [, , , , reserveToken] = mcResults[i * 3 + 2].result as any;
+        try {
+          const [costFor1] = await client.readContract({
+            address: BOND, abi: BOND_ABI, functionName: 'getReserveForToken', args: [mcTokens[i] as `0x${string}`, 10n ** 18n],
+          });
+          const reserveUsd = await getUsdPrice(reserveToken);
+          if (reserveUsd !== null) {
+            const reserveDecimals = TOKENS.find(t => t.address.toLowerCase() === reserveToken.toLowerCase())?.decimals ?? 18;
+            const tokenUsd = (Number(costFor1) / 10 ** reserveDecimals) * reserveUsd;
+            const val = (Number(bal) / 1e18) * tokenUsd;
+            totalUsd += val;
+            line += ` (~$${fmtUsd(val)})`;
+          }
+        } catch {}
+      }
+      console.log(line);
     }
   }
 
