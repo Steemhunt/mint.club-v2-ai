@@ -3,7 +3,6 @@
 import { Command } from 'commander';
 import { config } from 'dotenv';
 import { type Address } from 'viem';
-import { validateChain } from './client';
 import { info } from './commands/info';
 import { buy } from './commands/buy';
 import { sell } from './commands/sell';
@@ -12,12 +11,10 @@ import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
-import { getZapV2Address } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
 declare const __VERSION__: string;
 
-// Load from ~/.mintclub/.env first, then cwd/.env as fallback
 config({ path: resolve(homedir(), '.mintclub', '.env') });
 config();
 
@@ -27,171 +24,79 @@ function requireKey(): `0x${string}` {
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
-/** Extract clean error message from viem's verbose errors */
 function cleanError(e: unknown): string {
   if (!(e instanceof Error)) return String(e);
   const msg = e.message;
-
-  // "insufficient funds" → show balance vs needed
   const funds = msg.match(/insufficient funds.*have (\d+) want (\d+)/);
-  if (funds) {
-    const have = (Number(funds[1]) / 1e18).toFixed(4);
-    const want = (Number(funds[2]) / 1e18).toFixed(4);
-    return `Insufficient funds: have ${have} ETH, need ${want} ETH`;
-  }
-
-  // "reverted with the following reason:" from viem
+  if (funds) return `Insufficient funds: have ${(Number(funds[1]) / 1e18).toFixed(4)} ETH, need ${(Number(funds[2]) / 1e18).toFixed(4)} ETH`;
   const reason = msg.match(/reverted with the following reason:\s*\n?\s*(.+?)(?:\n|$)/);
   if (reason && reason[1].trim()) return `Transaction reverted: ${reason[1].trim()}`;
-
-  // "execution reverted" with reason
   const revert = msg.match(/execution reverted[:\s]*(.+?)(?:\n|$)/);
   if (revert) return `Transaction reverted: ${revert[1].trim()}`;
-
-  // "Details:" line from viem
   const details = msg.match(/Details:\s*(.+?)(?:\n|$)/);
   if (details) return details[1].trim();
-
-  // First meaningful line (skip empty/whitespace)
-  const firstLine = msg.split('\n').find(l => l.trim().length > 0);
-  return firstLine?.trim() ?? msg;
+  return msg.split('\n').find(l => l.trim().length > 0)?.trim() ?? msg;
 }
 
-/** Wrap command action with error handling */
 function run(fn: () => Promise<void>) {
-  return async () => {
-    try { await fn(); }
-    catch (e) { console.error('❌', cleanError(e)); process.exit(1); }
-  };
+  return async () => { try { await fn(); } catch (e) { console.error('❌', cleanError(e)); process.exit(1); } };
 }
 
-const cli = new Command()
-  .name('mc')
-  .description('Mint Club V2 CLI — bonding curve tokens')
-  .version(__VERSION__);
+const cli = new Command().name('mc').description('Mint Club V2 CLI — bonding curve tokens on Base').version(__VERSION__);
 
-cli.command('info')
-  .description('Get token info')
-  .argument('<token>', 'Token address')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((token, opts) => run(() => info(token as Address, validateChain(opts.chain)))());
+cli.command('info').description('Get token info').argument('<token>', 'Token address')
+  .action((token) => run(() => info(token as Address))());
 
-cli.command('buy')
-  .description('Buy (mint) tokens with reserve token')
-  .argument('<token>', 'Token address')
-  .requiredOption('-a, --amount <n>', 'Tokens to buy')
-  .option('-m, --max-cost <n>', 'Max reserve cost')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((token, opts) => run(() =>
-    buy(token as Address, opts.amount, opts.maxCost, validateChain(opts.chain), requireKey())
-  )());
+cli.command('buy').description('Buy (mint) tokens with reserve token').argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to buy').option('-m, --max-cost <n>', 'Max reserve cost')
+  .action((token, opts) => run(() => buy(token as Address, opts.amount, opts.maxCost, requireKey()))());
 
-cli.command('sell')
-  .description('Sell (burn) tokens for reserve token')
-  .argument('<token>', 'Token address')
-  .requiredOption('-a, --amount <n>', 'Tokens to sell')
-  .option('-m, --min-refund <n>', 'Min reserve refund')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((token, opts) => run(() =>
-    sell(token as Address, opts.amount, opts.minRefund, validateChain(opts.chain), requireKey())
-  )());
+cli.command('sell').description('Sell (burn) tokens for reserve token').argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to sell').option('-m, --min-refund <n>', 'Min reserve refund')
+  .action((token, opts) => run(() => sell(token as Address, opts.amount, opts.minRefund, requireKey()))());
 
-cli.command('create')
-  .description('Create a bonding curve token')
-  .requiredOption('-n, --name <name>', 'Token name')
-  .requiredOption('-s, --symbol <sym>', 'Token symbol')
-  .requiredOption('-r, --reserve <addr>', 'Reserve token address')
-  .requiredOption('-x, --max-supply <n>', 'Max supply')
+cli.command('create').description('Create a bonding curve token')
+  .requiredOption('-n, --name <name>', 'Token name').requiredOption('-s, --symbol <sym>', 'Token symbol')
+  .requiredOption('-r, --reserve <addr>', 'Reserve token address').requiredOption('-x, --max-supply <n>', 'Max supply')
   .option('-t, --steps <s>', 'Custom steps: "range:price,range:price,..."')
   .option('--curve <type>', 'Curve preset: linear, exponential, logarithmic, flat')
-  .option('--initial-price <n>', 'Starting price (with --curve)')
-  .option('--final-price <n>', 'Final price (with --curve)')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100')
-  .option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
+  .option('--initial-price <n>', 'Starting price (with --curve)').option('--final-price <n>', 'Final price (with --curve)')
+  .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100').option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
   .option('-y, --yes', 'Skip confirmation prompt')
-  .action((opts) => run(() =>
-    create(
-      opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply,
-      validateChain(opts.chain), requireKey(), {
-        steps: opts.steps, curve: opts.curve,
-        initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
-        mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty),
-        yes: opts.yes,
-      },
-    )
-  )());
+  .action((opts) => run(() => create(opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply, requireKey(), {
+    steps: opts.steps, curve: opts.curve, initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
+    mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty), yes: opts.yes,
+  }))());
 
-cli.command('zap-buy')
-  .description('Buy tokens with any token via ZapV2 (auto-routes swap)')
-  .argument('<token>', 'Token address')
+cli.command('zap-buy').description('Buy tokens with any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address')
   .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address)')
   .requiredOption('-a, --amount <n>', 'Amount of input token to spend (e.g. 0.01 ETH)')
-  .option('-p, --path <p>', 'Manual swap path: token,fee,token,... (auto-finds if omitted)')
-  .option('-m, --min-tokens <n>', 'Min tokens out')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((token, opts) => run(() => {
-    const chain = validateChain(opts.chain);
-    if (!getZapV2Address(chain)) throw new Error('ZapV2 is Base only');
-    return zapBuy(
-      token as Address, opts.inputToken as Address, opts.amount,
-      opts.minTokens, opts.path, chain, requireKey(),
-    );
-  })());
+  .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-tokens <n>', 'Min tokens out')
+  .action((token, opts) => run(() => zapBuy(token as Address, opts.inputToken as Address, opts.amount, opts.minTokens, opts.path, requireKey()))());
 
-cli.command('zap-sell')
-  .description('Sell tokens for any token via ZapV2 (auto-routes swap)')
-  .argument('<token>', 'Token address')
-  .requiredOption('-a, --amount <n>', 'Tokens to sell')
-  .requiredOption('-o, --output-token <addr>', 'Output token (ETH or address)')
-  .option('-p, --path <p>', 'Manual swap path: token,fee,token,... (auto-finds if omitted)')
-  .option('-m, --min-output <n>', 'Min output')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((token, opts) => run(() => {
-    const chain = validateChain(opts.chain);
-    if (!getZapV2Address(chain)) throw new Error('ZapV2 is Base only');
-    return zapSell(
-      token as Address, opts.amount, opts.outputToken as Address,
-      opts.minOutput, opts.path, chain, requireKey(),
-    );
-  })());
+cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address')
+  .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address)')
+  .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-output <n>', 'Min output')
+  .action((token, opts) => run(() => zapSell(token as Address, opts.amount, opts.outputToken as Address, opts.minOutput, opts.path, requireKey()))());
 
-cli.command('send')
-  .description('Send ETH, ERC-20, or ERC-1155 tokens to another wallet')
-  .argument('<to>', 'Recipient address')
-  .requiredOption('-a, --amount <n>', 'Amount to send (token units for ERC-20, quantity for ERC-1155)')
-  .option('-t, --token <addr>', 'Token contract address (omit for native ETH)')
+cli.command('send').description('Send ETH, ERC-20, or ERC-1155 tokens').argument('<to>', 'Recipient address')
+  .requiredOption('-a, --amount <n>', 'Amount to send').option('-t, --token <addr>', 'Token contract (omit for ETH)')
   .option('--token-id <id>', 'ERC-1155 token ID')
-  .option('-c, --chain <chain>', 'Chain', 'base')
-  .action((to, opts) => run(() =>
-    send(to as Address, opts.amount, validateChain(opts.chain), requireKey(), { token: opts.token, tokenId: opts.tokenId })
-  )());
+  .action((to, opts) => run(() => send(to as Address, opts.amount, requireKey(), { token: opts.token, tokenId: opts.tokenId }))());
 
-cli.command('wallet')
-  .description('Show wallet address and balances, or generate/import a key')
-  .option('-g, --generate', 'Generate a new wallet and save to ~/.mintclub/.env')
-  .option('-s, --set-private-key <key>', 'Import an existing private key to ~/.mintclub/.env')
-  .option('-c, --chain <chain>', 'Chain for balance check', 'base')
+cli.command('wallet').description('Show wallet address and balances, or generate/import a key')
+  .option('-g, --generate', 'Generate a new wallet').option('-s, --set-private-key <key>', 'Import an existing private key')
   .action((opts) => run(() => wallet(opts))());
 
-cli.command('upgrade')
-  .description('Upgrade mint.club-cli to the latest version')
-  .action(() => {
-    const { execSync } = require('child_process');
-    console.log('⬆️  Upgrading mint.club-cli...');
-    try {
-      const before = execSync('mc --version', { encoding: 'utf-8' }).trim();
-      execSync('npm install -g mint.club-cli@latest', { stdio: 'pipe' });
-      const after = execSync('mc --version', { encoding: 'utf-8' }).trim();
-      if (before === after) {
-        console.log(`✅ Already on latest (v${after})`);
-      } else {
-        console.log(`✅ Upgraded: v${before} → v${after}`);
-      }
-    } catch {
-      console.error('❌ Upgrade failed. Try: npm update -g mint.club-cli');
-      process.exit(1);
-    }
-  });
+cli.command('upgrade').description('Upgrade mint.club-cli to the latest version').action(() => {
+  const { execSync } = require('child_process');
+  console.log('⬆️  Upgrading mint.club-cli...');
+  try {
+    const before = execSync('mc --version', { encoding: 'utf-8' }).trim();
+    execSync('npm install -g mint.club-cli@latest', { stdio: 'pipe' });
+    const after = execSync('mc --version', { encoding: 'utf-8' }).trim();
+    console.log(before === after ? `✅ Already on latest (v${after})` : `✅ Upgraded: v${before} → v${after}`);
+  } catch { console.error('❌ Upgrade failed. Try: npm update -g mint.club-cli'); process.exit(1); }
+});
 
 cli.parse();
