@@ -130,9 +130,10 @@ cli.command('send')
   )());
 
 cli.command('wallet')
-  .description('Show wallet address or generate a new one')
+  .description('Show wallet address and balances, or generate/import a key')
   .option('-g, --generate', 'Generate a new wallet and save to ~/.mintclub/.env')
   .option('-s, --set-private-key <key>', 'Import an existing private key to ~/.mintclub/.env')
+  .option('-c, --chain <chain>', 'Chain for balance check', 'base')
   .action((opts) => run(() => wallet(opts))());
 
 cli.parse();
