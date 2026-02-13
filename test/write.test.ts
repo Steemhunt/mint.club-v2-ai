@@ -33,6 +33,9 @@ import { ensureApproval } from '../src/utils/approve';
 // Contracts
 import { BOND, ZAP_V2, WETH, TOKENS, SPOT_PRICE_AGGREGATOR } from '../src/config/contracts';
 
+// Import shared test constants
+import { HUNT, USDC, SIGNET, MT, WHALE } from './helpers';
+
 // ─── Constants ─────────────────────────────────────────────────────────────
 
 const ANVIL_PORT = 8546;
@@ -40,23 +43,22 @@ const ANVIL_URL = `http://127.0.0.1:${ANVIL_PORT}`;
 // Rotate through RPCs to avoid rate limits
 const RPCS = [
   'https://base-rpc.publicnode.com',
+  'https://base.drpc.org',
   'https://base.meowrpc.com',
-  'https://mainnet.base.org',
-  'https://developer-access-mainnet.base.org',
-  'https://base-mainnet.public.blastapi.io',
-  'https://base-public.nodies.app',
   'https://1rpc.io/base',
+  'https://base.gateway.tenderly.co',
+  'https://gateway.tenderly.co/public/base',
+  'https://base-public.nodies.app',
+  'https://base.api.onfinality.io/public',
+  'https://base.public.blockpi.network/v1/rpc/public',
+  'https://base.lava.build',
+  'https://base.api.pocket.network',
+  'https://mainnet.base.org',
 ];
 const FORK_RPC = RPCS[Math.floor(Math.random() * RPCS.length)];
+console.log(`    Using fork RPC: ${FORK_RPC}`);
 
-// Well-known addresses
-const HUNT: Address = '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C';
-const USDC: Address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const SIGNET: Address = '0xDF2B673Ec06d210C8A8Be89441F8de60B5C679c9';
-const MT: Address = '0xFf45161474C39cB00699070Dd49582e417b57a7E';
-
-// Whale with HUNT + USDC + various tokens
-const WHALE: Address = '0xCB3f3e0E992435390e686D7b638FCb8baBa6c5c7';
+// Test constants are imported from helpers.ts
 
 // Anvil default test account (funded with 10000 ETH)
 const TEST_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`;

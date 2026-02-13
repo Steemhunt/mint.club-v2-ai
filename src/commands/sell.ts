@@ -1,40 +1,65 @@
-import { type Address, formatUnits } from 'viem';
+import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { BOND, tokenDecimals } from '../config/contracts';
+import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
-import { parse, shortHash, txUrl } from '../utils/format';
-import { saveToken } from '../utils/tokens';
+import { parse } from '../utils/format';
 import { ensureApproval } from '../utils/approve';
 import { getSymbol } from '../utils/symbol';
+import { getBondInfo, getBurnRefund } from '../utils/bond';
+import { executeTransaction, setupClients } from '../utils/transaction';
 
-export async function sell(token: Address, amount: string, minRefund: string | undefined, privateKey: `0x${string}`) {
-  const pub = getPublicClient();
-  const wallet = getWalletClient(privateKey);
-  const account = wallet.account;
+export async function sell(
+  token: Address,
+  amount: string,
+  minRefund: string | undefined,
+  privateKey: `0x${string}`,
+) {
+  const { publicClient, walletClient, account } = setupClients(
+    getPublicClient,
+    getWalletClient,
+    privateKey,
+  );
+
   const tokensToBurn = parse(amount);
+  const bondInfo = await getBondInfo(publicClient, token);
+  const tokenSymbol = await getSymbol(publicClient, token);
 
-  // Get token info
-  const bondData = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] });
-  const reserveToken = bondData[4] as Address;
-  const [tokenSym, reserveSym] = await Promise.all([getSymbol(pub, token), getSymbol(pub, reserveToken)]);
-  const reserveDec = tokenDecimals(reserveToken);
-  const fmtR = (v: bigint) => formatUnits(v, reserveDec);
+  console.log(`🔥 Selling ${amount} ${tokenSymbol}...`);
 
-  console.log(`🔥 Selling ${amount} ${tokenSym}...`);
-  const [refundAmount, royalty] = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'getRefundForTokens', args: [token, tokensToBurn] });
-  const netRefund = refundAmount - royalty;
-  console.log(`   Refund: ${fmtR(refundAmount)} - ${fmtR(royalty)} royalty = ${fmtR(netRefund)} ${reserveSym}`);
-  if (minRefund && netRefund < parse(minRefund)) throw new Error(`Refund ${fmtR(netRefund)} ${reserveSym} below minimum ${minRefund}`);
+  // Get burn refund
+  const { refundAmount, royalty, netRefund } = await getBurnRefund(
+    publicClient,
+    token,
+    tokensToBurn,
+  );
+
+  console.log(
+    `   Refund: ${bondInfo.formatReserve(refundAmount)} - ${bondInfo.formatReserve(royalty)} royalty = ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol}`,
+  );
+
+  // Check minimum refund
+  if (minRefund && netRefund < parse(minRefund)) {
+    throw new Error(
+      `Refund ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol} below minimum ${minRefund}`,
+    );
+  }
 
   const minRef = minRefund ? parse(minRefund) : 0n;
-  await ensureApproval(pub, wallet, token, BOND, tokensToBurn);
-  const args = [token, tokensToBurn, minRef, account.address] as const;
-  await pub.simulateContract({ account, address: BOND, abi: BOND_ABI, functionName: 'burn', args });
-  console.log('📤 Sending...');
-  const hash = await wallet.writeContract({ address: BOND, abi: BOND_ABI, functionName: 'burn', args });
-  console.log(`   TX: ${shortHash(hash)}`);
-  console.log(`   ${txUrl(hash)}`);
-  const receipt = await pub.waitForTransactionReceipt({ hash });
-  if (receipt.status === 'success') { saveToken(token); console.log(`✅ Sold ${amount} ${tokenSym} for ${fmtR(netRefund)} ${reserveSym}`); }
-  else throw new Error('Transaction failed');
+  
+  // Approve token burning
+  await ensureApproval(publicClient, walletClient, token, BOND, tokensToBurn);
+
+  // Execute burn transaction
+  await executeTransaction(
+    publicClient,
+    walletClient,
+    token,
+    {
+      address: BOND,
+      abi: BOND_ABI,
+      functionName: 'burn',
+      args: [token, tokensToBurn, minRef, account],
+    },
+    `Sold ${amount} ${tokenSymbol} for ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol}`,
+  );
 }

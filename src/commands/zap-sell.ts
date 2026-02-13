@@ -1,69 +1,75 @@
 import { type Address, formatUnits } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { ZAP_V2, BOND, WETH as WETH_ADDR, tokenDecimals } from '../config/contracts';
-import { saveToken } from '../utils/tokens';
-import { ensureApproval } from '../utils/approve';
+import { ZAP_V2 } from '../config/contracts';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
-import { BOND_ABI } from '../abi/bond';
-import { fmt, parse, shortHash, txUrl } from '../utils/format';
-import { encodeV3Path, encodeV3SwapInput, V3_SWAP_COMMAND, parsePath, UNWRAP_WETH_COMMAND, encodeUnwrapWethInput } from '../utils/swap';
-import { findBestRoute } from '../utils/router';
+import { fmt, parse } from '../utils/format';
+import { ensureApproval } from '../utils/approve';
 import { getSymbol } from '../utils/symbol';
-
-const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address;
+import { getBondInfo, getBurnRefund } from '../utils/bond';
+import { executeTransaction, setupClients } from '../utils/transaction';
+import { parseZapToken, resolveZapPath, getZapDeadline } from '../utils/zap';
+import {
+  encodeV3SwapInput,
+  V3_SWAP_COMMAND,
+  UNWRAP_WETH_COMMAND,
+  encodeUnwrapWethInput,
+} from '../utils/swap';
 
 export async function zapSell(
-  token: Address, amount: string, outputToken: Address,
-  minOutput: string | undefined, pathStr: string | undefined,
+  token: Address,
+  amount: string,
+  outputToken: Address,
+  minOutput: string | undefined,
+  pathStr: string | undefined,
   privateKey: `0x${string}`,
 ) {
-  const pub = getPublicClient();
-  const wallet = getWalletClient(privateKey);
-  const account = wallet.account;
+  const { publicClient, walletClient, account } = setupClients(
+    getPublicClient,
+    getWalletClient,
+    privateKey,
+  );
 
   const tokensToBurn = parse(amount);
   const minOut = minOutput ? parse(minOutput) : 0n;
-  const isETH = outputToken.toLowerCase() === ZERO_ADDR.toLowerCase();
-  const actualOutputToken: Address = isETH ? ZERO_ADDR : outputToken;
 
-  // Get symbols
-  const [tokenSym, outputSym] = await Promise.all([
-    getSymbol(pub, token),
-    isETH ? Promise.resolve('ETH') : getSymbol(pub, outputToken),
+  // Parse output token info
+  const outputInfo = await parseZapToken(publicClient, outputToken, false);
+
+  // Get token and bond info
+  const [tokenSymbol, bondInfo] = await Promise.all([
+    getSymbol(publicClient, token),
+    getBondInfo(publicClient, token),
   ]);
 
-  const bondData = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] });
-  const reserveToken = bondData[4] as Address;
-  const reserveSym = await getSymbol(pub, reserveToken);
+  console.log(`⚡ Zap selling ${amount} ${tokenSymbol} for ${outputInfo.symbol}...`);
 
-  console.log(`⚡ Zap selling ${amount} ${tokenSym} for ${outputSym}...`);
+  // Get expected refund from burning
+  const { refundAmount } = await getBurnRefund(publicClient, token, tokensToBurn);
 
-  const [refundAmount] = await pub.readContract({
-    address: BOND, abi: BOND_ABI, functionName: 'getRefundForTokens', args: [token, tokensToBurn],
-  });
+  // Resolve swap path
+  const zapPath = await resolveZapPath(
+    publicClient,
+    bondInfo.reserveToken,
+    outputToken,
+    refundAmount,
+    pathStr,
+  );
 
-  let path: `0x${string}`, routeTokens: `0x${string}`[], routeFees: number[];
-
-  if (pathStr) {
-    const parsed = parsePath(pathStr);
-    routeTokens = parsed.tokens; routeFees = parsed.fees;
-    path = encodeV3Path(routeTokens, routeFees);
-  } else {
-    const swapOutput = isETH ? WETH_ADDR : outputToken;
-    const route = await findBestRoute(pub, reserveToken, swapOutput, refundAmount);
-    if (!route) throw new Error('No swap route found. Try providing --path manually.');
-    path = route.path; routeTokens = route.tokens; routeFees = route.fees;
-    console.log(`   Route: ${route.description}`);
-    console.log(`   Expected swap output: ${fmt(route.amountOut)} ${outputSym}`);
+  if (zapPath.description && zapPath.amountOut) {
+    console.log(`   Route: ${zapPath.description}`);
+    console.log(`   Expected swap output: ${fmt(zapPath.amountOut)} ${outputInfo.symbol}`);
   }
 
+  // Prepare swap commands
   const ADDRESS_THIS = '0x0000000000000000000000000000000000000002' as `0x${string}`;
-  const swapRecipient = isETH ? ADDRESS_THIS : ZAP_V2;
-  const swapInput = encodeV3SwapInput(swapRecipient, refundAmount, 0n, path);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+  const swapRecipient = outputInfo.isETH ? ADDRESS_THIS : ZAP_V2;
+  const swapInput = encodeV3SwapInput(swapRecipient, refundAmount, 0n, zapPath.path);
+  const deadline = getZapDeadline();
 
-  let commands: `0x${string}`, inputs: `0x${string}`[];
-  if (isETH) {
+  let commands: `0x${string}`;
+  let inputs: `0x${string}`[];
+
+  if (outputInfo.isETH) {
     commands = ('0x' + V3_SWAP_COMMAND.slice(2) + UNWRAP_WETH_COMMAND.slice(2)) as `0x${string}`;
     inputs = [swapInput, encodeUnwrapWethInput(ZAP_V2, minOut)];
   } else {
@@ -71,20 +77,33 @@ export async function zapSell(
     inputs = [swapInput];
   }
 
-  await ensureApproval(pub, wallet, token, ZAP_V2, tokensToBurn);
+  // Approve token burning
+  await ensureApproval(publicClient, walletClient, token, ZAP_V2, tokensToBurn);
 
-  const args = [token, tokensToBurn, actualOutputToken, minOut, commands, inputs, deadline, account.address] as const;
-  const { result } = await pub.simulateContract({ account, address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapBurn', args });
+  // Simulate to get expected results
+  const { result } = await publicClient.simulateContract({
+    account: walletClient.account,
+    address: ZAP_V2,
+    abi: ZAP_V2_ABI,
+    functionName: 'zapBurn',
+    args: [token, tokensToBurn, outputInfo.actualToken, minOut, commands, inputs, deadline, account],
+  });
 
-  const outputDec = isETH ? 18 : tokenDecimals(outputToken);
-  console.log(`   Expected: ${formatUnits(result[0], outputDec)} ${outputSym} | Reserve burned: ${fmt(result[1])} ${reserveSym}`);
-  console.log('📤 Sending...');
+  console.log(
+    `   Expected: ${formatUnits(result[0], outputInfo.decimals)} ${outputInfo.symbol} | Reserve burned: ${fmt(result[1])} ${bondInfo.reserveSymbol}`,
+  );
 
-  const hash = await wallet.writeContract({ address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapBurn', args });
-  console.log(`   TX: ${shortHash(hash)}`);
-  console.log(`   ${txUrl(hash)}`);
-
-  const receipt = await pub.waitForTransactionReceipt({ hash });
-  if (receipt.status === 'success') { saveToken(token); console.log(`✅ Zap sold ${amount} ${tokenSym} for ${formatUnits(result[0], outputDec)} ${outputSym}`); }
-  else throw new Error('Transaction failed');
+  // Execute zap burn transaction
+  await executeTransaction(
+    publicClient,
+    walletClient,
+    token,
+    {
+      address: ZAP_V2,
+      abi: ZAP_V2_ABI,
+      functionName: 'zapBurn',
+      args: [token, tokensToBurn, outputInfo.actualToken, minOut, commands, inputs, deadline, account],
+    },
+    `Zap sold ${amount} ${tokenSymbol} for ${formatUnits(result[0], outputInfo.decimals)} ${outputInfo.symbol}`,
+  );
 }

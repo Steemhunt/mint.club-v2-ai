@@ -29,28 +29,8 @@ import { findBestRoute } from '../src/utils/router';
 // Contracts (Base mainnet)
 import { BOND, ZAP_V2, WETH, TOKENS, SPOT_PRICE_AGGREGATOR } from '../src/config/contracts';
 
-// ─── Constants ─────────────────────────────────────────────────────────────
-
-const FORK_BLOCK = 28_000_000n; // pinned block for deterministic tests
-
-// Well-known addresses
-const HUNT: Address = '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C';
-const USDC: Address = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
-const SIGNET: Address = '0xDF2B673Ec06d210C8A8Be89441F8de60B5C679c9';
-const MT: Address = '0xFf45161474C39cB00699070Dd49582e417b57a7E';
-
-// Whale with large balances (for impersonation)
-const WHALE: Address = '0xCB3f3e0E992435390e686D7b638FCb8baBa6c5c7';
-
-const SPOT_ABI = [{
-  type: 'function', name: 'getRate', stateMutability: 'view',
-  inputs: [
-    { name: 'srcToken', type: 'address' },
-    { name: 'dstToken', type: 'address' },
-    { name: 'useWrappers', type: 'bool' },
-  ],
-  outputs: [{ name: 'weightedRate', type: 'uint256' }],
-}] as const;
+// Import shared test constants and utilities
+import { HUNT, USDC, SIGNET, MT, WHALE, FORK_BLOCK, SPOT_ABI, isCloseEnough } from './helpers';
 
 // ─── Setup ─────────────────────────────────────────────────────────────────
 
