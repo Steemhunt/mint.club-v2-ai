@@ -8,6 +8,29 @@ CLI for [Mint Club V2](https://mint.club) bonding curve tokens across 15 EVM cha
 npm install -g mint.club-cli
 ```
 
+## Setup
+
+Generate a new wallet:
+
+```bash
+mc wallet --generate
+```
+
+This creates `~/.mintclub/.env` with a new private key and shows your wallet address. Fund it to start trading.
+
+Or if you already have a key, create the config manually:
+
+```bash
+mkdir -p ~/.mintclub
+echo 'PRIVATE_KEY=0xyour_key_here' > ~/.mintclub/.env
+```
+
+Check your wallet address anytime:
+
+```bash
+mc wallet
+```
+
 ## Usage
 
 ```bash
@@ -30,13 +53,11 @@ mc zap-buy <token> -i <input-token> -a 1.0 -p "<token0>,<fee>,<token1>"
 mc zap-sell <token> -a 100 -o <output-token> -p "<token0>,<fee>,<token1>"
 ```
 
-## Configuration
-
-Set `PRIVATE_KEY` in `.env` for write operations (buy/sell/create/zap).
-
 ## Supported Chains
 
 Ethereum, Base, Optimism, Arbitrum, Avalanche, Polygon, BNB Chain, Blast, Degen, Ham, Cyber, Kaia, Mode, Zora, and more.
+
+Default chain is `base`. Use `--chain <name>` to switch.
 
 ## License
 

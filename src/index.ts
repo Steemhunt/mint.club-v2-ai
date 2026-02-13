@@ -10,6 +10,7 @@ import { sell } from './commands/sell';
 import { create } from './commands/create';
 import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
+import { wallet } from './commands/wallet';
 import { getZapV2Address } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -114,5 +115,10 @@ cli.command('zap-sell')
       opts.minOutput, opts.path, chain, requireKey(),
     );
   })());
+
+cli.command('wallet')
+  .description('Show wallet address or generate a new one')
+  .option('-g, --generate', 'Generate a new wallet and save to ~/.mintclub/.env')
+  .action((opts) => run(() => wallet(opts))());
 
 cli.parse();
