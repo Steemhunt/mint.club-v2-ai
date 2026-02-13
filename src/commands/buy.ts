@@ -4,6 +4,7 @@ import { BOND } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, shortHash, txUrl } from '../utils/format';
 import { saveToken } from '../utils/tokens';
+import { ensureApproval } from '../utils/approve';
 
 export async function buy(token: Address, amount: string, maxCost: string | undefined, privateKey: `0x${string}`) {
   const pub = getPublicClient();
@@ -15,6 +16,10 @@ export async function buy(token: Address, amount: string, maxCost: string | unde
   const totalCost = reserveAmount + royalty;
   console.log(`   Reserve: ${fmt(reserveAmount)} | Royalty: ${fmt(royalty)} | Total: ${fmt(totalCost)}`);
   if (maxCost && totalCost > parse(maxCost)) throw new Error(`Cost ${fmt(totalCost)} exceeds max ${maxCost}`);
+  // Approve reserve token for Bond contract
+  const bondData = await pub.readContract({ address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] });
+  const reserveToken = bondData[4] as Address;
+  await ensureApproval(pub, wallet, reserveToken, BOND, totalCost);
   const args = [token, tokensToMint, totalCost, account.address] as const;
   await pub.simulateContract({ account, address: BOND, abi: BOND_ABI, functionName: 'mint', args });
   console.log('📤 Sending...');

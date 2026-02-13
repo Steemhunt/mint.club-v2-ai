@@ -2,6 +2,7 @@ import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { ZAP_V2, BOND, WETH as WETH_ADDR } from '../config/contracts';
 import { saveToken } from '../utils/tokens';
+import { ensureApproval } from '../utils/approve';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, shortHash, txUrl } from '../utils/format';
@@ -61,6 +62,9 @@ export async function zapSell(
     commands = V3_SWAP_COMMAND;
     inputs = [swapInput];
   }
+
+  // Approve MC token for ZapV2
+  await ensureApproval(pub, wallet, token, ZAP_V2, tokensToBurn);
 
   const args = [token, tokensToBurn, actualOutputToken, minOut, commands, inputs, deadline, account.address] as const;
   const { result } = await pub.simulateContract({ account, address: ZAP_V2, abi: ZAP_V2_ABI, functionName: 'zapBurn', args });
