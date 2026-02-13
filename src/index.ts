@@ -11,6 +11,7 @@ import { create } from './commands/create';
 import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
+import { send } from './commands/send';
 import { getZapV2Address } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -115,6 +116,17 @@ cli.command('zap-sell')
       opts.minOutput, opts.path, chain, requireKey(),
     );
   })());
+
+cli.command('send')
+  .description('Send ETH, ERC-20, or ERC-1155 tokens to another wallet')
+  .argument('<to>', 'Recipient address')
+  .requiredOption('-a, --amount <n>', 'Amount to send (token units for ERC-20, quantity for ERC-1155)')
+  .option('-t, --token <addr>', 'Token contract address (omit for native ETH)')
+  .option('--token-id <id>', 'ERC-1155 token ID')
+  .option('-c, --chain <chain>', 'Chain', 'base')
+  .action((to, opts) => run(() =>
+    send(to as Address, opts.amount, validateChain(opts.chain), requireKey(), { token: opts.token, tokenId: opts.tokenId })
+  )());
 
 cli.command('wallet')
   .description('Show wallet address or generate a new one')

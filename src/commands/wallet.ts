@@ -7,8 +7,9 @@ const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
 
 function printKeyWarning() {
-  console.log('⚠️  WARNING: Back up your private key! If you lose ~/.mintclub/.env');
-  console.log('   or your private key, your funds are gone forever — there is no recovery.');
+  console.log('⚠️  WARNING: Back up your private key in a secure, encrypted location!');
+  console.log('   If you lose ~/.mintclub/.env or your private key, your funds are');
+  console.log('   gone forever — there is no way to recover them.');
   console.log('   If your key is leaked, anyone can drain your wallet immediately.');
 }
 
