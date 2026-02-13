@@ -42,7 +42,7 @@ export function printTokenInfo(t: {
     const last = t.steps[t.steps.length - 1];
     const firstPrice = Number(first.price) / 1e18;
     const lastPrice = Number(last.price) / 1e18;
-    const increase = firstPrice > 0 ? ((lastPrice / firstPrice - 1) * 100).toFixed(0) : '∞';
-    console.log(`📈 Bonding Curve: ${t.steps.length} steps, ${fmt(first.price)} → ${fmt(last.price)} per token (+${increase}%)`);
+    const times = firstPrice > 0 ? (lastPrice / firstPrice).toFixed(0) : '∞';
+    console.log(`📈 Bonding Curve: ${t.steps.length} steps, ${fmt(first.price)} → ${fmt(last.price)} per token (+${times}x)`);
   }
 }
