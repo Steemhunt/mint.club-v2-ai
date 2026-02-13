@@ -8,7 +8,17 @@ const TOKEN_FILE = resolve(homedir(), '.mintclub', 'tokens.json');
 /** Load saved token addresses */
 export function loadTokens(): Address[] {
   if (!existsSync(TOKEN_FILE)) return [];
-  try { return JSON.parse(readFileSync(TOKEN_FILE, 'utf-8')); } catch { return []; }
+  try {
+    const data = JSON.parse(readFileSync(TOKEN_FILE, 'utf-8'));
+    if (Array.isArray(data)) return data;
+    // Migrate old {symbol: address} format
+    if (typeof data === 'object' && data !== null) {
+      const addrs = Object.values(data).filter(v => typeof v === 'string' && (v as string).startsWith('0x')) as Address[];
+      writeFileSync(TOKEN_FILE, JSON.stringify(addrs, null, 2) + '\n');
+      return addrs;
+    }
+    return [];
+  } catch { return []; }
 }
 
 /** Save a token address (deduped, checksummed) */
