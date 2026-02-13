@@ -93,11 +93,11 @@ cli.command('create')
   )());
 
 cli.command('zap-buy')
-  .description('Buy tokens with any token via ZapV2 (Base only)')
+  .description('Buy tokens with any token via ZapV2 (auto-routes swap)')
   .argument('<token>', 'Token address')
-  .requiredOption('-i, --input-token <addr>', 'Input token (0x0 for ETH)')
+  .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address)')
   .requiredOption('-a, --input-amount <n>', 'Input amount')
-  .requiredOption('-p, --path <p>', 'Swap path: token,fee,token,...')
+  .option('-p, --path <p>', 'Manual swap path: token,fee,token,... (auto-finds if omitted)')
   .option('-m, --min-tokens <n>', 'Min tokens out')
   .option('-c, --chain <chain>', 'Chain', 'base')
   .action((token, opts) => run(() => {
@@ -110,11 +110,11 @@ cli.command('zap-buy')
   })());
 
 cli.command('zap-sell')
-  .description('Sell tokens for any token via ZapV2 (Base only)')
+  .description('Sell tokens for any token via ZapV2 (auto-routes swap)')
   .argument('<token>', 'Token address')
   .requiredOption('-a, --amount <n>', 'Tokens to sell')
-  .requiredOption('-o, --output-token <addr>', 'Output token (0x0 for ETH)')
-  .requiredOption('-p, --path <p>', 'Swap path: token,fee,token,...')
+  .requiredOption('-o, --output-token <addr>', 'Output token (ETH or address)')
+  .option('-p, --path <p>', 'Manual swap path: token,fee,token,... (auto-finds if omitted)')
   .option('-m, --min-output <n>', 'Min output')
   .option('-c, --chain <chain>', 'Chain', 'base')
   .action((token, opts) => run(() => {
