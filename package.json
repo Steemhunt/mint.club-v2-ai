@@ -1,0 +1,37 @@
+{
+  "name": "mint.club-v2-cli",
+  "version": "1.0.0",
+  "description": "CLI for Mint Club V2 bonding curve tokens",
+  "main": "dist/index.js",
+  "bin": {
+    "mintclub": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --format esm --target node",
+    "start": "bun src/index.ts",
+    "check": "tsc --noEmit"
+  },
+  "keywords": [
+    "mint",
+    "club",
+    "bonding",
+    "curve",
+    "crypto",
+    "defi"
+  ],
+  "author": "h1-hunt <h1@hunt.town>",
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "ts-node": "^10.9.2",
+    "viem": "^2.21.49"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
