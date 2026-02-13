@@ -75,6 +75,7 @@ export async function createCommand(
     // Execute the transaction
     console.log('📤 Sending transaction...');
     const hash = await walletClient.writeContract({
+      chain: walletClient.chain,
       address: bondAddress,
       abi: MCV2_BOND_ABI,
       functionName: 'createToken',

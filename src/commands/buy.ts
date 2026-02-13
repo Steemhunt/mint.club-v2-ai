@@ -53,13 +53,14 @@ export async function buyCommand(
         tokenAddress as `0x${string}`,
         tokensToMint,
         totalCost, // Use total cost as max to ensure it doesn't revert
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     
     // Execute the transaction
     console.log('📤 Sending transaction...');
     const hash = await walletClient.writeContract({
+      chain: walletClient.chain,
       address: bondAddress,
       abi: MCV2_BOND_ABI,
       functionName: 'mint',
@@ -67,7 +68,7 @@ export async function buyCommand(
         tokenAddress as `0x${string}`,
         tokensToMint,
         totalCost,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     

@@ -70,7 +70,7 @@ export async function zapBuyCommand(
         commands,
         [swapInput],
         deadline,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
       value: isETH ? inputAmountWei : 0n,
     });
@@ -81,6 +81,7 @@ export async function zapBuyCommand(
     // Execute the transaction
     console.log('📤 Sending transaction...');
     const hash = await walletClient.writeContract({
+      chain: walletClient.chain,
       address: zapV2Address,
       abi: MCV2_ZAP_V2_ABI,
       functionName: 'zapMint',
@@ -92,7 +93,7 @@ export async function zapBuyCommand(
         commands,
         [swapInput],
         deadline,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
       value: isETH ? inputAmountWei : 0n,
     });

@@ -44,7 +44,7 @@ export async function zapSellCommand(
     const commands = createSwapCommands();
     
     const swapInput = encodeV3SwapInput(
-      walletClient.account.address, // recipient (user gets the output tokens)
+      walletClient.account!.address, // recipient (user gets the output tokens)
       0n, // amountIn will be determined by ZapV2 based on burn proceeds
       minOutputAmount,
       swapPath,
@@ -67,7 +67,7 @@ export async function zapSellCommand(
         commands,
         [swapInput],
         deadline,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     
@@ -77,6 +77,7 @@ export async function zapSellCommand(
     // Execute the transaction
     console.log('📤 Sending transaction...');
     const hash = await walletClient.writeContract({
+      chain: walletClient.chain,
       address: zapV2Address,
       abi: MCV2_ZAP_V2_ABI,
       functionName: 'zapBurn',
@@ -88,7 +89,7 @@ export async function zapSellCommand(
         commands,
         [swapInput],
         deadline,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     

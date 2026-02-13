@@ -29,9 +29,9 @@ export async function sellCommand(
       args: [tokenAddress as `0x${string}`, tokensToBurn],
     });
     
-    const netRefund = refundAmount - royalty;
-    console.log(`   Gross refund: ${formatAmount(refundAmount)}`);
-    console.log(`   Royalty: ${formatAmount(royalty)}`);
+    const netRefund = BigInt(refundAmount) - BigInt(royalty);
+    console.log(`   Gross refund: ${formatAmount(BigInt(refundAmount))}`);
+    console.log(`   Royalty: ${formatAmount(BigInt(royalty))}`);
     console.log(`   Net refund: ${formatAmount(netRefund)}`);
     
     // Check min refund if provided
@@ -53,13 +53,14 @@ export async function sellCommand(
         tokenAddress as `0x${string}`,
         tokensToBurn,
         minRefund ? parseAmount(minRefund) : 0n,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     
     // Execute the transaction
     console.log('📤 Sending transaction...');
     const hash = await walletClient.writeContract({
+      chain: walletClient.chain,
       address: bondAddress,
       abi: MCV2_BOND_ABI,
       functionName: 'burn',
@@ -67,7 +68,7 @@ export async function sellCommand(
         tokenAddress as `0x${string}`,
         tokensToBurn,
         minRefund ? parseAmount(minRefund) : 0n,
-        walletClient.account.address,
+        walletClient.account!.address,
       ],
     });
     
