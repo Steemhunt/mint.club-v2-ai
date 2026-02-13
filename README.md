@@ -65,7 +65,7 @@ Mint Club V2 is a bonding curve token protocol on Base. Tokens are created with 
 - **MCP Registry:** [io.github.h1-hunt/mintclub](https://registry.modelcontextprotocol.io)
 - **mcp.so:** [mint-club](https://mcp.so/server/mint-club/H-1)
 - **ClawHub:** [mintclub](https://clawhub.com/skills/mintclub) — `clawhub install mintclub`
-- **ElizaOS:** [Plugin PR #6497](https://github.com/elizaOS/eliza/pull/6497)
+- **ElizaOS:** [Plugin PR #6498](https://github.com/elizaOS/eliza/pull/6498)
 
 ## License
 
