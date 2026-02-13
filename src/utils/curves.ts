@@ -61,3 +61,53 @@ export function generateCurve(
 export function isCurveType(s: string): s is CurveType {
   return ['linear', 'exponential', 'logarithmic', 'flat'].includes(s);
 }
+
+/**
+ * Calculate accumulated reserve cost to reach each milestone.
+ * Uses trapezoidal integration over the step prices.
+ */
+export function calculateMilestones(
+  ranges: bigint[],
+  prices: bigint[],
+  milestones = [10, 25, 50, 75, 100],
+): { milestone: number; supply: bigint; cost: bigint }[] {
+  const maxSupply = ranges[ranges.length - 1];
+  const results: { milestone: number; supply: bigint; cost: bigint }[] = [];
+
+  for (const pct of milestones) {
+    const targetSupply = (maxSupply * BigInt(pct)) / 100n;
+    let totalCost = 0n;
+    let prevRange = 0n;
+
+    for (let i = 0; i < ranges.length; i++) {
+      const rangeStart = prevRange;
+      const rangeEnd = ranges[i];
+      const price = prices[i];
+
+      if (targetSupply <= rangeStart) break;
+
+      const effectiveEnd = targetSupply < rangeEnd ? targetSupply : rangeEnd;
+      const width = effectiveEnd - rangeStart;
+      // cost = width * price / 1e18 (both are in wei)
+      totalCost += (width * price) / (10n ** 18n);
+
+      prevRange = rangeEnd;
+      if (targetSupply <= rangeEnd) break;
+    }
+
+    results.push({ milestone: pct, supply: targetSupply, cost: totalCost });
+  }
+
+  return results;
+}
+
+/** Format large numbers with K/M/B suffixes */
+export function compactNum(n: bigint, decimals = 18): string {
+  const val = Number(n) / 1e18;
+  if (val >= 1e9) return `${(val / 1e9).toFixed(2)}B`;
+  if (val >= 1e6) return `${(val / 1e6).toFixed(2)}M`;
+  if (val >= 1e3) return `${(val / 1e3).toFixed(2)}K`;
+  if (val >= 1) return val.toFixed(2);
+  if (val >= 0.001) return val.toFixed(4);
+  return val.toFixed(6);
+}

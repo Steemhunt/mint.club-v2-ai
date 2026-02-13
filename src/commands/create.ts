@@ -4,7 +4,7 @@ import { getPublicClient, getWalletClient } from '../client';
 import { getBondAddress } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, parseSteps, shortHash } from '../utils/format';
-import { generateCurve, isCurveType, type CurveType } from '../utils/curves';
+import { generateCurve, isCurveType, calculateMilestones, compactNum, type CurveType } from '../utils/curves';
 import type { SupportedChain } from '../config/chains';
 
 function confirm(question: string): Promise<boolean> {
@@ -63,6 +63,23 @@ export async function create(
 
   const creationFee = await pub.readContract({ address: bond, abi: BOND_ABI, functionName: 'creationFee' });
   if (creationFee > 0n) console.log(`   Creation fee: ${fmt(creationFee)} ETH`);
+
+  // Price range
+  const minPrice = fmt(prices[0]);
+  const maxPrice = fmt(prices[prices.length - 1]);
+  console.log(`\n📊 Price Range: ${minPrice} → ${maxPrice} reserve per token`);
+
+  // Accumulated reserve milestones
+  const milestones = calculateMilestones(ranges, prices);
+  const maxTvl = milestones[milestones.length - 1].cost;
+
+  console.log(`\n💰 Accumulated reserve required to mint:`);
+  const header = milestones.map(m => `${m.milestone}%`.padStart(12)).join('');
+  const values = milestones.map(m => compactNum(m.cost).padStart(12)).join('');
+  console.log(`  ${header}`);
+  console.log(`  ${values}`);
+
+  console.log(`\n🏦 Max TVL (fully minted): ${compactNum(maxTvl)} reserve`);
 
   if (!opts.yes) {
     const ok = await confirm('\n⚡ Proceed with token creation? (y/N) ');
