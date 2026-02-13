@@ -4,7 +4,7 @@ import { getZapV2Address, getBondAddress } from '../config/contracts';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, shortHash } from '../utils/format';
-import { encodeV3Path, encodeV3SwapInput, V3_SWAP_COMMAND, parsePath } from '../utils/swap';
+import { encodeV3Path, encodeV3SwapInput, V3_SWAP_COMMAND, parsePath, UNWRAP_WETH_COMMAND, encodeUnwrapWethInput } from '../utils/swap';
 import { findBestRoute, isRouteSupported } from '../utils/router';
 import type { SupportedChain } from '../config/chains';
 
@@ -72,10 +72,24 @@ export async function zapSell(
 
   console.log(`⚡ Zap selling ${amount} tokens of ${token.slice(0, 10)}... for ${isETH ? 'ETH' : outputToken.slice(0, 10)} on ${chain}`);
 
-  const swapInput = encodeV3SwapInput(zapV2, refundAmount, minOut, path);
+  // For ETH output: swap to WETH (keep in router), then UNWRAP_WETH to ZapV2
+  // For ERC-20 output: just V3_SWAP to ZapV2
+  const swapRecipient = isETH ? ('0x0000000000000000000000000000000000000002' as `0x${string}`) : zapV2;
+  const swapInput = encodeV3SwapInput(swapRecipient, refundAmount, 0n, path);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
-  const args = [token, tokensToBurn, actualOutputToken, minOut, V3_SWAP_COMMAND, [swapInput], deadline, account.address] as const;
+  let commands: `0x${string}`;
+  let inputs: `0x${string}`[];
+  if (isETH) {
+    const unwrapInput = encodeUnwrapWethInput(zapV2, minOut);
+    commands = ('0x' + V3_SWAP_COMMAND.slice(2) + UNWRAP_WETH_COMMAND.slice(2)) as `0x${string}`;
+    inputs = [swapInput, unwrapInput];
+  } else {
+    commands = V3_SWAP_COMMAND;
+    inputs = [swapInput];
+  }
+
+  const args = [token, tokensToBurn, actualOutputToken, minOut, commands, inputs, deadline, account.address] as const;
   const { result } = await pub.simulateContract({
     account, address: zapV2, abi: ZAP_V2_ABI, functionName: 'zapBurn', args,
   });

@@ -5,7 +5,7 @@ import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { BOND_ABI } from '../abi/bond';
 import { ERC20_ABI } from '../abi/erc20';
 import { fmt, parse, shortHash } from '../utils/format';
-import { encodeV3SwapInput, V3_SWAP_COMMAND, parsePath, encodeV3Path } from '../utils/swap';
+import { encodeV3SwapInput, V3_SWAP_COMMAND, WRAP_ETH_COMMAND, encodeWrapEthInput, parsePath, encodeV3Path } from '../utils/swap';
 import { findBestRoute, isRouteSupported } from '../utils/router';
 import type { SupportedChain } from '../config/chains';
 
@@ -74,7 +74,20 @@ export async function zapBuy(
   const swapInput = encodeV3SwapInput(zapV2, amountIn, 0n, path);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
-  const args = [token, actualInputToken, amountIn, minOut, V3_SWAP_COMMAND, [swapInput], deadline, account.address] as const;
+  // For ETH input: WRAP_ETH first (converts ETH→WETH in router), then V3_SWAP
+  // For ERC-20 input: just V3_SWAP (ZapV2 transfers tokens to router)
+  let commands: `0x${string}`;
+  let inputs: `0x${string}`[];
+  if (isETH) {
+    const wrapInput = encodeWrapEthInput(amountIn);
+    commands = ('0x' + WRAP_ETH_COMMAND.slice(2) + V3_SWAP_COMMAND.slice(2)) as `0x${string}`;
+    inputs = [wrapInput, swapInput];
+  } else {
+    commands = V3_SWAP_COMMAND;
+    inputs = [swapInput];
+  }
+
+  const args = [token, actualInputToken, amountIn, minOut, commands, inputs, deadline, account.address] as const;
   const { result } = await pub.simulateContract({
     account, address: zapV2, abi: ZAP_V2_ABI, functionName: 'zapMint',
     args, value: isETH ? amountIn : 0n,

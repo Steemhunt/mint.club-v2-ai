@@ -30,6 +30,31 @@ export function encodeV3SwapInput(
 /** Command byte for V3_SWAP_EXACT_IN */
 export const V3_SWAP_COMMAND: `0x${string}` = '0x00';
 
+/** Command byte for WRAP_ETH */
+export const WRAP_ETH_COMMAND: `0x${string}` = '0x0b';
+
+/** UniversalRouter sentinel for address(this) */
+const ADDRESS_THIS = '0x0000000000000000000000000000000000000002' as `0x${string}`;
+
+/** ABI-encode WRAP_ETH input: (address recipient, uint256 amountMin) */
+export function encodeWrapEthInput(amountMin: bigint): `0x${string}` {
+  return encodeAbiParameters(
+    parseAbiParameters('address, uint256'),
+    [ADDRESS_THIS, amountMin],
+  );
+}
+
+/** Command byte for UNWRAP_WETH */
+export const UNWRAP_WETH_COMMAND: `0x${string}` = '0x0c';
+
+/** ABI-encode UNWRAP_WETH input: (address recipient, uint256 amountMin) */
+export function encodeUnwrapWethInput(recipient: `0x${string}`, amountMin: bigint): `0x${string}` {
+  return encodeAbiParameters(
+    parseAbiParameters('address, uint256'),
+    [recipient, amountMin],
+  );
+}
+
 /**
  * Parse CLI path string: "0xAddr1,fee1,0xAddr2,fee2,0xAddr3"
  * Returns tokens and fees arrays for V3 path encoding.
