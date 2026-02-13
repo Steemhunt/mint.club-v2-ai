@@ -1,0 +1,23 @@
+{
+  "name": "@mintclub/mcp",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for Mint Club V2 on Base",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mintclub-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --outdir dist --target node --format esm",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "viem": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "bun-types": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}
