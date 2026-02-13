@@ -151,7 +151,8 @@ cli.command('upgrade')
     console.log('⬆️  Upgrading mint.club-cli...');
     try {
       execSync('npm update -g mint.club-cli', { stdio: 'inherit' });
-      console.log('✅ Upgraded! Run `mc --version` to check.');
+      const newVersion = execSync('mc --version', { encoding: 'utf-8' }).trim();
+      console.log(`✅ Upgraded to v${newVersion}`);
     } catch {
       console.error('❌ Upgrade failed. Try: npm update -g mint.club-cli');
       process.exit(1);
