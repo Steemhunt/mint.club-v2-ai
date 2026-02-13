@@ -1,78 +1,68 @@
 # Mint Club V2 — MCP Server
 
-[Model Context Protocol](https://modelcontextprotocol.io) server for Mint Club V2 on Base. Enables AI assistants (Claude, Cursor, etc.) to interact with bonding curve tokens through standardized tool calls.
+[![npm](https://img.shields.io/npm/v/mintclub-mcp.svg?style=flat-square)](https://www.npmjs.com/package/mintclub-mcp)
 
-## Setup
+[Model Context Protocol](https://modelcontextprotocol.io) server for [Mint Club V2](https://mint.club) on Base. Enables AI assistants to trade bonding curve tokens through standardized tool calls.
 
-### Prerequisites
+> Part of the [mint.club-v2-ai](https://github.com/Steemhunt/mint.club-v2-ai) monorepo.
 
-```bash
-npm install -g mint.club-cli   # Install the CLI
-mc wallet --set-private-key 0x... # Set up wallet
-```
-
-### Install & Build
-
-```bash
-cd mcp
-npm install
-npm run build
-```
-
-### Configure in Claude Desktop
-
-Add to `claude_desktop_config.json`:
+## Quick Start
 
 ```json
 {
   "mcpServers": {
     "mintclub": {
-      "command": "node",
-      "args": ["/path/to/mint.club-v2-ai/mcp/dist/index.js"],
-      "env": {
-        "PRIVATE_KEY": "0x..."
-      }
+      "command": "npx",
+      "args": ["-y", "mintclub-mcp"],
+      "env": { "PRIVATE_KEY": "0x..." }
     }
   }
 }
 ```
 
-## Available Tools
+Add this to your Claude Desktop (`claude_desktop_config.json`) or Cursor MCP config.
+
+### Prerequisites
+
+The MCP server wraps the [`mc` CLI](../cli/), so it must be installed:
+
+```bash
+npm install -g mint.club-cli
+mc wallet --set-private-key 0x...
+```
+
+## Tools
 
 | Tool | Description |
 |------|-------------|
-| `token_info` | Get token info (price, supply, reserve, curve) |
-| `token_price` | Get token price in reserve + USD |
-| `wallet_balance` | Show wallet address and balances |
-| `buy_token` | Buy (mint) tokens via bonding curve |
-| `sell_token` | Sell (burn) tokens via bonding curve |
-| `swap` | Swap any token pair via Uniswap V3/V4 |
+| `token_info` | Token details — price, supply, reserve, bonding curve |
+| `token_price` | Current price in reserve token + USD |
+| `wallet_balance` | Wallet address and balances |
+| `buy_token` | Buy (mint) via bonding curve |
+| `sell_token` | Sell (burn) via bonding curve |
+| `swap` | Smart swap — auto-routes via bonding curve or Uniswap V3/V4 |
 | `zap_buy` | Buy bonding curve tokens with any token |
 | `zap_sell` | Sell bonding curve tokens for any token |
 | `send_token` | Transfer ETH or ERC-20 tokens |
 | `create_token` | Create a new bonding curve token |
 
-## How It Works
+## Example Prompts
 
-The MCP server wraps the `mc` CLI, translating MCP tool calls into CLI commands. Read operations use viem directly for speed; write operations shell out to `mc` for full transaction handling (approvals, gas, confirmation).
+- *"What's the price of SIGNET?"* → `token_price`
+- *"Buy 100 SIGNET with ETH"* → `zap_buy`
+- *"Swap 0.01 ETH for HUNT"* → `swap`
+- *"Create a token called TEST with exponential curve"* → `create_token`
 
-## Example Interactions
+## Development
 
-> "What's the price of SIGNET?"
-→ Calls `token_price` tool
+```bash
+cd mcp
+npm install
+npm run build
+node dist/index.js  # Run locally
+```
 
-> "Buy 100 SIGNET with ETH"
-→ Calls `zap_buy` with token=SIGNET, inputToken=ETH
+## Registry Listings
 
-> "Swap 0.01 ETH for HUNT"
-→ Calls `swap` with inputToken=ETH, outputToken=HUNT, amount=0.01
-
-## Links
-
-- [Mint Club V2 Docs](https://docs.mint.club)
-- [MCP Specification](https://modelcontextprotocol.io)
-- [CLI Package (npm)](https://www.npmjs.com/package/mint.club-cli)
 - [MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.h1-hunt/mintclub`
 - [mcp.so](https://mcp.so/server/mint-club/H-1)
-- [ClawHub Agent Skill](https://clawhub.com/skills/mintclub) — `clawhub install mintclub`
-- [ElizaOS Plugin PR](https://github.com/elizaOS/eliza/pull/6498)

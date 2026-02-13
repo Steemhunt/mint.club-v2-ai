@@ -5,6 +5,8 @@
 [![npm](https://img.shields.io/npm/v/mint.club-cli.svg?style=flat-square)](https://www.npmjs.com/package/mint.club-cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
+> Part of the [mint.club-v2-ai](https://github.com/Steemhunt/mint.club-v2-ai) monorepo.
+
 ---
 
 [Mint Club V2](https://mint.club) is a permissionless bonding curve protocol — launch a token backed by any reserve asset with automated pricing. No liquidity pool required.
