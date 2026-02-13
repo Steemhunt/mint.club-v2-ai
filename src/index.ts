@@ -40,6 +40,10 @@ function cleanError(e: unknown): string {
     return `Insufficient funds: have ${have} ETH, need ${want} ETH`;
   }
 
+  // "reverted with the following reason:" from viem
+  const reason = msg.match(/reverted with the following reason:\s*\n?\s*(.+?)(?:\n|$)/);
+  if (reason && reason[1].trim()) return `Transaction reverted: ${reason[1].trim()}`;
+
   // "execution reverted" with reason
   const revert = msg.match(/execution reverted[:\s]*(.+?)(?:\n|$)/);
   if (revert) return `Transaction reverted: ${revert[1].trim()}`;
