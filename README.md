@@ -12,7 +12,7 @@
 - 🌐 **App**: [mint.club](https://mint.club)
 - 📖 **Docs**: [docs.mint.club](https://docs.mint.club)
 - 🐦 **Twitter**: [@MintClubPro](https://twitter.com/MintClubPro)
-- 💬 **Discord**: [discord.gg/mint-club](https://discord.gg/mint-club)
+- 💬 **Chat**: [OnChat](https://onchat.sebayaki.com/mintclub)
 - 📦 **SDK**: [mint.club-v2-sdk](https://www.npmjs.com/package/mint.club-v2-sdk)
 - 🔗 **GitHub**: [github.com/Steemhunt](https://github.com/Steemhunt)
 
