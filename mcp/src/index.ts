@@ -308,6 +308,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 });
 
+// ── Sandbox (for Smithery scanning) ─────────────────────────────────────
+
+export function createSandboxServer() {
+  return server;
+}
+
 // ── Start ───────────────────────────────────────────────────────────────
 
 async function main() {

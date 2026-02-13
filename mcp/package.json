@@ -1,6 +1,6 @@
 {
   "name": "mintclub-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "mcpName": "io.github.h1-hunt/mintclub",
   "description": "Model Context Protocol server for Mint Club V2 on Base — trade bonding curve tokens via AI",
   "type": "module",

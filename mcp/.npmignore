@@ -1,0 +1,4 @@
+.mcpregistry_*
+tsconfig.json
+src/
+server.json
