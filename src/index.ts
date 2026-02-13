@@ -72,15 +72,21 @@ cli.command('create')
   .requiredOption('-s, --symbol <sym>', 'Token symbol')
   .requiredOption('-r, --reserve <addr>', 'Reserve token address')
   .requiredOption('-x, --max-supply <n>', 'Max supply')
-  .requiredOption('-t, --steps <s>', 'Steps: "range:price,range:price,..."')
+  .option('-t, --steps <s>', 'Custom steps: "range:price,range:price,..."')
+  .option('--curve <type>', 'Curve preset: linear, exponential, logarithmic, flat')
+  .option('--initial-price <n>', 'Starting price (with --curve)')
+  .option('--final-price <n>', 'Final price (with --curve)')
   .option('-c, --chain <chain>', 'Chain', 'base')
   .option('--mint-royalty <bp>', 'Mint royalty (bps)', '0')
   .option('--burn-royalty <bp>', 'Burn royalty (bps)', '0')
   .action((opts) => run(() =>
     create(
-      opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply, opts.steps,
-      validateChain(opts.chain), requireKey(),
-      parseInt(opts.mintRoyalty), parseInt(opts.burnRoyalty),
+      opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply,
+      validateChain(opts.chain), requireKey(), {
+        steps: opts.steps, curve: opts.curve,
+        initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
+        mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty),
+      },
     )
   )());
 

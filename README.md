@@ -114,7 +114,9 @@ mc sell 0xTokenAddress -a 50 -m 10       # Sell 50 tokens, minimum refund 10
 
 ### `mc create`
 
-Create a new bonding curve token.
+Create a new bonding curve token. Use a **curve preset** for easy setup, or define **custom steps** for full control.
+
+#### Using curve presets (recommended)
 
 ```bash
 mc create \
@@ -122,9 +124,26 @@ mc create \
   -s MTK \
   -r 0xReserveTokenAddress \
   -x 1000000 \
-  -t "500000:0.01,1000000:1.0" \
-  --mint-royalty 30 \
-  --burn-royalty 30
+  --curve exponential \
+  --initial-price 0.01 \
+  --final-price 100
+```
+
+Available curves:
+- **`linear`** — price increases steadily from start to end
+- **`exponential`** — slow start, accelerating growth (most common)
+- **`logarithmic`** — fast early growth, flattens toward the end
+- **`flat`** — constant price (initial and final price must match)
+
+#### Using custom steps
+
+```bash
+mc create \
+  -n "My Token" \
+  -s MTK \
+  -r 0xReserveTokenAddress \
+  -x 1000000 \
+  -t "500000:0.01,1000000:1.0"
 ```
 
 | Option | Description |
@@ -133,7 +152,10 @@ mc create \
 | `-s, --symbol <sym>` | Token symbol (required) |
 | `-r, --reserve <addr>` | Reserve token address (required) |
 | `-x, --max-supply <n>` | Maximum supply (required) |
-| `-t, --steps <s>` | Bonding curve steps as `range:price,...` (required) |
+| `--curve <type>` | Curve preset: `linear`, `exponential`, `logarithmic`, `flat` |
+| `--initial-price <n>` | Starting price (required with `--curve`) |
+| `--final-price <n>` | Final price (required with `--curve`) |
+| `-t, --steps <s>` | Custom steps as `range:price,...` (alternative to `--curve`) |
 | `--mint-royalty <bp>` | Mint royalty in basis points (default: 0) |
 | `--burn-royalty <bp>` | Burn royalty in basis points (default: 0) |
 | `-c, --chain <chain>` | Target chain (default: `base`) |
