@@ -15,6 +15,7 @@ import { send } from './commands/send';
 import { getZapV2Address } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
+declare const __VERSION__: string;
 
 // Load from ~/.mintclub/.env first, then cwd/.env as fallback
 config({ path: resolve(homedir(), '.mintclub', '.env') });
@@ -37,7 +38,7 @@ function run(fn: () => Promise<void>) {
 const cli = new Command()
   .name('mc')
   .description('Mint Club V2 CLI — bonding curve tokens')
-  .version('1.0.0');
+  .version(__VERSION__);
 
 cli.command('info')
   .description('Get token info')
