@@ -69,7 +69,7 @@ export async function zapBuy(
     console.log(`   Expected swap output: ${fmt(route.amountOut)} reserve`);
   }
 
-  console.log(`⚡ Zap buying ${token.slice(0, 10)}... with ${inputAmount} ${isETH ? 'ETH' : inputToken.slice(0, 10)} on ${chain}`);
+  console.log(`⚡ Spending ${inputAmount} ${isETH ? 'ETH' : inputToken.slice(0, 10)} to zap-buy ${token.slice(0, 10)}... on ${chain}`);
 
   const swapInput = encodeV3SwapInput(zapV2, amountIn, 0n, path);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);

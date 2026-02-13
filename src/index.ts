@@ -122,7 +122,7 @@ cli.command('zap-buy')
   .description('Buy tokens with any token via ZapV2 (auto-routes swap)')
   .argument('<token>', 'Token address')
   .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address)')
-  .requiredOption('-a, --input-amount <n>', 'Input amount')
+  .requiredOption('-a, --amount <n>', 'Amount of input token to spend (e.g. 0.01 ETH)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,... (auto-finds if omitted)')
   .option('-m, --min-tokens <n>', 'Min tokens out')
   .option('-c, --chain <chain>', 'Chain', 'base')
@@ -130,7 +130,7 @@ cli.command('zap-buy')
     const chain = validateChain(opts.chain);
     if (!getZapV2Address(chain)) throw new Error('ZapV2 is Base only');
     return zapBuy(
-      token as Address, opts.inputToken as Address, opts.inputAmount,
+      token as Address, opts.inputToken as Address, opts.amount,
       opts.minTokens, opts.path, chain, requireKey(),
     );
   })());
