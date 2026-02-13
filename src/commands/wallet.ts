@@ -5,7 +5,8 @@ import { homedir } from 'os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { getPublicClient } from '../client';
 import { ERC20_ABI } from '../abi/erc20';
-import { TOKENS } from '../config/contracts';
+import { TOKENS, WETH } from '../config/contracts';
+import { getUsdPrice } from '../utils/price';
 
 const ENV_DIR = resolve(homedir(), '.mintclub');
 const ENV_PATH = resolve(ENV_DIR, '.env');
@@ -56,13 +57,34 @@ export async function wallet(opts: { generate?: boolean; setPrivateKey?: string 
 
   const client = getPublicClient();
   const ethBalance = await client.getBalance({ address: account.address });
-  console.log(`💰 Balances on Base:\n   ETH: ${formatUnits(ethBalance, 18)}`);
 
+  // Fetch all token balances
   const results = await client.multicall({
     contracts: TOKENS.map(t => ({ address: t.address, abi: ERC20_ABI, functionName: 'balanceOf', args: [account.address] })),
   });
+
+  // Get USD prices for ETH + all tokens with balances
+  const ethUsd = await getUsdPrice(WETH);
+  const fmtUsd = (v: number) => v < 0.01 ? v.toExponential(2) : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+
+  let totalUsd = 0;
+  const ethVal = Number(formatUnits(ethBalance, 18));
+  const ethUsdVal = ethUsd !== null ? ethVal * ethUsd : null;
+  if (ethUsdVal !== null) totalUsd += ethUsdVal;
+
+  console.log(`💰 Balances on Base:\n`);
+  console.log(`   ETH: ${formatUnits(ethBalance, 18)}${ethUsdVal !== null ? ` (~$${fmtUsd(ethUsdVal)})` : ''}`);
+
   for (let i = 0; i < TOKENS.length; i++) {
     const bal = results[i].status === 'success' ? results[i].result as bigint : 0n;
-    if (bal > 0n) console.log(`   ${TOKENS[i].symbol}: ${formatUnits(bal, TOKENS[i].decimals)}`);
+    if (bal > 0n) {
+      const amount = Number(formatUnits(bal, TOKENS[i].decimals));
+      const tokenUsd = await getUsdPrice(TOKENS[i].address);
+      const usdVal = tokenUsd !== null ? amount * tokenUsd : null;
+      if (usdVal !== null) totalUsd += usdVal;
+      console.log(`   ${TOKENS[i].symbol}: ${formatUnits(bal, TOKENS[i].decimals)}${usdVal !== null ? ` (~$${fmtUsd(usdVal)})` : ''}`);
+    }
   }
+
+  if (totalUsd > 0) console.log(`\n💵 Total: ~$${fmtUsd(totalUsd)}`);
 }

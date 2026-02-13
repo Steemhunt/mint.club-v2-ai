@@ -11,6 +11,7 @@ import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
+import { price } from './commands/price';
 import { validateChain } from './config/chains';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -56,6 +57,9 @@ function run(fn: () => Promise<void>) {
 }
 
 const cli = new Command().name('mc').description('Mint Club V2 CLI — bonding curve tokens on Base').version(__VERSION__);
+
+cli.command('price').description('Get token price in reserve and USD').argument('<token>', 'Token address')
+  .action((token, opts) => run(() => price(tok(token)))());
 
 cli.command('info').description('Get token info').argument('<token>', 'Token address or symbol')
   .option('-c, --chain <chain>', 'Chain', 'base')
