@@ -11,12 +11,16 @@ import { create } from './commands/create';
 import { zapBuy } from './commands/zap-buy';
 import { zapSell } from './commands/zap-sell';
 import { getZapV2Address } from './config/contracts';
+import { resolve } from 'path';
+import { homedir } from 'os';
 
+// Load from ~/.mintclub/.env first, then cwd/.env as fallback
+config({ path: resolve(homedir(), '.mintclub', '.env') });
 config();
 
 function requireKey(): `0x${string}` {
   const k = process.env.PRIVATE_KEY;
-  if (!k) { console.error('❌ Set PRIVATE_KEY in .env'); process.exit(1); }
+  if (!k) { console.error('❌ Set PRIVATE_KEY in ~/.mintclub/.env or export it'); process.exit(1); }
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
