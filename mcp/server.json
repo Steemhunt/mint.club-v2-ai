@@ -1,13 +1,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.h1-hunt/mintclub",
-  "description": "Trade Mint Club V2 bonding curve tokens on Base — buy, sell, swap, create via AI",
+  "description": "Trade bonding curve tokens on Base via Mint Club V2 — buy, sell, swap, create",
   "repository": {
     "url": "https://github.com/Steemhunt/mint.club-v2-ai",
-    "source": "github",
-    "subfolder": "mcp"
+    "source": "github"
   },
-  "version": "1.0.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "npm",
@@ -18,7 +17,7 @@
       },
       "environmentVariables": [
         {
-          "description": "Wallet private key for signing transactions on Base",
+          "description": "Private key for the wallet used to sign transactions",
           "isRequired": true,
           "format": "string",
           "isSecret": true,
