@@ -9,7 +9,7 @@ export const TOKENS: { symbol: string; address: Address; decimals: number }[] = 
   { symbol: 'ETH',  address: '0x0000000000000000000000000000000000000000', decimals: 18 },
   { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
   { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
-  { symbol: 'HUNT', address: '0x37f0A65b0491c49F4bDdE04F0b5dF27b214FfCf5', decimals: 18 },
+  { symbol: 'HUNT', address: '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C', decimals: 18 },
   { symbol: 'MT',   address: '0xFf45161474C39cB00699070Dd49582e417b57a7E', decimals: 18 },
 ];
 

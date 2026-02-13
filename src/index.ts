@@ -12,6 +12,7 @@ import { zapSell } from './commands/zap-sell';
 import { wallet } from './commands/wallet';
 import { send } from './commands/send';
 import { price } from './commands/price';
+import { swap } from './commands/swap';
 import { resolveToken } from './config/contracts';
 import { resolve } from 'path';
 import { homedir } from 'os';
@@ -91,6 +92,15 @@ cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-r
   .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address/symbol)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-output <n>', 'Min output')
   .action((token, opts) => run(() => zapSell(tok(token), opts.amount, tok(opts.outputToken), opts.minOutput, opts.path, requireKey()))());
+
+cli.command('swap').description('Swap tokens via Uniswap V3 (any token pair)')
+  .requiredOption('-i, --input <token>', 'Input token (ETH, USDC, HUNT, or address)')
+  .requiredOption('-o, --output <token>', 'Output token (ETH, USDC, HUNT, or address)')
+  .requiredOption('-a, --amount <n>', 'Amount of input token to swap')
+  .option('-m, --min-output <n>', 'Min output amount')
+  .option('-p, --path <p>', 'Manual swap path: token,fee,token,...')
+  .option('-s, --slippage <pct>', 'Slippage tolerance %', '1')
+  .action((opts) => run(() => swap(opts.input, opts.output, opts.amount, opts.minOutput, opts.path, parseFloat(opts.slippage), requireKey()))());
 
 cli.command('send').description('Send ETH, ERC-20, or ERC-1155 tokens').argument('<to>', 'Recipient address')
   .requiredOption('-a, --amount <n>', 'Amount to send').option('-t, --token <addr>', 'Token contract (omit for ETH)')

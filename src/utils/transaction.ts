@@ -16,7 +16,7 @@ export interface TransactionOptions {
 export async function executeTransaction(
   client: PublicClient,
   wallet: WalletClient,
-  token: Address,
+  token: Address | undefined,
   options: TransactionOptions,
   successMessage: string,
 ): Promise<void> {
@@ -40,7 +40,7 @@ export async function executeTransaction(
   const receipt = await client.waitForTransactionReceipt({ hash });
   
   if (receipt.status === 'success') {
-    saveToken(token);
+    if (token) saveToken(token);
     console.log(`✅ ${successMessage}`);
   } else {
     throw new Error('Transaction failed');

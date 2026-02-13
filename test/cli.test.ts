@@ -24,7 +24,8 @@ import { ERC20_ABI } from '../src/abi/erc20';
 
 // Utils
 import { encodeV3Path, encodeV3SwapInput, V3_SWAP_COMMAND, WRAP_ETH_COMMAND, UNWRAP_WETH_COMMAND, encodeWrapEthInput, encodeUnwrapWethInput, parsePath } from '../src/utils/swap';
-import { findBestRoute } from '../src/utils/router';
+import { findBestRoute, type Route } from '../src/utils/router';
+import { encodeV4SwapExactInSingle, V4_SWAP_COMMAND, V4_ACTIONS, type PoolKey } from '../src/utils/v4swap';
 
 // Contracts (Base mainnet)
 import { BOND, ZAP_V2, WETH, TOKENS, SPOT_PRICE_AGGREGATOR } from '../src/config/contracts';
@@ -108,6 +109,81 @@ describe('Utility: swap.ts', () => {
     expect(UNWRAP_WETH_COMMAND).toBe('0x0c');
   });
 });
+
+// ─── 1b. V4 Swap Encoding Tests ──────────────────────────────────────────
+
+describe('Utility: v4swap.ts', () => {
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address;
+  const testPoolKey: PoolKey = {
+    currency0: ZERO_ADDR,
+    currency1: HUNT,
+    fee: 49,
+    tickSpacing: 1,
+    hooks: ZERO_ADDR,
+  };
+
+  it('V4_SWAP_COMMAND is 0x10', () => {
+    expect(V4_SWAP_COMMAND).toBe(0x10);
+  });
+
+  it('V4 action constants are correct', () => {
+    expect(V4_ACTIONS.SWAP_EXACT_IN_SINGLE).toBe(0x06);
+    expect(V4_ACTIONS.SETTLE_ALL).toBe(0x0c);
+    expect(V4_ACTIONS.TAKE_ALL).toBe(0x0f);
+  });
+
+  it('encodeV4SwapExactInSingle — returns valid ABI encoding', () => {
+    const encoded = encodeV4SwapExactInSingle(
+      testPoolKey, true, parseEther('0.001'), 0n,
+    );
+    expect(encoded).toMatch(/^0x/);
+    expect(encoded.length).toBeGreaterThan(100);
+  });
+
+  it('encodeV4SwapExactInSingle — zeroForOne=true uses currency0 as input', () => {
+    const encoded = encodeV4SwapExactInSingle(
+      testPoolKey, true, parseEther('1'), parseEther('100'),
+    );
+    // Should contain the currency0 (ZERO) as settle currency and currency1 (HUNT) as take currency
+    expect(encoded).toMatch(/^0x/);
+  });
+
+  it('encodeV4SwapExactInSingle — zeroForOne=false uses currency1 as input', () => {
+    const encoded = encodeV4SwapExactInSingle(
+      testPoolKey, false, parseEther('100'), parseEther('0.001'),
+    );
+    expect(encoded).toMatch(/^0x/);
+  });
+});
+
+// ─── 1c. Route Finding with V3+V4 ────────────────────────────────────────
+
+describe('Route Finding (V3 + V4)', () => {
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as Address;
+
+  it('findBestRoute — ETH → HUNT includes version field', async () => {
+    const route = await findBestRoute(pub, ZERO_ADDR, HUNT, parseEther('0.01'));
+    expect(route).not.toBeNull();
+    expect(route!.version).toMatch(/^v[34]$/);
+    expect(route!.amountOut).toBeGreaterThan(0n);
+    console.log(`    Route: ${route!.description} (${route!.version})`);
+  }, 30000);
+
+  it('findBestRoute — HUNT → ETH finds a route', async () => {
+    const route = await findBestRoute(pub, HUNT, ZERO_ADDR, parseEther('100'));
+    expect(route).not.toBeNull();
+    expect(route!.amountOut).toBeGreaterThan(0n);
+    console.log(`    Route: ${route!.description} (${route!.version})`);
+  }, 30000);
+
+  it('findBestRoute — USDC → WETH finds V3 route', async () => {
+    const route = await findBestRoute(pub, USDC, WETH, parseUnits('10', 6));
+    expect(route).not.toBeNull();
+    expect(route!.version).toBe('v3');
+    expect(route!.amountOut).toBeGreaterThan(0n);
+    console.log(`    Route: ${route!.description}`);
+  }, 30000);
+}, 60000);
 
 // ─── 2. Contract Read Tests (Forked Mainnet) ──────────────────────────────
 
