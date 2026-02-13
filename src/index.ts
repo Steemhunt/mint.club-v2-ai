@@ -77,8 +77,9 @@ cli.command('create')
   .option('--initial-price <n>', 'Starting price (with --curve)')
   .option('--final-price <n>', 'Final price (with --curve)')
   .option('-c, --chain <chain>', 'Chain', 'base')
-  .option('--mint-royalty <bp>', 'Mint royalty (bps)', '0')
-  .option('--burn-royalty <bp>', 'Burn royalty (bps)', '0')
+  .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100')
+  .option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
+  .option('-y, --yes', 'Skip confirmation prompt')
   .action((opts) => run(() =>
     create(
       opts.name, opts.symbol, opts.reserve as Address, opts.maxSupply,
@@ -86,6 +87,7 @@ cli.command('create')
         steps: opts.steps, curve: opts.curve,
         initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
         mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty),
+        yes: opts.yes,
       },
     )
   )());

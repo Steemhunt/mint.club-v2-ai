@@ -1,10 +1,21 @@
 import { type Address } from 'viem';
+import { createInterface } from 'readline';
 import { getPublicClient, getWalletClient } from '../client';
 import { getBondAddress } from '../config/contracts';
 import { BOND_ABI } from '../abi/bond';
 import { fmt, parse, parseSteps, shortHash } from '../utils/format';
 import { generateCurve, isCurveType, type CurveType } from '../utils/curves';
 import type { SupportedChain } from '../config/chains';
+
+function confirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
 
 export async function create(
   name: string, symbol: string, reserve: Address, maxSupply: string,
@@ -16,6 +27,7 @@ export async function create(
     finalPrice?: string;
     mintRoyalty?: number;
     burnRoyalty?: number;
+    yes?: boolean;
   },
 ) {
   const pub = getPublicClient(chain);
@@ -51,6 +63,14 @@ export async function create(
 
   const creationFee = await pub.readContract({ address: bond, abi: BOND_ABI, functionName: 'creationFee' });
   if (creationFee > 0n) console.log(`   Creation fee: ${fmt(creationFee)} ETH`);
+
+  if (!opts.yes) {
+    const ok = await confirm('\n⚡ Proceed with token creation? (y/N) ');
+    if (!ok) {
+      console.log('❌ Cancelled.');
+      return;
+    }
+  }
 
   const tp = { name, symbol };
   const bp = {
