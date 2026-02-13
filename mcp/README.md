@@ -72,3 +72,7 @@ The MCP server wraps the `mc` CLI, translating MCP tool calls into CLI commands.
 - [Mint Club V2 Docs](https://docs.mint.club)
 - [MCP Specification](https://modelcontextprotocol.io)
 - [CLI Package (npm)](https://www.npmjs.com/package/mint.club-cli)
+- [MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.h1-hunt/mintclub`
+- [mcp.so](https://mcp.so/server/mint-club/H-1)
+- [ClawHub Agent Skill](https://clawhub.com/skills/mintclub) — `clawhub install mintclub`
+- [ElizaOS Plugin PR](https://github.com/elizaOS/eliza/pull/6497)
