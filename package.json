@@ -24,7 +24,6 @@
   "dependencies": {
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
-    "ts-node": "^10.9.2",
     "viem": "^2.21.49"
   },
   "devDependencies": {
