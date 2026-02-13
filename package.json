@@ -1,13 +1,15 @@
 {
-  "name": "mint.club-v2-cli",
+  "name": "mint.club-cli",
   "version": "1.0.0",
   "description": "CLI for Mint Club V2 bonding curve tokens",
   "main": "dist/index.js",
+  "files": ["dist", "README.md"],
   "bin": {
     "mc": "./dist/index.js"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir dist --format esm --target node",
+    "build": "bun build src/index.ts --outdir dist --format esm --target node --minify",
+    "prepublishOnly": "bun run build",
     "start": "bun src/index.ts",
     "check": "tsc --noEmit"
   },
