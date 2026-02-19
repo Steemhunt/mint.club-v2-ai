@@ -45,18 +45,10 @@ function predictTokenAddress(symbol: string, implementation: Address): Address {
   return getCreate2Address({ from: BOND, salt, bytecodeHash: initCodeHash });
 }
 
-// Cache the token implementation address (read once from Bond contract)
-let _tokenImplementation: Address | null = null;
-
-async function getTokenImplementation(client: PublicClient): Promise<Address> {
-  if (_tokenImplementation) return _tokenImplementation;
-  _tokenImplementation = await client.readContract({
-    address: BOND,
-    abi: BOND_ABI,
-    functionName: 'tokenImplementation',
-  }) as Address;
-  return _tokenImplementation;
-}
+// ERC20 token implementation used by MCV2_Bond for EIP-1167 clones
+// This is a private immutable in the Bond contract, so we hardcode it here
+// Source: mintpad/src/configs/constants.ts → MCV2_ERC20_IMPLEMENTATION_ADDRESS
+export const TOKEN_IMPLEMENTATION: Address = '0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df';
 
 /**
  * Resolve a token symbol to an address, including Mint Club bonding curve tokens.
@@ -72,7 +64,7 @@ export async function resolveTokenAsync(input: string, client: PublicClient): Pr
   if (token) return token.address;
 
   // Compute deterministic address from symbol
-  const implementation = await getTokenImplementation(client);
+  const implementation = TOKEN_IMPLEMENTATION;
 
   // Try exact input first, then UPPERCASE (Mint Club symbols are typically uppercase)
   const candidates = [input];
