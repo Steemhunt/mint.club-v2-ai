@@ -31,7 +31,7 @@ export function resolveToken(input: string): Address {
  *   salt = keccak256(abi.encodePacked(address(this), symbol))
  *   address = Clones.predictDeterministicAddress(implementation, salt)
  */
-function predictTokenAddress(symbol: string, implementation: Address): Address {
+export function predictTokenAddress(symbol: string, implementation: Address): Address {
   const salt = keccak256(encodePacked(['address', 'string'], [BOND, symbol]));
 
   // EIP-1167 minimal proxy init code: creation code + runtime code with implementation
