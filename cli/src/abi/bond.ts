@@ -98,5 +98,4 @@ export const BOND_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'uint256' }],
   },
-  {
 ] as const;
