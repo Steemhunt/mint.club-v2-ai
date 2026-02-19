@@ -1,4 +1,5 @@
-import type { Address } from 'viem';
+import { type Address, type PublicClient, encodePacked, keccak256, getCreate2Address, concat, toHex } from 'viem';
+import { BOND_ABI } from '../abi/bond';
 
 // Protocol contracts
 export const BOND: Address = '0xc5a076cad94176c2996B32d8466Be1cE757FAa27';
@@ -22,6 +23,73 @@ export function resolveToken(input: string): Address {
   const token = TOKENS.find(t => t.symbol.toUpperCase() === input.toUpperCase());
   if (token) return token.address;
   throw new Error(`Unknown token "${input}". Use an address or one of: ${TOKENS.map(t => t.symbol).join(', ')}`);
+}
+
+/**
+ * Predict the deterministic address for a Mint Club bonding curve token.
+ * Uses CREATE2 with EIP-1167 minimal proxy pattern, matching MCV2_Bond.sol:
+ *   salt = keccak256(abi.encodePacked(address(this), symbol))
+ *   address = Clones.predictDeterministicAddress(implementation, salt)
+ */
+function predictTokenAddress(symbol: string, implementation: Address): Address {
+  const salt = keccak256(encodePacked(['address', 'string'], [BOND, symbol]));
+
+  // EIP-1167 minimal proxy init code: creation code + runtime code with implementation
+  const initCode = concat([
+    '0x3d602d80600a3d3981f3363d3d373d3d3d363d73',
+    implementation,
+    '0x5af43d82803e903d91602b57fd5bf3',
+  ]);
+  const initCodeHash = keccak256(initCode);
+
+  return getCreate2Address({ from: BOND, salt, bytecodeHash: initCodeHash });
+}
+
+// Cache the token implementation address (read once from Bond contract)
+let _tokenImplementation: Address | null = null;
+
+async function getTokenImplementation(client: PublicClient): Promise<Address> {
+  if (_tokenImplementation) return _tokenImplementation;
+  _tokenImplementation = await client.readContract({
+    address: BOND,
+    abi: BOND_ABI,
+    functionName: 'tokenImplementation',
+  }) as Address;
+  return _tokenImplementation;
+}
+
+/**
+ * Resolve a token symbol to an address, including Mint Club bonding curve tokens.
+ * First checks hardcoded base tokens, then computes deterministic address and
+ * verifies it's deployed on-chain.
+ */
+export async function resolveTokenAsync(input: string, client: PublicClient): Promise<Address> {
+  // Direct address passthrough
+  if (input.startsWith('0x') && input.length === 42) return input as Address;
+
+  // Check hardcoded tokens first (instant)
+  const token = TOKENS.find(t => t.symbol.toUpperCase() === input.toUpperCase());
+  if (token) return token.address;
+
+  // Compute deterministic address from symbol
+  const implementation = await getTokenImplementation(client);
+
+  // Try exact input first, then UPPERCASE (Mint Club symbols are typically uppercase)
+  const candidates = [input];
+  if (input !== input.toUpperCase()) candidates.push(input.toUpperCase());
+
+  for (const symbol of candidates) {
+    const predicted = predictTokenAddress(symbol, implementation);
+    const code = await client.getCode({ address: predicted });
+    if (code && code !== '0x') {
+      return predicted;
+    }
+  }
+
+  throw new Error(
+    `Token "${input}" not found on Mint Club. ` +
+    `Use a contract address, or one of: ${TOKENS.map(t => t.symbol).join(', ')}`
+  );
 }
 
 /** Get symbol for an address (returns short address if unknown) */

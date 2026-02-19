@@ -13,7 +13,8 @@ import { wallet } from './commands/wallet';
 import { send } from './commands/send';
 import { price } from './commands/price';
 import { swap } from './commands/swap';
-import { resolveToken } from './config/contracts';
+import { resolveToken, resolveTokenAsync } from './config/contracts';
+import { getPublicClient } from './client';
 import { resolve } from 'path';
 import { homedir } from 'os';
 declare const __VERSION__: string;
@@ -27,10 +28,17 @@ function requireKey(): `0x${string}` {
   return (k.startsWith('0x') ? k : `0x${k}`) as `0x${string}`;
 }
 
-/** Parse token address or symbol */
+/** Parse token address or symbol (sync — hardcoded tokens only) */
 function tok(input: string): Address {
   try { return resolveToken(input); }
   catch (e) { console.error(`❌ ${(e as Error).message}`); process.exit(1); }
+}
+
+/** Parse token address or symbol (async — includes on-chain Mint Club token lookup) */
+async function tokAsync(input: string): Promise<Address> {
+  try { return await resolveTokenAsync(input, getPublicClient()); }
+  catch (e) { console.error(`❌ ${(e as Error).message}`); process.exit(1); }
+  return '' as Address; // unreachable
 }
 
 // Chain validation removed - CLI only supports Base
@@ -55,19 +63,19 @@ function run(fn: () => Promise<void>) {
 
 const cli = new Command().name('mc').description('Mint Club V2 CLI — bonding curve tokens on Base').version(__VERSION__);
 
-cli.command('price').description('Get token price in reserve and USD').argument('<token>', 'Token address')
-  .action((token, opts) => run(() => price(tok(token)))());
+cli.command('price').description('Get token price in reserve and USD').argument('<token>', 'Token address or symbol')
+  .action((token, opts) => run(async () => price(await tokAsync(token)))());
 
 cli.command('info').description('Get token info').argument('<token>', 'Token address or symbol')
-  .action((token, opts) => run(() => info(tok(token)))());
+  .action((token, opts) => run(async () => info(await tokAsync(token)))());
 
 cli.command('buy').description('Buy (mint) tokens with reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to buy').option('-m, --max-cost <n>', 'Max reserve cost')
-  .action((token, opts) => run(() => buy(tok(token), opts.amount, opts.maxCost, requireKey()))());
+  .action((token, opts) => run(async () => buy(await tokAsync(token), opts.amount, opts.maxCost, requireKey()))());
 
 cli.command('sell').description('Sell (burn) tokens for reserve token').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to sell').option('-m, --min-refund <n>', 'Min reserve refund')
-  .action((token, opts) => run(() => sell(tok(token), opts.amount, opts.minRefund, requireKey()))());
+  .action((token, opts) => run(async () => sell(await tokAsync(token), opts.amount, opts.minRefund, requireKey()))());
 
 cli.command('create').description('Create a bonding curve token')
   .requiredOption('-n, --name <name>', 'Token name').requiredOption('-s, --symbol <sym>', 'Token symbol')
@@ -77,7 +85,7 @@ cli.command('create').description('Create a bonding curve token')
   .option('--initial-price <n>', 'Starting price (with --curve)').option('--final-price <n>', 'Final price (with --curve)')
   .option('--mint-royalty <bp>', 'Mint royalty (bps)', '100').option('--burn-royalty <bp>', 'Burn royalty (bps)', '100')
   .option('-y, --yes', 'Skip confirmation prompt')
-  .action((opts) => run(() => create(opts.name, opts.symbol, tok(opts.reserve), opts.maxSupply, requireKey(), {
+  .action((opts) => run(async () => create(opts.name, opts.symbol, await tokAsync(opts.reserve), opts.maxSupply, requireKey(), {
     steps: opts.steps, curve: opts.curve, initialPrice: opts.initialPrice, finalPrice: opts.finalPrice,
     mintRoyalty: parseInt(opts.mintRoyalty), burnRoyalty: parseInt(opts.burnRoyalty), yes: opts.yes,
   }))());
@@ -86,12 +94,12 @@ cli.command('zap-buy').description('Buy tokens with any token via ZapV2 (auto-ro
   .requiredOption('-i, --input-token <addr>', 'Input token (ETH or address/symbol)')
   .requiredOption('-a, --amount <n>', 'Amount of input token to spend (e.g. 0.01 ETH)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-tokens <n>', 'Min tokens out')
-  .action((token, opts) => run(() => zapBuy(tok(token), tok(opts.inputToken), opts.amount, opts.minTokens, opts.path, requireKey()))());
+  .action((token, opts) => run(async () => zapBuy(await tokAsync(token), await tokAsync(opts.inputToken), opts.amount, opts.minTokens, opts.path, requireKey()))());
 
 cli.command('zap-sell').description('Sell tokens for any token via ZapV2 (auto-routes swap)').argument('<token>', 'Token address or symbol')
   .requiredOption('-a, --amount <n>', 'Tokens to sell').requiredOption('-o, --output-token <addr>', 'Output token (ETH or address/symbol)')
   .option('-p, --path <p>', 'Manual swap path: token,fee,token,...').option('-m, --min-output <n>', 'Min output')
-  .action((token, opts) => run(() => zapSell(tok(token), opts.amount, tok(opts.outputToken), opts.minOutput, opts.path, requireKey()))());
+  .action((token, opts) => run(async () => zapSell(await tokAsync(token), opts.amount, await tokAsync(opts.outputToken), opts.minOutput, opts.path, requireKey()))());
 
 cli.command('swap').description('Swap tokens via Uniswap V3 (any token pair)')
   .requiredOption('-i, --input <token>', 'Input token (ETH, USDC, HUNT, or address)')
@@ -105,7 +113,7 @@ cli.command('swap').description('Swap tokens via Uniswap V3 (any token pair)')
 cli.command('send').description('Send ETH, ERC-20, or ERC-1155 tokens').argument('<to>', 'Recipient address')
   .requiredOption('-a, --amount <n>', 'Amount to send').option('-t, --token <addr>', 'Token contract (omit for ETH)')
   .option('--token-id <id>', 'ERC-1155 token ID')
-  .action((to, opts) => run(() => send(to as Address, opts.amount, requireKey(), { token: opts.token ? tok(opts.token) : undefined, tokenId: opts.tokenId }))());
+  .action((to, opts) => run(async () => send(to as Address, opts.amount, requireKey(), { token: opts.token ? await tokAsync(opts.token) : undefined, tokenId: opts.tokenId }))());
 
 cli.command('wallet').description('Show wallet address and balances, or generate/import a key')
   .option('-g, --generate', 'Generate a new wallet').option('-s, --set-private-key <key>', 'Import an existing private key')
