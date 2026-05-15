@@ -1,6 +1,6 @@
 {
   "name": "mint.club-cli",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "CLI for Mint Club V2 — trade bonding curve tokens, zap through Uniswap, create tokens from your terminal.",
   "main": "dist/index.js",
   "files": [
