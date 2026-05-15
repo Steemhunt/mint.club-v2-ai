@@ -1,7 +1,7 @@
 {
   "name": "mint.club-cli",
   "version": "1.5.0",
-  "description": "CLI for Mint Club V2 bonding curve tokens",
+  "description": "CLI for Mint Club V2 — trade bonding curve tokens, zap through Uniswap, create tokens from your terminal.",
   "main": "dist/index.js",
   "files": [
     "dist",
@@ -19,13 +19,25 @@
     "test": "npx vitest run test/cli.test.ts"
   },
   "keywords": [
-    "mint",
-    "club",
-    "bonding",
-    "curve",
-    "crypto",
-    "defi"
+    "mint-club",
+    "bonding-curve",
+    "cli",
+    "web3",
+    "base",
+    "viem",
+    "uniswap",
+    "defi",
+    "token-launch"
   ],
+  "homepage": "https://github.com/Steemhunt/mint.club-v2-ai#readme",
+  "bugs": {
+    "url": "https://github.com/Steemhunt/mint.club-v2-ai/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Steemhunt/mint.club-v2-ai.git",
+    "directory": "cli"
+  },
   "author": "h1-hunt <h1@hunt.town>",
   "license": "MIT",
   "dependencies": {

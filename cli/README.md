@@ -1,11 +1,24 @@
-# 🪙 Mint Club CLI
+<p align="center">
+  <img src="https://mint.club/logo.png" alt="Mint Club" width="80" />
+</p>
 
-> Trade bonding curve tokens on **Base** from your terminal.
+<h1 align="center">Mint Club CLI (<code>mc</code>)</h1>
 
-[![npm](https://img.shields.io/npm/v/mint.club-cli.svg?style=flat-square)](https://www.npmjs.com/package/mint.club-cli)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+<p align="center">
+  Trade <a href="https://mint.club">Mint Club V2</a> bonding curve tokens, zap through Uniswap, and create tokens — all from your terminal.
+</p>
 
-> Part of the [mint.club-v2-ai](https://github.com/Steemhunt/mint.club-v2-ai) monorepo.
+<p align="center">
+  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/v/mint.club-cli.svg?style=flat-square&label=npm" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/dm/mint.club-cli.svg?style=flat-square&label=downloads" alt="downloads" /></a>
+  <a href="https://packagephobia.com/result?p=mint.club-cli"><img src="https://packagephobia.com/badge?p=mint.club-cli" alt="install size" /></a>
+  <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://img.shields.io/github/stars/Steemhunt/mint.club-v2-ai?style=flat-square&logo=github" alt="GitHub" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT" /></a>
+</p>
+
+<p align="center">
+  Part of the <a href="https://github.com/Steemhunt/mint.club-v2-ai">mint.club-v2-ai</a> monorepo.
+</p>
 
 ---
 

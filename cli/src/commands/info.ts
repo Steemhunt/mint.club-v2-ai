@@ -22,7 +22,7 @@ export async function info(token: Address) {
     maxSupply: details.maxSupply,
     mintRoyalty: details.bondInfo.mintRoyalty,
     burnRoyalty: details.bondInfo.burnRoyalty,
-    createdAt: Number(details.bondInfo.createdAt),
+    createdAt: details.bondInfo.createdAt,
     steps: details.steps ?? [],
   });
 

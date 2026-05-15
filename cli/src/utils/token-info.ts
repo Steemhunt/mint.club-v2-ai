@@ -100,7 +100,7 @@ export async function getTokenPricing(
   return {
     tokenPrice,
     tokenUsd,
-    reserveUsd,
+    reserveUsd: reserveUsd ?? undefined,
     reserveValue,
     marketCap,
   };

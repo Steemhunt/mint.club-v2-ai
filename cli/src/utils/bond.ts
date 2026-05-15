@@ -5,9 +5,9 @@ import { getSymbol } from './symbol';
 
 export interface BondInfo {
   creator: Address;
-  mintRoyalty: bigint;
-  burnRoyalty: bigint;
-  createdAt: bigint;
+  mintRoyalty: number;
+  burnRoyalty: number;
+  createdAt: number;
   reserveToken: Address;
   reserveBalance: bigint;
   reserveSymbol: string;
@@ -32,12 +32,12 @@ export async function getBondInfo(client: PublicClient, token: Address): Promise
   const formatReserve = (value: bigint) => formatUnits(value, reserveDecimals);
 
   return {
-    creator: creator as Address,
-    mintRoyalty: mintRoyalty as bigint,
-    burnRoyalty: burnRoyalty as bigint,
-    createdAt: createdAt as bigint,
-    reserveToken: reserveToken as Address,
-    reserveBalance: reserveBalance as bigint,
+    creator,
+    mintRoyalty,
+    burnRoyalty,
+    createdAt,
+    reserveToken,
+    reserveBalance,
     reserveSymbol,
     reserveDecimals,
     formatReserve,

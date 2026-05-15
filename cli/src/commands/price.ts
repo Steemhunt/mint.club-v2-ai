@@ -3,14 +3,15 @@ import { getPublicClient } from '../client';
 import { getBondInfo, getTokenPrice } from '../utils/bond';
 import { getTokenPricing, formatUsd } from '../utils/token-info';
 import { getSymbol } from '../utils/symbol';
+import { ERC20_ABI } from '../abi/erc20';
 
 export async function price(token: Address) {
   const client = getPublicClient();
-  
+
   // Get basic token info
   const [symbol, supply, bondInfo] = await Promise.all([
     getSymbol(client, token),
-    client.readContract({ address: token, abi: [{ type: 'function', name: 'totalSupply', outputs: [{ type: 'uint256' }] }] as const, functionName: 'totalSupply' }),
+    client.readContract({ address: token, abi: ERC20_ABI, functionName: 'totalSupply' }),
     getBondInfo(client, token).catch(() => { throw new Error('Not a Mint Club token'); }),
   ]);
 

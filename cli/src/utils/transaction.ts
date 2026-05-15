@@ -1,4 +1,5 @@
-import { type PublicClient, type WalletClient, type Address, type Abi } from 'viem';
+import { type PublicClient, type Address, type Abi } from 'viem';
+import type { CliWalletClient } from '../client';
 import { shortHash, txUrl } from './format';
 import { saveToken } from './tokens';
 
@@ -15,13 +16,13 @@ export interface TransactionOptions {
  */
 export async function executeTransaction(
   client: PublicClient,
-  wallet: WalletClient,
+  wallet: CliWalletClient,
   token: Address | undefined,
   options: TransactionOptions,
   successMessage: string,
 ): Promise<void> {
   const account = wallet.account;
-  
+
   // Simulate the transaction
   await client.simulateContract({
     account,
@@ -29,16 +30,16 @@ export async function executeTransaction(
   });
 
   console.log('📤 Sending...');
-  
+
   // Execute the transaction
   const hash = await wallet.writeContract(options);
-  
+
   console.log(`   TX: ${shortHash(hash)}`);
   console.log(`   ${txUrl(hash)}`);
 
   // Wait for confirmation
   const receipt = await client.waitForTransactionReceipt({ hash });
-  
+
   if (receipt.status === 'success') {
     if (token) saveToken(token);
     console.log(`✅ ${successMessage}`);
@@ -52,13 +53,13 @@ export async function executeTransaction(
  */
 export interface ClientSetup {
   publicClient: PublicClient;
-  walletClient: WalletClient;
+  walletClient: CliWalletClient;
   account: Address;
 }
 
 export function setupClients(
   getPublicClient: () => PublicClient,
-  getWalletClient: (pk: `0x${string}`) => WalletClient,
+  getWalletClient: (pk: `0x${string}`) => CliWalletClient,
   privateKey: `0x${string}`,
 ): ClientSetup {
   const publicClient = getPublicClient();

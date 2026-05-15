@@ -185,7 +185,7 @@ export async function swap(
         args: [inputAddr, amountIn, minRef, account],
       });
 
-      console.log(`   Selling ${amount} ${inputSym} for ~${fmt(result[0])} ${reserveSym}`);
+      console.log(`   Selling ${amount} ${inputSym} for ~${fmt(result)} ${reserveSym}`);
 
       await ensureApproval(publicClient, walletClient, inputAddr, BOND, amountIn);
 
