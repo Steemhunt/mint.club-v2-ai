@@ -1,10 +1,26 @@
-# Mint Club V2 — MCP Server
+<p align="center">
+  <img src="https://mint.club/logo.png" alt="Mint Club" width="80" />
+</p>
 
-[![npm](https://img.shields.io/npm/v/mintclub-mcp.svg?style=flat-square)](https://www.npmjs.com/package/mintclub-mcp)
+<h1 align="center">Mint Club V2 — MCP Server</h1>
 
-[Model Context Protocol](https://modelcontextprotocol.io) server for [Mint Club V2](https://mint.club) on Base. Enables AI assistants to trade bonding curve tokens through standardized tool calls.
+<p align="center">
+  <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server for <a href="https://mint.club">Mint Club V2</a> on Base — enables AI assistants to trade bonding curve tokens through standardized tool calls.
+</p>
 
-> Part of the [mint.club-v2-ai](https://github.com/Steemhunt/mint.club-v2-ai) monorepo.
+<p align="center">
+  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/v/mintclub-mcp.svg?style=flat-square&label=npm" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/dm/mintclub-mcp.svg?style=flat-square&label=downloads" alt="downloads" /></a>
+  <a href="https://packagephobia.com/result?p=mintclub-mcp"><img src="https://packagephobia.com/badge?p=mintclub-mcp" alt="install size" /></a>
+  <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://img.shields.io/github/stars/Steemhunt/mint.club-v2-ai?style=flat-square&logo=github" alt="GitHub" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT" /></a>
+</p>
+
+<p align="center">
+  Part of the <a href="https://github.com/Steemhunt/mint.club-v2-ai">mint.club-v2-ai</a> monorepo.
+</p>
+
+---
 
 ## Quick Start
 

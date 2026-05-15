@@ -27,14 +27,17 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Steemhunt/mint.club-v2-ai",
+    "url": "git+https://github.com/Steemhunt/mint.club-v2-ai.git",
     "directory": "mcp"
   },
   "homepage": "https://github.com/Steemhunt/mint.club-v2-ai/tree/main/mcp",
+  "bugs": {
+    "url": "https://github.com/Steemhunt/mint.club-v2-ai/issues"
+  },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
-    "viem": "^2.45.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "viem": "^2.48.11"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
