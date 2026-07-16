@@ -15,15 +15,18 @@ The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not inter
 | `ZAP_BUY` | Mint a WETH-reserve token with native ETH via `MCV2_ZapV1` |
 | `ZAP_SELL` | Burn a WETH-reserve token for native ETH via `MCV2_ZapV1` |
 | `WALLET_BALANCE` | Show chain-local wallet balances |
+| `SEND_TOKEN` | Send native ETH or an ERC-20 token |
+| `CREATE_TOKEN` | Create an ERC-20 bonding curve token |
 
 There is no general-purpose DEX swap action.
 
 ## Setup
 
 ```bash
-npm install -g mint.club-cli
-mc wallet --set-private-key 0xYOUR_PRIVATE_KEY
+npm install @elizaos/plugin-mintclub
 ```
+
+The plugin installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` through the ElizaOS secret/environment configuration. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key`.
 
 Add the plugin to an ElizaOS character configuration:
 
@@ -43,17 +46,21 @@ Read-only actions work without a private key. Write actions and wallet balances 
 - “Sell 5 SIGNET.”
 - “Buy 10 TOKEN with ETH on Robinhood.”
 - “Sell 5 TOKEN for ETH on Robinhood.”
-- “Show my Robinhood wallet balance.”
+- “Show my wallet balance on Robinhood.”
+- “Send 10 USDG to `0x1111111111111111111111111111111111111111` on Robinhood.”
+- “Create token \"My Token\" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood.”
 
-Mentioning “Robinhood” selects Robinhood Chain; otherwise Base is used.
+Use “on Base” or “on Robinhood” for explicit chain selection. Base is the default; contradictory chain instructions are rejected rather than guessed.
 
 ## Development
 
+From the repository root:
+
 ```bash
-npm install
-npm run check
-npm test
-npm run build
+npm ci
+npm run check --workspace @elizaos/plugin-mintclub
+npm test --workspace @elizaos/plugin-mintclub
+npm run build --workspace @elizaos/plugin-mintclub
 ```
 
 ## License

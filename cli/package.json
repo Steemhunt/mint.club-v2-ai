@@ -1,6 +1,6 @@
 {
   "name": "mint.club-cli",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "description": "CLI for Mint Club V2 protocol operations on Base and Robinhood Chain",
   "type": "module",
   "main": "dist/index.js",
@@ -10,7 +10,7 @@
     "build.sh"
   ],
   "bin": {
-    "mc": "./dist/index.js"
+    "mc": "dist/index.js"
   },
   "scripts": {
     "build": "bash build.sh",

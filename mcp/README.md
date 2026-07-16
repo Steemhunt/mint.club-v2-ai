@@ -7,9 +7,10 @@ The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single
 ## Install
 
 ```bash
-npm install -g mint.club-cli mintclub-mcp
-mc wallet --set-private-key 0xYOUR_PRIVATE_KEY
+npm install -g mintclub-mcp
 ```
+
+`mintclub-mcp` installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key`.
 
 ## Configure
 
@@ -60,7 +61,8 @@ Zap tools mint or burn an **exact Mint Club token amount**. They use native ETH 
 - “Mint 100 TOKEN on Robinhood with its USDG reserve.” → `buy_token`
 - “Buy 100 TOKEN with ETH on Robinhood.” → `zap_buy`
 - “Sell 50 TOKEN for ETH on Robinhood.” → `zap_sell`
-- “Create MYT backed by USDG on Robinhood.” → `create_token`
+- “Create a token named MYT...” → ask for the complete curve definition
+- “Create token My Token (MYT), backed by USDG on Robinhood, with maximum supply 1,000,000 and a linear curve from 0.01 to 1 USDG.” → `create_token`
 
 ## Safe CLI execution
 
@@ -70,11 +72,13 @@ Set `MINTCLUB_CLI` to override the CLI executable path.
 
 ## Development
 
+From the repository root:
+
 ```bash
-npm install
-npm run check
-npm test
-npm run build
+npm ci
+npm run check --workspace mintclub-mcp
+npm test --workspace mintclub-mcp
+npm run build --workspace mintclub-mcp
 ```
 
 ## License

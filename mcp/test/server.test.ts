@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { TOOL_DEFINITIONS, buildCliArgs } from '../src/index';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  TOOL_DEFINITIONS,
+  buildCliArgs,
+  resolveCliInvocation,
+} from '../src/index';
+
+const originalCli = process.env.MINTCLUB_CLI;
+
+afterEach(() => {
+  if (originalCli === undefined) delete process.env.MINTCLUB_CLI;
+  else process.env.MINTCLUB_CLI = originalCli;
+});
 
 describe('MCP tool surface', () => {
   it('exposes only protocol-native tools with chain selection', () => {
@@ -22,6 +33,15 @@ describe('MCP tool surface', () => {
       expect(tool.inputSchema.properties.chain).toMatchObject({
         enum: ['base', 'robinhood'],
         default: 'base',
+      });
+      const isReadOnly = [
+        'token_info',
+        'token_price',
+        'wallet_balance',
+      ].includes(tool.name);
+      expect(tool.annotations).toMatchObject({
+        readOnlyHint: isReadOnly,
+        destructiveHint: !isReadOnly,
       });
     }
   });
@@ -92,5 +112,13 @@ describe('MCP tool surface', () => {
       '--min-refund',
       '0.001',
     ]);
+  });
+
+  it('passes an explicit CLI override as an executable plus argv array', () => {
+    process.env.MINTCLUB_CLI = '/tmp/fake-mc';
+    expect(resolveCliInvocation(['--chain', 'base', 'wallet'])).toEqual({
+      command: '/tmp/fake-mc',
+      args: ['--chain', 'base', 'wallet'],
+    });
   });
 });

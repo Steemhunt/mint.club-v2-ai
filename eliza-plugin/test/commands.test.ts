@@ -49,4 +49,75 @@ describe('Eliza action CLI mapping', () => {
       '5',
     ]);
   });
+
+  it('keeps price validation and worth parsing aligned', () => {
+    expect(buildActionArgs('TOKEN_PRICE', 'What is SIGNET worth?')).toEqual([
+      '--chain',
+      'base',
+      'price',
+      'SIGNET',
+    ]);
+  });
+
+  it('honors an explicit Base chain and fails closed on mixed chains', () => {
+    expect(
+      buildActionArgs('BUY_TOKEN', 'Buy 10 SIGNET on Base, not Robinhood'),
+    ).toEqual(['--chain', 'base', 'buy', 'SIGNET', '--amount', '10']);
+    expect(() =>
+      buildActionArgs(
+        'BUY_TOKEN',
+        'Buy 10 SIGNET on Base and on Robinhood',
+      ),
+    ).toThrow('Specify exactly one chain');
+  });
+
+  it('maps native and ERC-20 sends without shell interpolation', () => {
+    const recipient = '0x1111111111111111111111111111111111111111';
+    expect(
+      buildActionArgs(
+        'SEND_TOKEN',
+        `Send 1 ETH to ${recipient} on Robinhood`,
+      ),
+    ).toEqual(['--chain', 'robinhood', 'send', recipient, '--amount', '1']);
+    expect(
+      buildActionArgs('SEND_TOKEN', `Send 10 USDG to ${recipient} on Base`),
+    ).toEqual([
+      '--chain',
+      'base',
+      'send',
+      recipient,
+      '--amount',
+      '10',
+      '--token',
+      'USDG',
+    ]);
+  });
+
+  it('maps complete token creation parameters', () => {
+    expect(
+      buildActionArgs(
+        'CREATE_TOKEN',
+        'Create token "My Token" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood',
+      ),
+    ).toEqual([
+      '--chain',
+      'robinhood',
+      'create',
+      '--name',
+      'My Token',
+      '--symbol',
+      'MYT',
+      '--reserve',
+      'USDG',
+      '--max-supply',
+      '1000000',
+      '--curve',
+      'linear',
+      '--initial-price',
+      '0.01',
+      '--final-price',
+      '1',
+      '--yes',
+    ]);
+  });
 });

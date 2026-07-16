@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'child_process';
+import { createRequire } from 'module';
 import { pathToFileURL } from 'url';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -21,11 +22,26 @@ const tokenProperty = {
   description: 'Token address or chain-local symbol',
 } as const;
 
+const READ_ONLY_ANNOTATIONS = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true,
+} as const;
+
+const WRITE_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: true,
+  idempotentHint: false,
+  openWorldHint: true,
+} as const;
+
 export const TOOL_DEFINITIONS = [
   {
     name: 'token_info',
     description:
       'Get Mint Club V2 token supply, reserve, bonding curve, price, and USD values',
+    annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: { chain: CHAIN_PROPERTY, token: tokenProperty },
@@ -35,6 +51,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'token_price',
     description: 'Get a Mint Club token price in its reserve token and USD',
+    annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: { chain: CHAIN_PROPERTY, token: tokenProperty },
@@ -44,6 +61,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'wallet_balance',
     description: 'Get the configured wallet address and chain-local balances',
+    annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: { chain: CHAIN_PROPERTY },
@@ -52,6 +70,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'buy_token',
     description: 'Mint tokens with the Bond reserve ERC-20',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -69,6 +88,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'sell_token',
     description: 'Burn tokens for the Bond reserve ERC-20',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -87,6 +107,7 @@ export const TOOL_DEFINITIONS = [
     name: 'zap_buy',
     description:
       'Mint a WETH-reserve token with native ETH via MCV2_ZapV1.mintWithEth',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -110,6 +131,7 @@ export const TOOL_DEFINITIONS = [
     name: 'zap_sell',
     description:
       'Burn a WETH-reserve token for native ETH via MCV2_ZapV1.burnToEth',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -132,6 +154,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'send_token',
     description: 'Send native ETH or an ERC-20 token',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -149,6 +172,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'create_token',
     description: 'Create a new Mint Club V2 bonding curve token',
+    annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -304,9 +328,29 @@ export function buildCliArgs(
   }
 }
 
+const require = createRequire(import.meta.url);
+
+export function resolveCliInvocation(argv: string[]): {
+  command: string;
+  args: string[];
+} {
+  const override = process.env.MINTCLUB_CLI;
+  if (override) return { command: override, args: argv };
+
+  try {
+    const cliEntrypoint = require.resolve('mint.club-cli');
+    return { command: process.execPath, args: [cliEntrypoint, ...argv] };
+  } catch {
+    throw new Error(
+      'mint.club-cli 2.x is not installed; reinstall mintclub-mcp with production dependencies',
+    );
+  }
+}
+
 export function runCli(argv: string[]): string {
   try {
-    return execFileSync(process.env.MINTCLUB_CLI ?? 'mc', argv, {
+    const invocation = resolveCliInvocation(argv);
+    return execFileSync(invocation.command, invocation.args, {
       encoding: 'utf8',
       timeout: 300_000,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -320,7 +364,7 @@ export function runCli(argv: string[]): string {
 
 export function createServer(execute = runCli): Server {
   const server = new Server(
-    { name: 'mintclub', version: '0.1.6' },
+    { name: 'mintclub', version: '0.2.0' },
     { capabilities: { tools: {} } },
   );
 

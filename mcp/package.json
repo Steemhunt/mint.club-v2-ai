@@ -1,20 +1,25 @@
 {
   "name": "mintclub-mcp",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "mcpName": "io.github.h1-hunt/mintclub",
   "description": "Model Context Protocol server for Mint Club V2 on Base and Robinhood Chain",
   "type": "module",
   "main": "dist/index.js",
   "module": "./src/index.ts",
   "bin": {
-    "mintclub-mcp": "./dist/index.js"
+    "mintclub-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target node --format esm",
     "check": "tsc --noEmit",
     "test": "vitest run",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -38,7 +43,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "mint.club-cli": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

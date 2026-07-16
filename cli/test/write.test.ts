@@ -25,7 +25,8 @@ import { existsSync } from 'fs';
 import { spawn, type ChildProcess } from 'child_process';
 import { BOND_ABI } from '../src/abi/bond';
 import { ERC20_ABI } from '../src/abi/erc20';
-import { getBondAddress } from '../src/config/contracts';
+import { ZAP_ABI } from '../src/abi/zap';
+import { getBondAddress, getZapAddress } from '../src/config/contracts';
 import { ensureApproval } from '../src/utils/approve';
 import { HUNT, SIGNET, WHALE } from './helpers';
 
@@ -40,6 +41,9 @@ const TEST_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`;
 const TEST_ACCOUNT = privateKeyToAccount(TEST_KEY);
 const BOND = getBondAddress('base');
+const ZAP = getZapAddress('base');
+const WETH_RESERVE_TOKEN =
+  '0xDc52F068dc87353CEC580711A7013625e39A4ea4' as Address;
 
 const APPROVE_ABI = [
   ...ERC20_ABI,
@@ -211,6 +215,97 @@ describe.skipIf(!RUN_WRITE_TESTS)('Anvil protocol write tests', () => {
 
     expect(receipt.status).toBe('success');
     expect(after - before).toBe(netRefund);
+  });
+
+  it('mints a WETH-reserve token through MCV2_ZapV1', async () => {
+    const tokensToMint = parseEther('1');
+    const [maxEthAmount] = await publicClient.readContract({
+      address: BOND,
+      abi: BOND_ABI,
+      functionName: 'getReserveForToken',
+      args: [WETH_RESERVE_TOKEN, tokensToMint],
+    });
+    const before = await publicClient.readContract({
+      address: WETH_RESERVE_TOKEN,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [WHALE],
+    });
+
+    const hash = await whaleWallet.writeContract({
+      address: ZAP,
+      abi: ZAP_ABI,
+      functionName: 'mintWithEth',
+      args: [WETH_RESERVE_TOKEN, tokensToMint, WHALE],
+      value: maxEthAmount,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    const after = await publicClient.readContract({
+      address: WETH_RESERVE_TOKEN,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [WHALE],
+    });
+
+    expect(receipt.status).toBe('success');
+    expect(after - before).toBe(tokensToMint);
+  });
+
+  it('burns a WETH-reserve token through MCV2_ZapV1', async () => {
+    const tokensToMint = parseEther('2');
+    const tokensToBurn = parseEther('1');
+    const [maxEthAmount] = await publicClient.readContract({
+      address: BOND,
+      abi: BOND_ABI,
+      functionName: 'getReserveForToken',
+      args: [WETH_RESERVE_TOKEN, tokensToMint],
+    });
+    const mintHash = await whaleWallet.writeContract({
+      address: ZAP,
+      abi: ZAP_ABI,
+      functionName: 'mintWithEth',
+      args: [WETH_RESERVE_TOKEN, tokensToMint, WHALE],
+      value: maxEthAmount,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: mintHash });
+    await ensureApproval(
+      publicClient,
+      whaleWallet,
+      WETH_RESERVE_TOKEN,
+      ZAP,
+      tokensToBurn,
+    );
+    const [minRefund] = await publicClient.readContract({
+      address: BOND,
+      abi: BOND_ABI,
+      functionName: 'getRefundForTokens',
+      args: [WETH_RESERVE_TOKEN, tokensToBurn],
+    });
+    const before = await publicClient.readContract({
+      address: WETH_RESERVE_TOKEN,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [WHALE],
+    });
+
+    const burnHash = await whaleWallet.writeContract({
+      address: ZAP,
+      abi: ZAP_ABI,
+      functionName: 'burnToEth',
+      args: [WETH_RESERVE_TOKEN, tokensToBurn, minRefund, WHALE],
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({
+      hash: burnHash,
+    });
+    const after = await publicClient.readContract({
+      address: WETH_RESERVE_TOKEN,
+      abi: ERC20_ABI,
+      functionName: 'balanceOf',
+      args: [WHALE],
+    });
+
+    expect(receipt.status).toBe('success');
+    expect(before - after).toBe(tokensToBurn);
   });
 
   it('creates a bonding curve token', async () => {

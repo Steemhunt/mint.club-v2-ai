@@ -73,13 +73,16 @@ See the [CLI reference](./cli/README.md) for official contract addresses and com
 
 ## Development
 
-Each package is independently installable and testable:
+The three publishable packages share one npm workspace lockfile:
 
 ```bash
-cd cli && npm install && npm run check && npm test && npm run build
-cd ../mcp && npm install && npm run check && npm test && npm run build
-cd ../eliza-plugin && npm install && npm run check && npm test && npm run build
+npm ci
+npm run check
+npm test
+npm run build
 ```
+
+Package-scoped commands remain available with `--workspace`, for example `npm test --workspace mint.club-cli`. For registry releases, publish `mint.club-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency is available.
 
 ## License
 

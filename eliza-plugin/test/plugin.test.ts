@@ -19,6 +19,20 @@ afterEach(() => {
 });
 
 describe('Eliza action execution', () => {
+  it('registers the complete protocol, wallet, send, and create surface', () => {
+    expect(mintclubPlugin.actions?.map((action) => action.name)).toEqual([
+      'TOKEN_INFO',
+      'TOKEN_PRICE',
+      'BUY_TOKEN',
+      'SELL_TOKEN',
+      'ZAP_BUY',
+      'ZAP_SELL',
+      'WALLET_BALANCE',
+      'SEND_TOKEN',
+      'CREATE_TOKEN',
+    ]);
+  });
+
   it('delegates wallet configuration checks to the CLI', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mintclub-eliza-'));
     dirs.push(dir);
@@ -38,7 +52,7 @@ describe('Eliza action execution', () => {
 
     const result = await action.handler(
       {} as never,
-      { content: { text: 'Show my Robinhood wallet balance' } } as never,
+      { content: { text: 'Show my wallet balance on Robinhood' } } as never,
       undefined,
       undefined,
       undefined,

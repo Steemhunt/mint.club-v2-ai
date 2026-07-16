@@ -12,6 +12,7 @@ import type {
 import { logger } from '@elizaos/core';
 import { z } from 'zod';
 import { execFileSync } from 'child_process';
+import { createRequire } from 'module';
 import {
   buildActionArgs,
   type MintClubActionName,
@@ -21,9 +22,29 @@ const configSchema = z.object({
   PRIVATE_KEY: z.string().min(1).optional(),
 });
 
+const require = createRequire(import.meta.url);
+
+export function resolveCliInvocation(argv: string[]): {
+  command: string;
+  args: string[];
+} {
+  const override = process.env.MINTCLUB_CLI;
+  if (override) return { command: override, args: argv };
+
+  try {
+    const cliEntrypoint = require.resolve('mint.club-cli');
+    return { command: process.execPath, args: [cliEntrypoint, ...argv] };
+  } catch {
+    throw new Error(
+      'mint.club-cli 2.x is not installed; reinstall @elizaos/plugin-mintclub with production dependencies',
+    );
+  }
+}
+
 function runMcCommand(argv: string[]): string {
   try {
-    return execFileSync(process.env.MINTCLUB_CLI ?? 'mc', argv, {
+    const invocation = resolveCliInvocation(argv);
+    return execFileSync(invocation.command, invocation.args, {
       encoding: 'utf8',
       timeout: 300_000,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -96,6 +117,15 @@ function createAction(spec: ActionSpec): Action {
   };
 }
 
+function canBuildActionArgs(name: MintClubActionName, text: string): boolean {
+  try {
+    buildActionArgs(name, text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const tokenInfoAction = createAction({
   name: 'TOKEN_INFO',
   similes: ['GET_TOKEN_INFO', 'MINT_CLUB_INFO', 'MC_INFO'],
@@ -109,7 +139,7 @@ const tokenPriceAction = createAction({
   name: 'TOKEN_PRICE',
   similes: ['GET_TOKEN_PRICE', 'MINT_CLUB_PRICE', 'MC_PRICE'],
   description: 'Get a Mint Club V2 token price in reserve and USD',
-  validateText: (text) => /\b(price|worth)\b/i.test(text),
+  validateText: (text) => canBuildActionArgs('TOKEN_PRICE', text),
   examplePrompt: 'What is the price of SIGNET?',
   exampleResult: 'Here is the current SIGNET price.',
 });
@@ -165,8 +195,28 @@ const walletBalanceAction = createAction({
   similes: ['CHECK_BALANCE', 'MY_WALLET', 'MC_WALLET'],
   description: 'Show chain-local balances for the configured wallet',
   validateText: (text) => /\b(wallet|balance|holdings)\b/i.test(text),
-  examplePrompt: 'Show my Robinhood wallet balance',
+  examplePrompt: 'Show my wallet balance on Robinhood',
   exampleResult: 'Here are your Robinhood Chain balances.',
+});
+
+const sendTokenAction = createAction({
+  name: 'SEND_TOKEN',
+  similes: ['TRANSFER_TOKEN', 'SEND_ASSET'],
+  description: 'Send native ETH or an ERC-20 token to an address',
+  validateText: (text) => canBuildActionArgs('SEND_TOKEN', text),
+  examplePrompt:
+    'Send 10 USDG to 0x1111111111111111111111111111111111111111 on Robinhood',
+  exampleResult: 'Sent 10 USDG on Robinhood Chain.',
+});
+
+const createTokenAction = createAction({
+  name: 'CREATE_TOKEN',
+  similes: ['LAUNCH_TOKEN', 'CREATE_BONDING_CURVE'],
+  description: 'Create an ERC-20 Mint Club V2 bonding curve token',
+  validateText: (text) => canBuildActionArgs('CREATE_TOKEN', text),
+  examplePrompt:
+    'Create token "My Token" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood',
+  exampleResult: 'Created the MYT bonding curve token on Robinhood Chain.',
 });
 
 const mintclubProvider: Provider = {
@@ -184,9 +234,11 @@ const mintclubProvider: Provider = {
       '- BUY_TOKEN / SELL_TOKEN: MCV2_Bond mint and burn with reserve ERC-20',
       '- ZAP_BUY / ZAP_SELL: MCV2_ZapV1 native ETH operations for WETH-reserve tokens',
       '- WALLET_BALANCE: show chain-local wallet balances',
+      '- SEND_TOKEN: send native ETH or ERC-20 tokens',
+      '- CREATE_TOKEN: create an ERC-20 bonding curve token',
       '',
       'Supported chains: Base (default) and Robinhood Chain.',
-      'The mc CLI must be installed; write actions require CLI wallet configuration.',
+      'The compatible mc CLI is installed as a plugin dependency; write actions require CLI wallet configuration.',
     ].join('\n'),
     values: {
       platform: 'Mint Club V2',
@@ -225,6 +277,8 @@ export const mintclubPlugin: Plugin = {
     zapBuyAction,
     zapSellAction,
     walletBalanceAction,
+    sendTokenAction,
+    createTokenAction,
   ],
   providers: [mintclubProvider],
 };

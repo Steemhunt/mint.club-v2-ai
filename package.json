@@ -1,0 +1,17 @@
+{
+  "name": "mint-club-v2-ai",
+  "private": true,
+  "workspaces": [
+    "cli",
+    "mcp",
+    "eliza-plugin"
+  ],
+  "scripts": {
+    "check": "npm run check --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspace mint.club-cli && npm run build --workspace mintclub-mcp && npm run build --workspace @elizaos/plugin-mintclub"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

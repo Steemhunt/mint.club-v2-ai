@@ -14,6 +14,7 @@ import {
   resolveTokenAsync,
 } from '../src/config/contracts';
 import { getBurnRefund, getMintCost } from '../src/utils/bond';
+import { generateCurve } from '../src/utils/curves';
 import { HUNT, SIGNET, WHALE } from './helpers';
 
 const BASE_WETH_RESERVE_TOKEN =
@@ -222,6 +223,53 @@ describe('Robinhood protocol integration', () => {
       getZapAddress('robinhood').toLowerCase(),
     );
     expect(quote.totalCost).toBeGreaterThan(0n);
+  });
+
+  it('simulates a strictly increasing 6-decimal createToken curve', async () => {
+    const client = getPublicClient('robinhood');
+    const { ranges, prices } = generateCurve(
+      'linear',
+      '1000000',
+      '0.01',
+      '0.0101',
+      6,
+    );
+    const [liveBond, creationFee] = await Promise.all([
+      client.readContract({
+        address: getBondAddress('robinhood'),
+        abi: BOND_ABI,
+        functionName: 'tokenBond',
+        args: [ROBINHOOD_WETH_RESERVE_TOKEN],
+      }),
+      client.readContract({
+        address: getBondAddress('robinhood'),
+        abi: BOND_ABI,
+        functionName: 'creationFee',
+      }),
+    ]);
+    const symbol = `SIM${Date.now()}`;
+
+    const simulation = await client.simulateContract({
+      account: liveBond[0],
+      address: getBondAddress('robinhood'),
+      abi: BOND_ABI,
+      functionName: 'createToken',
+      args: [
+        { name: 'Six Decimal Simulation', symbol },
+        {
+          mintRoyalty: 100,
+          burnRoyalty: 100,
+          reserveToken: usdg,
+          maxSupply: parseEther('1000000'),
+          stepRanges: ranges,
+          stepPrices: prices,
+        },
+      ],
+      value: creationFee,
+    });
+
+    expect(simulation.result).toMatch(/^0x[a-fA-F0-9]{40}$/);
+    expect(ranges.length).toBeLessThanOrEqual(101);
   });
 
   it('reads the Robinhood Bond creation fee', async () => {

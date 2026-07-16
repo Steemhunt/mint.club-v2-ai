@@ -115,7 +115,7 @@ mc --chain base create \
   --steps "100000:0.01,500000:0.05,1000000:0.1"
 ```
 
-Prices are encoded using the reserve token's actual decimals, including 6-decimal USDC and USDG.
+Prices are encoded using the reserve token's actual decimals, including 6-decimal USDC and USDG. Non-flat presets require the final price to exceed the initial price and automatically reduce the nominal 500 steps when reserve precision cannot represent 500 strictly increasing prices.
 
 ## Transfer and balances
 
@@ -139,11 +139,13 @@ Robinhood canonical tokens:
 
 ## Development
 
+From the repository root:
+
 ```bash
-npm install
-npm run check
-npm test
-npm run build
+npm ci
+npm run check --workspace mint.club-cli
+npm test --workspace mint.club-cli
+npm run build --workspace mint.club-cli
 ```
 
 The default test suite includes unit tests and read-only Base/Robinhood mainnet integration checks. Anvil write tests run automatically when `~/.foundry/bin/anvil` is installed.
