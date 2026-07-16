@@ -135,7 +135,9 @@ export function createProgram(
   const handlers = { ...defaultHandlers, ...overrides };
   const program = new Command()
     .name('mc')
-    .description('Mint Club V2 CLI — all-chain bonding curves with local Uniswap routing')
+    .description(
+      'Mint Club V2 CLI — bonding curves and bounded local Uniswap routing across supported chains',
+    )
     .version(version)
     .option(
       '-c, --chain <chain>',
@@ -209,7 +211,7 @@ export function createProgram(
 
   program
     .command('create')
-    .description('Create a bonding curve token')
+    .description('Create an ERC-20 bonding curve token')
     .requiredOption('-n, --name <name>', 'Token name')
     .requiredOption('-s, --symbol <sym>', 'Token symbol')
     .requiredOption('-r, --reserve <token>', 'Reserve token address or symbol')
@@ -246,7 +248,9 @@ export function createProgram(
 
   program
     .command('zap-buy')
-    .description('Buy a Mint Club token from any routed asset via MCV2_ZapV2')
+    .description(
+      'Buy a Mint Club token from a routed native/ERC-20 asset via MCV2_ZapV2',
+    )
     .argument('<token>', 'Mint Club token address or symbol')
     .requiredOption('-i, --input-token <token>', 'Exact-input token address or symbol')
     .requiredOption('-a, --input-amount <n>', 'Exact input amount')
@@ -278,7 +282,9 @@ export function createProgram(
 
   program
     .command('zap-sell')
-    .description('Sell a Mint Club token into any routed asset via MCV2_ZapV2')
+    .description(
+      'Sell a Mint Club token into a routed native/ERC-20 asset via MCV2_ZapV2',
+    )
     .argument('<token>', 'Mint Club token address or symbol')
     .requiredOption('-a, --amount <n>', 'Mint Club tokens to sell')
     .requiredOption('-o, --output-token <token>', 'Output token address or symbol')
@@ -343,7 +349,10 @@ export function createProgram(
     .command('wallet')
     .description('Show wallet balances, or generate/import a key')
     .option('-g, --generate', 'Generate a new wallet')
-    .option('-s, --set-private-key <key>', 'Import an existing private key')
+    .option(
+      '-s, --set-private-key <key>',
+      'Import a key (prefer PRIVATE_KEY; command arguments may be exposed)',
+    )
     .action((options) =>
       action(() => handlers.wallet(options, selectedChain()))(),
     );

@@ -1,7 +1,7 @@
 {
   "name": "@mint.club/v2-eliza-plugin",
   "version": "2.0.0",
-  "description": "ElizaOS plugin for all-chain Mint Club V2 Bond and local Uniswap ZapV2 operations",
+  "description": "ElizaOS plugin for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "files": [
     "dist",
     "README.md"
@@ -28,6 +28,8 @@
     "mint-club",
     "bonding-curve",
     "uniswap",
+    "zap-v2",
+    "multi-chain",
     "defi",
     "ai"
   ],

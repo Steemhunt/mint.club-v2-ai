@@ -1,7 +1,7 @@
 {
   "name": "@mint.club/v2-cli",
   "version": "2.0.0",
-  "description": "All-chain Mint Club V2 CLI with bounded local Uniswap ZapV2 routing",
+  "description": "Mint Club V2 CLI for Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "type": "module",
   "main": "dist/index.js",
   "exports": {

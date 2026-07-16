@@ -1,11 +1,11 @@
 ---
 name: mintclub
-description: Use the Mint Club V2 CLI for bonding-curve operations and bounded local Uniswap ZapV2 routing across supported chains.
+description: "Operate Mint Club V2 with the mc CLI: inspect tokens and balances, mint or burn ERC-20/1155 bonding-curve tokens, route exact-input ZapV2 trades, transfer assets, and create ERC-20 curves across supported chains. Use for Mint Club terminal workflows that need protocol-native transactions or local Uniswap route discovery."
 ---
 
 # Mint Club V2
 
-Use the `mc` CLI for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing.
+Use the `mc` CLI for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing. Treat the CLI output and the published chain registry as authoritative.
 
 ## Setup
 
@@ -14,7 +14,7 @@ npm install -g @mint.club/v2-cli
 mc --help
 ```
 
-Ask the user to configure `PRIVATE_KEY` themselves outside the agent, following the CLI wallet setup. Do not run or construct the wallet import command. Never request, print, log, or pass a private key through agent/tool arguments. Recommend a dedicated wallet with limited funds.
+Require Node.js 18 or later. Ask the user to configure `PRIVATE_KEY` themselves outside the agent, following the CLI wallet setup. Do not run or construct a wallet import command. Never request, print, log, or pass a private key through agent/tool arguments. Recommend a dedicated wallet with limited funds.
 
 ## Chain selection
 
@@ -49,7 +49,7 @@ mc --chain base buy <token> --amount 100 --max-cost 25
 mc --chain base sell <token> --amount 100 --min-refund 20
 ```
 
-`amount` is the exact Mint Club token amount. `max-cost` and `min-refund` are denominated in the reserve token. If a limit is omitted, the CLI uses the current quote as the exact on-chain limit.
+Treat `amount` as the exact Mint Club token amount. Treat `max-cost` and `min-refund` as reserve-token amounts. If a limit is omitted, explain that the CLI uses the current quote as the exact on-chain limit. Use whole-number amounts for ERC-1155 Mint Club tokens.
 
 ## ZapV2 routed mint
 
@@ -68,7 +68,9 @@ mc --chain base zap-buy <mint-club-token> \
   --slippage 0.5
 ```
 
-Use `NATIVE` for the selected chain's native currency. Never reinterpret “Buy 10 TOKEN with ETH” as a ZapV2 request: ask for the exact ETH input in the unambiguous form “Buy TOKEN with 0.1 ETH.”
+Use `NATIVE` for the selected chain's native currency. Require the routed input to be native currency or ERC-20; allow the Mint Club target to be ERC-20 or ERC-1155. Never reinterpret “Buy 10 TOKEN with ETH” as a ZapV2 request: ask for the exact ETH input in the unambiguous form “Buy TOKEN with 0.1 ETH.”
+
+If `min-tokens` is omitted, explain that the CLI previews `zapMint`, applies the requested slippage, and simulates the protected call. Treat omitted `slippage` as 1%.
 
 ## ZapV2 routed burn
 
@@ -84,7 +86,9 @@ mc --chain robinhood zap-sell <mint-club-token> \
   --min-output 0.02
 ```
 
-`amount` is the exact Mint Club token burn amount. `min-output` is denominated in the output asset.
+Treat `amount` as the exact Mint Club token burn amount and `min-output` as an output-asset amount. Require the routed output to be native currency or ERC-20. Use whole-number burn amounts for ERC-1155 Mint Club tokens.
+
+If `min-output` is omitted, explain that the CLI applies slippage to the selected route quote. Treat omitted `slippage` as 1%; for a direct reserve output, use the exact burn refund as the default minimum.
 
 ## Routing limits
 
@@ -108,21 +112,27 @@ mc --chain robinhood create \
   --max-supply 1000000 \
   --curve exponential \
   --initial-price 0.01 \
-  --final-price 10
+  --final-price 10 \
+  --mint-royalty 100 \
+  --burn-royalty 100
 ```
 
-Curve presets: `linear`, `exponential`, `logarithmic`, `flat`.
+Use `linear`, `exponential`, `logarithmic`, or `flat`. Treat royalty values as basis points. State that omitted royalties default to 100 basis points (1%) each, and confirm any different values before creating the ERC-20 token.
 
 ## Transfer
 
 ```bash
 mc --chain avalanche send <address> --amount 0.01
 mc --chain robinhood send <address> --amount 100 --token USDG
+mc --chain base send <address> --amount 3 --token <erc1155> --token-id 0
 ```
+
+Require an integer `amount`, contract address, and `token-id` for ERC-1155 transfers.
 
 ## Safety
 
-- Before a write, state the chain, token, exact amount, input/output asset, and max/min limit.
+- Before a trade or transfer, state the chain, token, exact amount, input/output asset, and max/min limit.
+- Before token creation, state the chain, implementation type, reserve, maximum supply, curve range, and both royalties.
 - Use `info` or `price` first when the token or reserve is unclear.
 - Never print or expose `PRIVATE_KEY`.
 - Do not invent a route or a general-purpose `swap` command.

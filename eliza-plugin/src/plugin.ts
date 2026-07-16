@@ -171,7 +171,7 @@ const zapBuyAction = createAction({
   name: 'ZAP_BUY',
   similes: ['BUY_WITH_ASSET', 'MINT_WITH_ASSET', 'ROUTED_MINT'],
   description:
-    'Mint a Mint Club token from an exact amount of any routed asset via MCV2_ZapV2',
+    'Mint a Mint Club token from an exact amount of a routed native/ERC-20 asset via MCV2_ZapV2',
   validateText: (text) => canBuildActionArgs('ZAP_BUY', text),
   examplePrompt: 'Buy TOKEN with 10 USDC on Arbitrum',
   exampleResult: 'Minted TOKEN from 10 USDC through MCV2_ZapV2.',
@@ -181,7 +181,7 @@ const zapSellAction = createAction({
   name: 'ZAP_SELL',
   similes: ['SELL_FOR_ASSET', 'BURN_TO_ASSET', 'ROUTED_BURN'],
   description:
-    'Burn a Mint Club token into any routed output asset via MCV2_ZapV2',
+    'Burn a Mint Club token into a routed native/ERC-20 output asset via MCV2_ZapV2',
   validateText: (text) => canBuildActionArgs('ZAP_SELL', text),
   examplePrompt: 'Sell 5 TOKEN for USDC on Unichain',
   exampleResult: 'Burned 5 TOKEN into USDC through MCV2_ZapV2.',
@@ -228,15 +228,15 @@ const mintclubProvider: Provider = {
     text: [
       'Mint Club V2 bonding curve actions:',
       '- TOKEN_INFO / TOKEN_PRICE: read token data',
-      '- BUY_TOKEN / SELL_TOKEN: MCV2_Bond mint and burn with reserve ERC-20',
-      '- ZAP_BUY / ZAP_SELL: MCV2_ZapV2 exact-input local Uniswap routing',
+      '- BUY_TOKEN / SELL_TOKEN: MCV2_Bond mint and burn of ERC-20/1155 targets with reserve ERC-20',
+      '- ZAP_BUY / ZAP_SELL: MCV2_ZapV2 exact-input local Uniswap routing for native/ERC-20 assets',
       '- WALLET_BALANCE: show chain-local wallet balances',
       '- SEND_TOKEN: send native currency or ERC-20 tokens',
       '- CREATE_TOKEN: create an ERC-20 bonding curve token',
       '',
       `Supported chains: ${SUPPORTED_CHAINS.join(', ')}. Base is the default.`,
       'Zap routing enumerates direct and one-intermediary V2/V3/V4 candidates and uses the configured per-chain ZapV2 deployment.',
-      'The compatible mc CLI is installed as a plugin dependency; write actions require CLI wallet configuration.',
+      'The compatible mc CLI is installed as a plugin dependency; write actions require PRIVATE_KEY or the CLI wallet file.',
     ].join('\n'),
     values: {
       platform: 'Mint Club V2',
@@ -250,7 +250,7 @@ const mintclubProvider: Provider = {
 export const mintclubPlugin: Plugin = {
   name: 'plugin-mintclub',
   description:
-    'Mint Club V2 plugin for all-chain bonding curves and local Uniswap ZapV2 routing',
+    'Mint Club V2 plugin for bonding curves and bounded local Uniswap ZapV2 routing across supported chains',
   config: { PRIVATE_KEY: process.env.PRIVATE_KEY },
   async init(config: Record<string, string>) {
     logger.info('Initializing Mint Club V2 plugin');

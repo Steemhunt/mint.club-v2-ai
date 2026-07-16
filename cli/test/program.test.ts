@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 describe('CLI program', () => {
-  it('exposes protocol commands with global all-chain selection and no generic swap', () => {
+  it('exposes protocol commands with global supported-chain selection and no generic swap', () => {
     const program = createProgram('test');
     const commandNames = program.commands.map((command) => command.name());
     const chainOption = program.options.find((option) => option.long === '--chain')!;

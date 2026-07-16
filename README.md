@@ -26,9 +26,9 @@
 
 ---
 
-AI-facing tools for protocol-native [Mint Club V2](https://mint.club) operations across the chains where both Mint Club V2 and official Uniswap deployments are available.
+Protocol-native [Mint Club V2](https://mint.club) tooling for humans and agents. Reads and direct Bond operations use the configured Mint Club contracts; routed trades use local RPC quotes and `MCV2_ZapV2`.
 
-## Components
+## Tooling
 
 | Package | Purpose |
 |---|---|
@@ -39,16 +39,19 @@ AI-facing tools for protocol-native [Mint Club V2](https://mint.club) operations
 
 All three adapters consume the published [`chain-registry.json`](./cli/chain-registry.json) from `@mint.club/v2-cli`. The registry is the shared source for chain keys, aliases, IDs, and capability flags; the CLI validates it against its full contract/token/RPC configuration at startup.
 
+For application development, use the separate [`@mint.club/v2-sdk`](https://www.npmjs.com/package/@mint.club/v2-sdk) package and [SDK documentation](https://sdk.mint.club).
+
 ## Package migration
 
-The 2.0 release moves the public packages into the `@mint.club` npm organization:
+Version 2.0 consolidates the public packages under the `@mint.club` npm organization:
 
 | Previous package | 2.0 package |
 |---|---|
+| `mint.club-v2-sdk` | `@mint.club/v2-sdk` |
 | `mint.club-cli` | `@mint.club/v2-cli` |
 | `mintclub-mcp` | `@mint.club/v2-mcp` |
 
-The previous CLI and MCP packages are deprecated in favor of the scoped packages. `@mint.club/v2-eliza-plugin` is a new package; the earlier `@elizaos/plugin-mintclub` name was never published.
+The scoped names supersede the legacy SDK, CLI, and MCP package names. Existing users should migrate their install and configuration commands; package binaries remain `mc` and `mintclub-mcp`. `@mint.club/v2-eliza-plugin` is new—the earlier `@elizaos/plugin-mintclub` name was never published.
 
 ## Quick start
 
@@ -61,15 +64,17 @@ mc --chain arbitrum price 0xTOKEN
 mc --chain robinhood wallet
 ```
 
+Requires Node.js 18 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
+
 ## Protocol operations
 
 | Operation | Contract path |
 |---|---|
-| Buy with reserve ERC-20 | `MCV2_Bond.mint` |
-| Sell for reserve ERC-20 | `MCV2_Bond.burn` |
-| Buy from any routed asset | local Uniswap quote + `MCV2_ZapV2.zapMint` |
-| Sell into any routed asset | `MCV2_ZapV2.zapBurn` + local Uniswap quote |
-| Create token | `MCV2_Bond.createToken` |
+| Buy with the configured reserve ERC-20 | `MCV2_Bond.mint` |
+| Sell for the configured reserve ERC-20 | `MCV2_Bond.burn` |
+| Buy from a routed native/ERC-20 asset | local Uniswap quote + `MCV2_ZapV2.zapMint` |
+| Sell into a routed native/ERC-20 asset | `MCV2_ZapV2.zapBurn` + local Uniswap quote |
+| Create an ERC-20 bonding curve token | `MCV2_Bond.createToken` |
 
 Example ZapV2 syntax:
 
@@ -85,14 +90,14 @@ mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --slippage 1
 ```
 
-ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
+Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
 ## Local routing model
 
 Routing does not call the Uniswap Trading API, Smart Order Router, Mint Club route services, or any API-key quote service. It uses chain RPC calls only:
 
 1. Enumerate direct paths and paths with one configured wrapped-native or stablecoin intermediary.
-2. Quote homogeneous Uniswap V2, V3, and V4 candidates.
+2. Quote homogeneous Uniswap V2, V3, and V4 candidates where configured for the selected chain.
 3. Isolate expected missing-pool reverts while surfacing transport failures.
 4. Choose the highest exact-input output with deterministic tie-breaking.
 5. Encode only the selected path with `@uniswap/universal-router-sdk`.
@@ -107,7 +112,7 @@ The MCP server exposes nine tools:
 
 `token_info` · `token_price` · `wallet_balance` · `buy_token` · `sell_token` · `zap_buy` · `zap_sell` · `send_token` · `create_token`
 
-Every tool accepts an optional canonical `chain` key from the table below. Base is the default.
+Every tool accepts an optional canonical `chain` key from the table below. Base is the default. See the [MCP reference](./mcp/README.md) for schemas and safe client configuration.
 
 ## Architecture
 
@@ -167,9 +172,15 @@ npm run test:fork
 npm run build
 ```
 
-The default tests are deterministic and offline. `test:integration` performs read-only checks against all supported networks, while `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
+The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
-For registry releases, publish `@mint.club/v2-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
+For registry releases, publish the CLI first so the other packages can resolve their `^2.0.0` runtime dependency and registry subpath:
+
+```bash
+npm publish --workspace cli
+npm publish --workspace mcp
+npm publish --workspace eliza-plugin
+```
 
 ## License
 

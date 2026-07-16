@@ -122,7 +122,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'zap_buy',
     description:
-      'Mint a Mint Club token from an exact amount of any routed asset via MCV2_ZapV2',
+      'Mint a Mint Club token from an exact amount of a routed native/ERC-20 asset via MCV2_ZapV2',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
@@ -153,7 +153,7 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'zap_sell',
     description:
-      'Burn a Mint Club token into any routed output asset via MCV2_ZapV2',
+      'Burn a Mint Club token into a routed native/ERC-20 output asset via MCV2_ZapV2',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
@@ -198,7 +198,7 @@ export const TOOL_DEFINITIONS = [
   },
   {
     name: 'create_token',
-    description: 'Create a new Mint Club V2 bonding curve token',
+    description: 'Create a new ERC-20 Mint Club V2 bonding curve token',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,

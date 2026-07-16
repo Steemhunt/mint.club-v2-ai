@@ -96,7 +96,7 @@ describe('Eliza action execution', () => {
     await expect(sell.validate(runtime, ambiguousSell)).resolves.toBe(false);
   });
 
-  it('publishes the exact all-chain ZapV2 context', async () => {
+  it('publishes the exact supported-chain ZapV2 context', async () => {
     const provider = mintclubPlugin.providers?.[0];
     if (!provider) throw new Error('MINTCLUB_PROVIDER not found');
     const result = await provider.get({} as never, {} as never);

@@ -2,34 +2,34 @@
 
 An MCP server exposing Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across ten mainnets and two testnets.
 
+[npm package](https://www.npmjs.com/package/@mint.club/v2-mcp) · [repository](https://github.com/Steemhunt/mint.club-v2-ai) · [CLI reference](../cli) · [ElizaOS plugin](../eliza-plugin)
+
 The server delegates to [`@mint.club/v2-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, route discovery, pricing, and transactions. Chain keys are loaded from the CLI's published `chain-registry.json` rather than duplicated in the MCP package.
 
-## Install
-
-```bash
-npm install -g @mint.club/v2-mcp
-```
-
-`@mint.club/v2-mcp` installs the compatible `@mint.club/v2-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `@mint.club/v2-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an MCP conversation.
-
 ## Configure
+
+Requires Node.js 18 or later. Most MCP clients can launch the package directly with `npx`:
 
 ```json
 {
   "mcpServers": {
     "mintclub": {
-      "command": "mintclub-mcp",
-      "env": {
-        "PRIVATE_KEY": "0x..."
-      }
+      "command": "npx",
+      "args": ["-y", "@mint.club/v2-mcp@2"]
     }
   }
 }
 ```
 
-Write tools and `wallet_balance` require a configured key. Pass `PRIVATE_KEY`, or let the CLI load `~/.mintclub/.env`.
+For a global installation, run `npm install -g @mint.club/v2-mcp` and use `"command": "mintclub-mcp"` instead. The MCP package installs a compatible `@mint.club/v2-cli` 2.x runtime dependency automatically.
+
+Read-only tools work without a wallet. Write tools and `wallet_balance` require `PRIVATE_KEY` in the server process, or a key in `~/.mintclub/.env`. Supply it through the MCP client's secret/environment facility. To generate a dedicated local wallet, install the CLI and run `mc wallet --generate` in a trusted terminal.
+
+> Never store a key in a committed MCP configuration or paste it into a model conversation. Use a dedicated wallet with limited funds.
 
 ## Tools
+
+The server exposes nine protocol-specific tools:
 
 | Tool | Description |
 |---|---|
@@ -40,10 +40,10 @@ Write tools and `wallet_balance` require a configured key. Pass `PRIVATE_KEY`, o
 | `sell_token` | `MCV2_Bond.burn` for reserve ERC-20 |
 | `zap_buy` | Exact routed input asset → `MCV2_ZapV2.zapMint` |
 | `zap_sell` | `MCV2_ZapV2.zapBurn` → routed output asset |
-| `send_token` | Send native currency or ERC-20 |
-| `create_token` | Create a bonding curve token |
+| `send_token` | Send native currency or an ERC-20 token |
+| `create_token` | Create an ERC-20 bonding curve token |
 
-`create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply.
+`create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply. It uses the CLI defaults of 100 basis points (1%) for both mint and burn royalties; use the CLI directly when different royalties are required.
 
 Every tool accepts an optional canonical `chain` property. Base is the default. Supported values are:
 
@@ -81,7 +81,9 @@ Optional `minTokens` is denominated in the Mint Club token. `inputAmount` is exa
 
 Optional `minOutput` is denominated in the output asset. `amount` is the exact Mint Club token burn amount.
 
-The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates by RPC, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
+The Mint Club token passed to `zap_buy` or `zap_sell` may be ERC-20 or ERC-1155; ERC-1155 amounts must be whole numbers. Routed input and output assets must be native currency or ERC-20 tokens.
+
+The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates where configured, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
 
 ZapV2 is deployed on every supported chain listed above. Deployment addresses are maintained by `@mint.club/v2-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
 

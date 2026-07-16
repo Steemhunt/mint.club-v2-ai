@@ -2,11 +2,13 @@
 
 A command-line client for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap routing across ten mainnets and two testnets.
 
+[npm package](https://www.npmjs.com/package/@mint.club/v2-cli) · [repository](https://github.com/Steemhunt/mint.club-v2-ai) · [MCP server](../mcp) · [ElizaOS plugin](../eliza-plugin)
+
 The CLI calls the official contracts directly:
 
 - `MCV2_Bond.mint` / `burn` for reserve-token trades
 - `MCV2_ZapV2.zapMint` / `zapBurn` for routed exact-input trades
-- `MCV2_Bond.createToken` for token creation
+- `MCV2_Bond.createToken` for ERC-20 token creation
 
 It does **not** provide a general-purpose DEX swap command or use an external routing API.
 
@@ -17,17 +19,17 @@ npm install -g @mint.club/v2-cli
 mc --help
 ```
 
+Requires Node.js 18 or later. The installed executable is `mc`.
+
 ## Wallet setup
 
 ```bash
 mc wallet --generate
-# or
-mc wallet --set-private-key 0xYOUR_PRIVATE_KEY
 ```
 
-The key is stored in `~/.mintclub/.env` with file mode `0600`; the directory is locked to `0700`. You can instead export `PRIVATE_KEY`.
+Generated keys are stored in `~/.mintclub/.env` with file mode `0600`; the directory is locked to `0700`. To use an existing key, provide `PRIVATE_KEY` through a trusted secret manager or place it in that file yourself with the same permissions. The CLI also loads `.env` from the current directory.
 
-> Never commit or share a private key. Use a dedicated wallet with limited funds.
+> Never put a private key in a command argument, commit it, or paste it into an agent conversation. Use a dedicated wallet with limited funds.
 
 ## Chain selection
 
@@ -54,7 +56,7 @@ mc --chain robinhood wallet
 | Sepolia | `sepolia` | 11155111 | `ETH`, `WETH` |
 | Base Sepolia | `base-sepolia` | 84532 | `ETH`, `WETH` |
 
-`NATIVE` resolves to the selected chain's native currency. Any ERC-20 or Mint Club token can also be supplied by contract address. Created and used Mint Club token addresses are tracked per chain in `~/.mintclub/tokens.json`.
+`NATIVE` resolves to the selected chain's native currency. Any ERC-20 or Mint Club token can also be supplied by contract address. Created and successfully transacted Mint Club token addresses are tracked per chain in `~/.mintclub/tokens.json`.
 
 The published [`chain-registry.json`](./chain-registry.json) is consumed by the CLI, MCP server, and Eliza plugin. The CLI validates its IDs and capability flags against the full runtime configuration at startup.
 
@@ -96,6 +98,8 @@ mc --chain arbitrum sell 0xTOKEN --amount 100 --min-refund 20
 
 `--max-cost` and `--min-refund` are denominated in the reserve token and respect its on-chain decimals. If omitted, the current quote is used as the exact on-chain limit; provide an explicit limit to tolerate price movement before inclusion.
 
+The Mint Club token may use the ERC-20 or ERC-1155 implementation. ERC-1155 Mint Club tokens have zero decimals, so their `--amount` must be a whole number.
+
 ## ZapV2 routed mint and burn
 
 ### Mint from an exact input amount
@@ -115,7 +119,7 @@ mc --chain base zap-buy SIGNET \
 
 `--input-amount` is exact. If `--min-tokens` is omitted, the CLI performs a read-only `zapMint` preview with zero token minimum, applies the requested slippage to the preview result, and simulates the final protected call before sending.
 
-Native input is supported with `--input-token NATIVE` (or the native symbol such as `ETH`, `AVAX`, `POL`, or `BNB`). ERC-20 input is approved to ZapV2 only after an executable route has been found.
+Native input is supported with `--input-token NATIVE` (or the native symbol such as `ETH`, `AVAX`, `POL`, or `BNB`). Routed input assets must be native currency or ERC-20 tokens; the Mint Club token being minted may be ERC-20 or ERC-1155. ERC-20 input is approved to ZapV2 only after an executable route has been found.
 
 ### Burn an exact Mint Club token amount
 
@@ -131,7 +135,7 @@ mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
   --min-output 0.02
 ```
 
-`--amount` is the exact Mint Club token amount to burn. If `--min-output` is omitted, the selected route quote is reduced by the requested slippage. When the reserve token already equals the requested output token, no router command is emitted and the exact burn refund becomes the default minimum.
+`--amount` is the exact Mint Club token amount to burn. The target may be an ERC-20 or ERC-1155 Mint Club token; use whole-number amounts for ERC-1155. The routed output must be native currency or an ERC-20 token. If `--min-output` is omitted, the selected route quote is reduced by the requested slippage. When the reserve token already equals the requested output token, no router command is emitted and the exact burn refund becomes the default minimum.
 
 ### Deployment status
 
@@ -142,7 +146,7 @@ mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
 The route engine:
 
 1. Enumerates a direct path and paths through at most one configured wrapped-native or stablecoin intermediary.
-2. Quotes homogeneous Uniswap V2, V3, and V4 paths by RPC.
+2. Quotes homogeneous Uniswap V2, V3, and V4 paths by RPC where configured for the selected chain.
 3. Computes V2 output from factory/pair reserves, calls Quoter/QuoterV2 for V3, and calls V4Quoter for V4.
 4. Ignores expected missing-pool reverts independently, but surfaces RPC/transport failures.
 5. Chooses the greatest exact-input output; ties prefer fewer hops and then `V2 → V3 → V4` deterministically.
@@ -189,13 +193,20 @@ mc --chain base create \
 
 Prices are encoded using the reserve token's actual decimals. Non-flat presets require the final price to exceed the initial price and automatically reduce the nominal 500 steps when reserve precision cannot represent 500 strictly increasing prices.
 
+`create` deploys the configured ERC-20 implementation. Mint and burn royalties default to 100 basis points (1%) each; set them explicitly with `--mint-royalty` and `--burn-royalty` when different values are intended.
+
 ## Transfer and balances
 
 ```bash
 mc --chain avalanche send 0xRECIPIENT --amount 0.01
 mc --chain robinhood send 0xRECIPIENT --amount 100 --token USDG
+mc --chain base send 0xRECIPIENT --amount 3 \
+  --token 0xERC1155_CONTRACT \
+  --token-id 0
 mc --chain polygon wallet
 ```
+
+Native and ERC-20 amounts use their token decimals. ERC-1155 `--amount` is an integer quantity and requires both the contract address and `--token-id`.
 
 ## Mint Club contract configuration
 

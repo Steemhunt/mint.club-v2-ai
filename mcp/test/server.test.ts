@@ -49,7 +49,7 @@ describe('MCP tool surface', () => {
     expect(mcpPackage.exports['.']).toBe('./dist/index.js');
   });
 
-  it('exposes only protocol-native tools with exact all-chain selection', () => {
+  it('exposes only protocol-native tools with exact supported-chain selection', () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
 
     expect(SUPPORTED_CHAINS).toEqual(expectedChains);
@@ -133,7 +133,7 @@ describe('MCP tool surface', () => {
     expect(Object.keys(sell.inputSchema.properties)).not.toContain('minRefund');
   });
 
-  it('builds all-chain ZapV2 buy argv without shell interpolation', () => {
+  it('builds multichain ZapV2 buy argv without shell interpolation', () => {
     const token = 'TOKEN; touch /tmp/should-not-run';
 
     expect(
