@@ -27,6 +27,8 @@ Read-only tools work without a wallet. Write tools and `wallet_balance` require 
 
 > Never store a key in a committed MCP configuration or paste it into a model conversation. Use a dedicated wallet with limited funds.
 
+Every write tool requires the literal structured argument `"confirm": true`. A client must show the complete chain, assets, amounts, and limits to the user before setting it; the server never infers confirmation.
+
 ## Tools
 
 The server exposes nine protocol-specific tools:
@@ -61,7 +63,8 @@ Blast is unsupported by this integration.
   "token": "0xMINT_CLUB_TOKEN",
   "inputToken": "USDT",
   "inputAmount": "10",
-  "slippage": "1"
+  "slippage": "1",
+  "confirm": true
 }
 ```
 
@@ -75,7 +78,8 @@ Optional `minTokens` is denominated in the Mint Club token. `inputAmount` is exa
   "token": "0xMINT_CLUB_TOKEN",
   "amount": "100",
   "outputToken": "USDC",
-  "slippage": "1"
+  "slippage": "1",
+  "confirm": true
 }
 ```
 
@@ -90,14 +94,14 @@ ZapV2 is deployed on every supported chain listed above. Deployment addresses ar
 ## Example requests
 
 - “Get token info for SIGNET on Base.” → `token_info`
-- “Mint 100 TOKEN on Robinhood with its USDG reserve.” → `buy_token`
-- “Buy TOKEN with exactly 10 USDT on Arbitrum.” → `zap_buy`
-- “Sell 50 TOKEN for USDC on Unichain.” → `zap_sell`
-- “Create token My Token (MYT), backed by USDG on Robinhood, with maximum supply 1,000,000 and a linear curve from 0.01 to 1 USDG.” → `create_token`
+- Confirmed `buy_token` call for 100 TOKEN on Robinhood with `"confirm": true`.
+- Confirmed `zap_buy` call using exactly 10 USDT on Arbitrum with `"confirm": true`.
+- Confirmed `zap_sell` call for 50 TOKEN to USDC on Unichain with `"confirm": true`.
+- Confirmed `create_token` call for My Token (MYT), backed by USDG on Robinhood, with maximum supply 1,000,000, a linear curve from 0.01 to 1 USDG, and `"confirm": true`.
 
 ## Safe CLI execution
 
-Tool arguments are passed to `mc` with `execFileSync` argv arrays. User values are not interpolated into a shell command.
+Tool arguments are passed to `mc` with `execFileSync` argv arrays. User values are not interpolated into a shell command. The server appends CLI `--yes` only after validating `confirm === true` for a write tool.
 
 Set `MINTCLUB_CLI` to override the CLI executable path.
 

@@ -66,6 +66,8 @@ mc --chain robinhood wallet
 
 Requires Node.js 18 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
 
+Financial writes are fail-closed: CLI writes require `--yes` (while `create` keeps its interactive prompt), MCP write tools require `confirm: true`, and Eliza writes require one affirmative original-user `Confirm:` statement with exactly one explicit chain and all effective limits, slippage, assets, and royalties.
+
 ## Protocol operations
 
 | Operation | Contract path |
@@ -82,12 +84,14 @@ Example ZapV2 syntax:
 mc --chain arbitrum zap-buy 0xMINT_CLUB_TOKEN \
   --input-token USDT \
   --input-amount 10 \
-  --slippage 1
+  --slippage 1 \
+  --yes
 
 mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --amount 100 \
   --output-token USDC \
-  --slippage 1
+  --slippage 1 \
+  --yes
 ```
 
 Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
@@ -170,6 +174,9 @@ npm test
 npm run test:integration
 npm run test:fork
 npm run build
+npm run audit:production
+npm run audit:full
+npm run test:release
 ```
 
 The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
@@ -184,4 +191,4 @@ npm publish --workspace eliza-plugin
 
 ## License
 
-MIT
+MIT. Published packages include the project `LICENSE`; the bundled CLI also includes generated `THIRD_PARTY_NOTICES.md`. See [SECURITY.md](./SECURITY.md) for the dependency audit policy.

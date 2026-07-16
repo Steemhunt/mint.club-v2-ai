@@ -33,6 +33,16 @@ describe('Eliza action execution', () => {
     ]);
   });
 
+  it('keeps every registered action example valid', async () => {
+    for (const action of mintclubPlugin.actions ?? []) {
+      const message = action.examples?.[0]?.[0];
+      expect(message, `${action.name} is missing its user example`).toBeDefined();
+      await expect(
+        action.validate({} as never, message as never),
+      ).resolves.toBe(true);
+    }
+  });
+
   it('delegates wallet configuration checks to the CLI', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'mintclub-eliza-'));
     dirs.push(dir);
@@ -71,12 +81,34 @@ describe('Eliza action execution', () => {
     const sell = mintclubPlugin.actions?.find(({ name }) => name === 'SELL_TOKEN')!;
     const runtime = {} as never;
     const buyMessage = {
-      content: { text: 'Buy TOKEN with 10 USDC on Arbitrum' },
+      content: {
+        text: 'Confirm: Buy TOKEN with 10 USDC on Arbitrum with 1% slippage',
+      },
     } as never;
     const sellMessage = {
-      content: { text: 'Sell 5 TOKEN for USDC on Unichain' },
+      content: {
+        text: 'Confirm: Sell 5 TOKEN for USDC on Unichain with 1% slippage',
+      },
+    } as never;
+    const unconfirmedBuyMessage = {
+      content: { text: 'Buy TOKEN with 10 USDC on Arbitrum with 1% slippage' },
+    } as never;
+    const unconfirmedSellMessage = {
+      content: { text: 'Sell 5 TOKEN for USDC on Unichain with 1% slippage' },
     } as never;
 
+    await expect(zapBuy.validate(runtime, unconfirmedBuyMessage)).resolves.toBe(
+      false,
+    );
+    await expect(buy.validate(runtime, unconfirmedBuyMessage)).resolves.toBe(
+      false,
+    );
+    await expect(
+      zapSell.validate(runtime, unconfirmedSellMessage),
+    ).resolves.toBe(false);
+    await expect(sell.validate(runtime, unconfirmedSellMessage)).resolves.toBe(
+      false,
+    );
     await expect(zapBuy.validate(runtime, buyMessage)).resolves.toBe(true);
     await expect(buy.validate(runtime, buyMessage)).resolves.toBe(false);
     await expect(zapSell.validate(runtime, sellMessage)).resolves.toBe(true);
@@ -102,6 +134,10 @@ describe('Eliza action execution', () => {
     const result = await provider.get({} as never, {} as never);
 
     expect(result.text).toContain('MCV2_ZapV2');
+    expect(result.text).toContain('one affirmative "Confirm:" statement');
+    expect(result.text).toContain('writes require exactly one explicit chain');
+    expect(result.text).toContain('Direct trades require max-cost/min-refund');
+    expect(result.text).toContain('printable ASCII name');
     expect(result.text).not.toContain('ZapV1');
     expect(result.text).toContain('ethereum, optimism, arbitrum');
     expect(result.text).toContain('base-sepolia');

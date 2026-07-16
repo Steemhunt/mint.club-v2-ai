@@ -72,6 +72,25 @@ export MINTCLUB_RPC_BASE_SEPOLIA=https://your-rpc.example
 
 The variable format is `MINTCLUB_RPC_<UPPERCASE_CLI_KEY>`, with non-alphanumeric separators replaced by underscores (`base-sepolia` becomes `BASE_SEPOLIA`).
 
+## Wallet and private-key safety
+
+The CLI writes generated keys with file mode `0600`. Never commit `~/.mintclub/.env`, paste a funded key into an agent conversation, or place a key directly in a command argument.
+
+### Migrating from `wallet --set-private-key <key>`
+
+The argv-based import option was removed because shells and process inspectors can retain its value. For automation, inject `PRIVATE_KEY` from your secret manager into the `mc` process environment. To migrate an existing key into the CLI wallet file without putting it in argv or shell history, use a hidden Bash prompt:
+
+```bash
+mkdir -p ~/.mintclub
+umask 077
+read -rsp 'Private key: ' PRIVATE_KEY; printf '\n'
+printf 'PRIVATE_KEY=%s\n' "$PRIVATE_KEY" > ~/.mintclub/.env
+unset PRIVATE_KEY
+chmod 600 ~/.mintclub/.env
+```
+
+Do not replace `<key>` inline in any command. Existing scripts should read from a protected file descriptor or secret manager, export `PRIVATE_KEY` only for the child process, and unset it immediately afterward.
+
 ## Read operations
 
 ```bash
@@ -82,18 +101,22 @@ mc --chain robinhood wallet
 
 USD pricing uses chain-specific DefiLlama feeds where available. This is independent of routing; route quotes use RPC calls only.
 
+## Confirm write operations
+
+`buy`, `sell`, `zap-buy`, `zap-sell`, and `send` refuse to broadcast unless `--yes` is present. Review the chain, assets, exact amounts, and max/min limits before adding it. `create` keeps an interactive confirmation prompt; use `--yes` only after reviewing the complete curve and royalty summary or from an already-confirmed non-interactive adapter.
+
 ## Bond mint and burn
 
 Use these commands when paying or receiving the token's configured reserve ERC-20.
 
 ```bash
 # Mint an exact Mint Club token amount
-mc --chain base buy SIGNET --amount 100
-mc --chain arbitrum buy 0xTOKEN --amount 100 --max-cost 25
+mc --chain base buy SIGNET --amount 100 --yes
+mc --chain arbitrum buy 0xTOKEN --amount 100 --max-cost 25 --yes
 
 # Burn an exact Mint Club token amount
-mc --chain base sell SIGNET --amount 100
-mc --chain arbitrum sell 0xTOKEN --amount 100 --min-refund 20
+mc --chain base sell SIGNET --amount 100 --yes
+mc --chain arbitrum sell 0xTOKEN --amount 100 --min-refund 20 --yes
 ```
 
 `--max-cost` and `--min-refund` are denominated in the reserve token and respect its on-chain decimals. If omitted, the current quote is used as the exact on-chain limit; provide an explicit limit to tolerate price movement before inclusion.
@@ -108,13 +131,15 @@ The Mint Club token may use the ERC-20 or ERC-1155 implementation. ERC-1155 Mint
 mc --chain arbitrum zap-buy 0xMINT_CLUB_TOKEN \
   --input-token USDT \
   --input-amount 10 \
-  --slippage 1
+  --slippage 1 \
+  --yes
 
 mc --chain base zap-buy SIGNET \
   --input-token 0xARBITRARY_ERC20 \
   --input-amount 250 \
   --min-tokens 100 \
-  --slippage 0.5
+  --slippage 0.5 \
+  --yes
 ```
 
 `--input-amount` is exact. If `--min-tokens` is omitted, the CLI performs a read-only `zapMint` preview with zero token minimum, applies the requested slippage to the preview result, and simulates the final protected call before sending.
@@ -127,12 +152,14 @@ Native input is supported with `--input-token NATIVE` (or the native symbol such
 mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --amount 100 \
   --output-token USDC \
-  --slippage 1
+  --slippage 1 \
+  --yes
 
 mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
   --amount 100 \
   --output-token NATIVE \
-  --min-output 0.02
+  --min-output 0.02 \
+  --yes
 ```
 
 `--amount` is the exact Mint Club token amount to burn. The target may be an ERC-20 or ERC-1155 Mint Club token; use whole-number amounts for ERC-1155. The routed output must be native currency or an ERC-20 token. If `--min-output` is omitted, the selected route quote is reduced by the requested slippage. When the reserve token already equals the requested output token, no router command is emitted and the exact burn refund becomes the default minimum.
@@ -198,11 +225,12 @@ Prices are encoded using the reserve token's actual decimals. Non-flat presets r
 ## Transfer and balances
 
 ```bash
-mc --chain avalanche send 0xRECIPIENT --amount 0.01
-mc --chain robinhood send 0xRECIPIENT --amount 100 --token USDG
+mc --chain avalanche send 0xRECIPIENT --amount 0.01 --yes
+mc --chain robinhood send 0xRECIPIENT --amount 100 --token USDG --yes
 mc --chain base send 0xRECIPIENT --amount 3 \
   --token 0xERC1155_CONTRACT \
-  --token-id 0
+  --token-id 0 \
+  --yes
 mc --chain polygon wallet
 ```
 

@@ -83,6 +83,71 @@ describe('MCP tool surface', () => {
     }
   });
 
+  it('requires explicit confirmation for every destructive tool', () => {
+    const writeTools = TOOL_DEFINITIONS.filter(
+      (tool) => !tool.annotations.readOnlyHint,
+    );
+
+    for (const tool of writeTools) {
+      expect(tool.inputSchema.properties.confirm).toEqual({
+        type: 'boolean',
+        const: true,
+        description: expect.stringContaining('broadcast'),
+      });
+      expect(tool.inputSchema.required).toContain('confirm');
+    }
+
+    const cases = [
+      ['buy_token', { token: 'SIGNET', amount: '1' }],
+      ['sell_token', { token: 'SIGNET', amount: '1' }],
+      [
+        'zap_buy',
+        { token: 'SIGNET', inputToken: 'USDC', inputAmount: '1' },
+      ],
+      [
+        'zap_sell',
+        { token: 'SIGNET', amount: '1', outputToken: 'USDC' },
+      ],
+      [
+        'send_token',
+        { to: '0x1111111111111111111111111111111111111111', amount: '1' },
+      ],
+      [
+        'create_token',
+        {
+          name: 'Token',
+          symbol: 'TKN',
+          reserve: 'USDC',
+          maxSupply: '1000',
+          curve: 'linear',
+          initialPrice: '0.01',
+          finalPrice: '1',
+        },
+      ],
+    ] as const;
+
+    for (const [tool, args] of cases) {
+      expect(() => buildCliArgs(tool, args)).toThrow('confirm must be true');
+      expect(buildCliArgs(tool, { ...args, confirm: true })).toContain('--yes');
+    }
+
+    expect(
+      buildCliArgs('buy_token', {
+        token: 'SIGNET',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toEqual([
+      '--chain',
+      'base',
+      'buy',
+      'SIGNET',
+      '--amount',
+      '1',
+      '--yes',
+    ]);
+  });
+
   it('requires a complete curve definition for create_token', () => {
     const tool = TOOL_DEFINITIONS.find(
       (definition) => definition.name === 'create_token',
@@ -96,6 +161,7 @@ describe('MCP tool surface', () => {
       'curve',
       'initialPrice',
       'finalPrice',
+      'confirm',
     ]);
     expect(() =>
       buildCliArgs('create_token', {
@@ -103,6 +169,7 @@ describe('MCP tool surface', () => {
         symbol: 'TKN',
         reserve: 'USDC',
         maxSupply: '1000',
+        confirm: true,
       }),
     ).toThrow('Missing required argument: curve');
   });
@@ -116,6 +183,7 @@ describe('MCP tool surface', () => {
       'token',
       'inputToken',
       'inputAmount',
+      'confirm',
     ]);
     expect(Object.keys(buy.inputSchema.properties)).toEqual([
       'chain',
@@ -124,11 +192,13 @@ describe('MCP tool surface', () => {
       'inputAmount',
       'minTokens',
       'slippage',
+      'confirm',
     ]);
     expect(sell.inputSchema.required).toEqual([
       'token',
       'amount',
       'outputToken',
+      'confirm',
     ]);
     expect(Object.keys(sell.inputSchema.properties)).not.toContain('minRefund');
   });
@@ -144,6 +214,7 @@ describe('MCP tool surface', () => {
         inputAmount: '10',
         minTokens: '2',
         slippage: '0.5',
+        confirm: true,
       }),
     ).toEqual([
       '--chain',
@@ -158,6 +229,7 @@ describe('MCP tool surface', () => {
       '2',
       '--slippage',
       '0.5',
+      '--yes',
     ]);
   });
 
@@ -169,6 +241,7 @@ describe('MCP tool surface', () => {
         amount: '5',
         outputToken: 'USDC',
         minOutput: '4.5',
+        confirm: true,
       }),
     ).toEqual([
       '--chain',
@@ -181,6 +254,7 @@ describe('MCP tool surface', () => {
       'USDC',
       '--min-output',
       '4.5',
+      '--yes',
     ]);
     expect(() => buildCliArgs('wallet_balance', { chain: 'degen' })).toThrow(
       'Unsupported chain: degen',

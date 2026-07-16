@@ -46,29 +46,39 @@ Read-only actions work without a wallet. Write actions and wallet balances requi
 
 > Never store a key in a character file, commit it, or paste it into an agent conversation. Use a dedicated wallet with limited funds.
 
+A write action runs only when the **original user message** is one affirmative `Confirm:` statement. The parser rejects non-ASCII whitespace, control/format/bidirectional characters, negation, cancellation, multiple write clauses, and any unmatched text. The model and plugin must never add this prefix on the user’s behalf; a bare follow-up such as “yes” is insufficient.
+
+Every confirmation must name exactly one chain and bind every effective financial parameter:
+
+- direct buys: `with maximum cost AMOUNT reserve units`
+- direct sells: `with minimum refund AMOUNT reserve units`
+- routed buys/sells: an explicit slippage percentage
+- sends: the native or ERC-20 asset, amount, recipient, and chain
+- token creation: a printable ASCII name without transaction instructions, plus mint and burn royalties in basis points
+
 ## Example prompts
 
 - “Get info about SIGNET.”
 - “What is the price of TOKEN on Robinhood?”
-- “Buy 25 SIGNET.”
-- “Sell 5 SIGNET.”
-- “Buy TOKEN with 10 USDT on Arbitrum with 0.5% slippage.”
-- “Sell 5 TOKEN for USDC on Unichain.”
+- “Confirm: Buy 25 SIGNET on Base with maximum cost 30 reserve units.”
+- “Confirm: Sell 5 SIGNET on Base with minimum refund 4 reserve units.”
+- “Confirm: Buy TOKEN with 10 USDT on Arbitrum with 0.5% slippage.”
+- “Confirm: Sell 5 TOKEN for USDC on Unichain with 1% slippage.”
 - “Show my wallet balance on Polygon.”
-- “Send 10 USDG to `0x1111111111111111111111111111111111111111` on Robinhood.”
-- “Create token \"My Token\" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood.”
+- “Confirm: Send 10 USDG to `0x1111111111111111111111111111111111111111` on Robinhood.”
+- “Confirm: Create token \"My Token\" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood with 100 bps mint royalty and 100 bps burn royalty.”
 
-The Zap parser deliberately rejects the ambiguous target-amount form “Buy 10 TOKEN with ETH.” Use “Buy TOKEN with 0.1 ETH” so the exact routed input amount is explicit. Zap slippage defaults to 1% when omitted.
+The Zap parser deliberately rejects the ambiguous target-amount form “Buy 10 TOKEN with ETH.” Use “Buy TOKEN with 0.1 ETH” so the exact routed input amount is explicit. The plugin does not accept an implicit Zap slippage default in a confirmed write.
 
 The target Mint Club token may be ERC-20 or ERC-1155; ERC-1155 amounts must be whole numbers. Routed input/output and `SEND_TOKEN` assets must be native currency or ERC-20 tokens.
 
-The text parser fails closed on explicit max/min or royalty constraints it cannot map without ambiguity. `CREATE_TOKEN` creates ERC-20 tokens with the CLI defaults of 100 basis points (1%) for both mint and burn royalties. Use the CLI when different royalties are required; use the CLI or MCP server for explicit trade limits.
+The text parser fails closed on constraints it cannot map without ambiguity. Direct trade limits use numeric reserve-token units, and token-creation royalties use integer basis points. Use the CLI or MCP server when you need explicit routed minimum-output values instead of percentage slippage.
 
 Supported canonical chain keys:
 
 `ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `zora` · `unichain` · `robinhood` · `sepolia` · `base-sepolia`
 
-Natural-language aliases such as “Ethereum mainnet,” “Ethereum Sepolia,” “Base Sepolia,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default. Contradictory or multiple positive chain instructions are rejected rather than guessed.
+Natural-language aliases such as “Ethereum mainnet,” “Ethereum Sepolia,” “Base Sepolia,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default only for reads; every write confirmation must name one chain explicitly. Contradictory or repeated chain instructions are rejected rather than guessed.
 
 ZapV2 is deployed on every supported chain listed above. Blast is unsupported by this integration.
 

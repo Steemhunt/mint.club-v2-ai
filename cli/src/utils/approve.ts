@@ -1,5 +1,6 @@
-import { type Address, maxUint256 } from 'viem';
+import { encodeFunctionData, type Address, maxUint256 } from 'viem';
 import { ERC20_ABI } from '../abi/erc20';
+import { assertErc20CallSucceeds } from './erc20-return';
 
 const APPROVE_ABI = [
   ...ERC20_ABI,
@@ -52,12 +53,20 @@ async function writeApproval(
   spender: Address,
   amount: bigint,
 ): Promise<void> {
-  const hash = await wallet.writeContract({
+  const approval = {
     address: token,
     abi: APPROVE_ABI,
     functionName: 'approve',
     args: [spender, amount],
-  });
+  } as const;
+  await assertErc20CallSucceeds(
+    pub,
+    wallet.account.address,
+    token,
+    encodeFunctionData(approval),
+    'approval',
+  );
+  const hash = await wallet.writeContract(approval);
   await waitForApproval(pub, hash);
 }
 

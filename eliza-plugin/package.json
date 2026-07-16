@@ -3,8 +3,9 @@
   "version": "2.0.0",
   "description": "ElizaOS plugin for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "files": [
-    "dist",
-    "README.md"
+    "dist/",
+    "README.md",
+    "LICENSE"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -46,7 +47,7 @@
     "@elizaos/core": "^1.7.2",
     "@types/node": "^22.0.0",
     "typescript": "^5.0.0",
-    "vitest": "^2.1.9"
+    "vitest": "^3.2.7"
   },
   "license": "MIT",
   "publishConfig": {

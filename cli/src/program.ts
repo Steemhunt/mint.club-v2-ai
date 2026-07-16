@@ -56,7 +56,7 @@ export type ProgramHandlers = {
     chain: SupportedChain,
   ) => Promise<void>;
   wallet: (
-    options: { generate?: boolean; setPrivateKey?: string },
+    options: { generate?: boolean },
     chain: SupportedChain,
   ) => Promise<void>;
   upgrade: () => Promise<void>;
@@ -128,6 +128,14 @@ function action(task: () => Promise<void>) {
   };
 }
 
+function requireBroadcastConfirmation(yes: boolean | undefined): void {
+  if (!yes) {
+    throw new Error(
+      'Transaction not broadcast. Review the command details and rerun with --yes to confirm.',
+    );
+  }
+}
+
 export function createProgram(
   version: string,
   overrides: Partial<ProgramHandlers> = {},
@@ -177,17 +185,23 @@ export function createProgram(
     .argument('<token>', 'Token address or symbol')
     .requiredOption('-a, --amount <n>', 'Tokens to buy')
     .option('-m, --max-cost <n>', 'Maximum reserve-token cost')
-    .action((input: string, options: { amount: string; maxCost?: string }) =>
-      action(async () => {
-        const chain = selectedChain();
-        await handlers.buy(
-          await token(input, chain),
-          options.amount,
-          options.maxCost,
-          requireKey(),
-          chain,
-        );
-      })(),
+    .option('-y, --yes', 'Confirm and broadcast this transaction')
+    .action(
+      (
+        input: string,
+        options: { amount: string; maxCost?: string; yes?: boolean },
+      ) =>
+        action(async () => {
+          requireBroadcastConfirmation(options.yes);
+          const chain = selectedChain();
+          await handlers.buy(
+            await token(input, chain),
+            options.amount,
+            options.maxCost,
+            requireKey(),
+            chain,
+          );
+        })(),
     );
 
   program
@@ -196,17 +210,23 @@ export function createProgram(
     .argument('<token>', 'Token address or symbol')
     .requiredOption('-a, --amount <n>', 'Tokens to sell')
     .option('-m, --min-refund <n>', 'Minimum reserve-token refund')
-    .action((input: string, options: { amount: string; minRefund?: string }) =>
-      action(async () => {
-        const chain = selectedChain();
-        await handlers.sell(
-          await token(input, chain),
-          options.amount,
-          options.minRefund,
-          requireKey(),
-          chain,
-        );
-      })(),
+    .option('-y, --yes', 'Confirm and broadcast this transaction')
+    .action(
+      (
+        input: string,
+        options: { amount: string; minRefund?: string; yes?: boolean },
+      ) =>
+        action(async () => {
+          requireBroadcastConfirmation(options.yes);
+          const chain = selectedChain();
+          await handlers.sell(
+            await token(input, chain),
+            options.amount,
+            options.minRefund,
+            requireKey(),
+            chain,
+          );
+        })(),
     );
 
   program
@@ -256,6 +276,7 @@ export function createProgram(
     .requiredOption('-a, --input-amount <n>', 'Exact input amount')
     .option('-m, --min-tokens <n>', 'Minimum Mint Club tokens to receive')
     .option('-s, --slippage <pct>', 'Slippage tolerance %', '1')
+    .option('-y, --yes', 'Confirm and broadcast this transaction')
     .action(
       (
         input: string,
@@ -264,9 +285,11 @@ export function createProgram(
           inputAmount: string;
           minTokens?: string;
           slippage: string;
+          yes?: boolean;
         },
       ) =>
         action(async () => {
+          requireBroadcastConfirmation(options.yes);
           const chain = selectedChain();
           await handlers.zapBuy({
             privateKey: requireKey(),
@@ -290,6 +313,7 @@ export function createProgram(
     .requiredOption('-o, --output-token <token>', 'Output token address or symbol')
     .option('-m, --min-output <n>', 'Minimum output-token amount')
     .option('-s, --slippage <pct>', 'Slippage tolerance %', '1')
+    .option('-y, --yes', 'Confirm and broadcast this transaction')
     .action(
       (
         input: string,
@@ -298,9 +322,11 @@ export function createProgram(
           outputToken: string;
           minOutput?: string;
           slippage: string;
+          yes?: boolean;
         },
       ) =>
         action(async () => {
+          requireBroadcastConfirmation(options.yes);
           const chain = selectedChain();
           await handlers.zapSell({
             privateKey: requireKey(),
@@ -321,39 +347,46 @@ export function createProgram(
     .requiredOption('-a, --amount <n>', 'Amount to send')
     .option('-t, --token <token>', 'Token address or symbol')
     .option('--token-id <id>', 'ERC-1155 token ID')
-    .action((to: Address, options) =>
-      action(async () => {
-        const chain = selectedChain();
-        const resolvedToken = options.token
-          ? await token(options.token, chain)
-          : undefined;
-        const nativeToken =
-          resolvedToken?.toLowerCase() === ZERO_ADDRESS.toLowerCase();
-        if (nativeToken && options.tokenId !== undefined) {
-          throw new Error('--token-id requires an ERC-1155 contract address');
-        }
-        await handlers.send(
-          to,
-          options.amount,
-          requireKey(),
-          {
-            token: nativeToken ? undefined : resolvedToken,
-            tokenId: options.tokenId,
-          },
-          chain,
-        );
-      })(),
+    .option('-y, --yes', 'Confirm and broadcast this transaction')
+    .action(
+      (
+        to: Address,
+        options: {
+          amount: string;
+          token?: string;
+          tokenId?: string;
+          yes?: boolean;
+        },
+      ) =>
+        action(async () => {
+          requireBroadcastConfirmation(options.yes);
+          const chain = selectedChain();
+          const resolvedToken = options.token
+            ? await token(options.token, chain)
+            : undefined;
+          const nativeToken =
+            resolvedToken?.toLowerCase() === ZERO_ADDRESS.toLowerCase();
+          if (nativeToken && options.tokenId !== undefined) {
+            throw new Error('--token-id requires an ERC-1155 contract address');
+          }
+          await handlers.send(
+            to,
+            options.amount,
+            requireKey(),
+            {
+              token: nativeToken ? undefined : resolvedToken,
+              tokenId: options.tokenId,
+            },
+            chain,
+          );
+        })(),
     );
 
   program
     .command('wallet')
-    .description('Show wallet balances, or generate/import a key')
+    .description('Show wallet balances or generate a dedicated key')
     .option('-g, --generate', 'Generate a new wallet')
-    .option(
-      '-s, --set-private-key <key>',
-      'Import a key (prefer PRIVATE_KEY; command arguments may be exposed)',
-    )
-    .action((options) =>
+    .action((options: { generate?: boolean }) =>
       action(() => handlers.wallet(options, selectedChain()))(),
     );
 

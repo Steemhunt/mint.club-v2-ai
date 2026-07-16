@@ -1,7 +1,8 @@
-import { type Address, parseEther } from 'viem';
+import { encodeFunctionData, type Address, parseEther } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
 import { ERC20_ABI } from '../abi/erc20';
+import { assertErc20CallSucceeds } from '../utils/erc20-return';
 import { parse, shortHash, shortAddr, txUrl } from '../utils/format';
 
 const ERC1155_ABI = [
@@ -71,23 +72,20 @@ export async function send(
     console.log(
       `💸 Sending ${amount} ${symbol} (${shortAddr(opts.token)}) to ${shortAddr(to)} on ${chainName}...`,
     );
-    const hash = await walletClient.writeContract({
+    const transfer = {
       address: opts.token,
-      abi: [
-        {
-          type: 'function',
-          name: 'transfer',
-          stateMutability: 'nonpayable',
-          inputs: [
-            { name: 'to', type: 'address' },
-            { name: 'amount', type: 'uint256' },
-          ],
-          outputs: [{ type: 'bool' }],
-        },
-      ] as const,
+      abi: ERC20_ABI,
       functionName: 'transfer',
       args: [to, value],
-    });
+    } as const;
+    await assertErc20CallSucceeds(
+      publicClient,
+      account.address,
+      opts.token,
+      encodeFunctionData(transfer),
+      'transfer',
+    );
+    const hash = await walletClient.writeContract(transfer);
     console.log(`   TX: ${shortHash(hash)}`);
     console.log(`   ${txUrl(hash, chain)}`);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });

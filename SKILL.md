@@ -40,13 +40,19 @@ mc --chain arbitrum price <token>
 mc --chain polygon wallet
 ```
 
+USD pricing uses chain-specific DefiLlama feeds where available. This is separate from RPC-only route discovery.
+
+## Write confirmation
+
+Never append `--yes` merely because the user requested a write earlier in the conversation. First present the complete chain, assets, exact amounts, limits/slippage, recipient or curve/royalties, and the exact command without executing it. Only after the user explicitly confirms those details may you run the command with `--yes`. A changed amount, chain, asset, recipient, limit, or curve invalidates the prior confirmation.
+
 ## Bond mint and burn
 
 Use direct Bond operations when the user wants the token's configured reserve ERC-20:
 
 ```bash
-mc --chain base buy <token> --amount 100 --max-cost 25
-mc --chain base sell <token> --amount 100 --min-refund 20
+mc --chain base buy <token> --amount 100 --max-cost 25 --yes
+mc --chain base sell <token> --amount 100 --min-refund 20 --yes
 ```
 
 Treat `amount` as the exact Mint Club token amount. Treat `max-cost` and `min-refund` as reserve-token amounts. If a limit is omitted, explain that the CLI uses the current quote as the exact on-chain limit. Use whole-number amounts for ERC-1155 Mint Club tokens.
@@ -59,13 +65,15 @@ Use an exact input amount and name the input asset explicitly:
 mc --chain arbitrum zap-buy <mint-club-token> \
   --input-token USDT \
   --input-amount 10 \
-  --slippage 1
+  --slippage 1 \
+  --yes
 
 mc --chain base zap-buy <mint-club-token> \
   --input-token 0xERC20 \
   --input-amount 250 \
   --min-tokens 100 \
-  --slippage 0.5
+  --slippage 0.5 \
+  --yes
 ```
 
 Use `NATIVE` for the selected chain's native currency. Require the routed input to be native currency or ERC-20; allow the Mint Club target to be ERC-20 or ERC-1155. Never reinterpret “Buy 10 TOKEN with ETH” as a ZapV2 request: ask for the exact ETH input in the unambiguous form “Buy TOKEN with 0.1 ETH.”
@@ -78,12 +86,14 @@ If `min-tokens` is omitted, explain that the CLI previews `zapMint`, applies the
 mc --chain unichain zap-sell <mint-club-token> \
   --amount 100 \
   --output-token USDC \
-  --slippage 1
+  --slippage 1 \
+  --yes
 
 mc --chain robinhood zap-sell <mint-club-token> \
   --amount 100 \
   --output-token NATIVE \
-  --min-output 0.02
+  --min-output 0.02 \
+  --yes
 ```
 
 Treat `amount` as the exact Mint Club token burn amount and `min-output` as an output-asset amount. Require the routed output to be native currency or ERC-20. Use whole-number burn amounts for ERC-1155 Mint Club tokens.
@@ -114,7 +124,8 @@ mc --chain robinhood create \
   --initial-price 0.01 \
   --final-price 10 \
   --mint-royalty 100 \
-  --burn-royalty 100
+  --burn-royalty 100 \
+  --yes
 ```
 
 Use `linear`, `exponential`, `logarithmic`, or `flat`. Treat royalty values as basis points. State that omitted royalties default to 100 basis points (1%) each, and confirm any different values before creating the ERC-20 token.
@@ -122,9 +133,9 @@ Use `linear`, `exponential`, `logarithmic`, or `flat`. Treat royalty values as b
 ## Transfer
 
 ```bash
-mc --chain avalanche send <address> --amount 0.01
-mc --chain robinhood send <address> --amount 100 --token USDG
-mc --chain base send <address> --amount 3 --token <erc1155> --token-id 0
+mc --chain avalanche send <address> --amount 0.01 --yes
+mc --chain robinhood send <address> --amount 100 --token USDG --yes
+mc --chain base send <address> --amount 3 --token <erc1155> --token-id 0 --yes
 ```
 
 Require an integer `amount`, contract address, and `token-id` for ERC-1155 transfers.
@@ -132,6 +143,7 @@ Require an integer `amount`, contract address, and `token-id` for ERC-1155 trans
 ## Safety
 
 - Before a trade or transfer, state the chain, token, exact amount, input/output asset, and max/min limit.
+- Add `--yes` only after explicit confirmation of those exact details; never reuse confirmation after any field changes.
 - Before token creation, state the chain, implementation type, reserve, maximum supply, curve range, and both royalties.
 - Use `info` or `price` first when the token or reserve is unclear.
 - Never print or expose `PRIVATE_KEY`.
