@@ -33,7 +33,9 @@ afterEach(() => {
 
 describe('MCP tool surface', () => {
   it('publishes resolvable CLI and MCP module entrypoints', () => {
-    const registryPath = require.resolve('mint.club-cli/chain-registry.json');
+    const registryPath = require.resolve(
+      '@mint.club/v2-cli/chain-registry.json',
+    );
     const cliPackage = JSON.parse(
       readFileSync(join(dirname(registryPath), 'package.json'), 'utf8'),
     );

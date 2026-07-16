@@ -13,7 +13,7 @@ It does **not** provide a general-purpose DEX swap command or use an external ro
 ## Install
 
 ```bash
-npm install -g mint.club-cli
+npm install -g @mint.club/v2-cli
 mc --help
 ```
 

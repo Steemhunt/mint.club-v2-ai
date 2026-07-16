@@ -6,12 +6,12 @@
     "url": "https://github.com/Steemhunt/mint.club-v2-ai",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "2.0.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "mintclub-mcp",
-      "version": "0.2.0",
+      "identifier": "@mint.club/v2-mcp",
+      "version": "2.0.0",
       "transport": {
         "type": "stdio"
       },

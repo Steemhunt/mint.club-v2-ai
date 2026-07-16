@@ -73,10 +73,10 @@ const defaultHandlers: ProgramHandlers = {
   send,
   wallet,
   upgrade: async () => {
-    console.log('⬆️  Upgrading mint.club-cli...');
+    console.log('⬆️  Upgrading @mint.club/v2-cli...');
     try {
       const before = execSync('mc --version', { encoding: 'utf-8' }).trim();
-      execSync('npm install -g mint.club-cli@latest', { stdio: 'pipe' });
+      execSync('npm install -g @mint.club/v2-cli@latest', { stdio: 'pipe' });
       const after = execSync('mc --version', { encoding: 'utf-8' }).trim();
       console.log(
         before === after
@@ -84,7 +84,7 @@ const defaultHandlers: ProgramHandlers = {
           : `✅ Upgraded: v${before} → v${after}`,
       );
     } catch {
-      throw new Error('Upgrade failed. Try: npm update -g mint.club-cli');
+      throw new Error('Upgrade failed. Try: npm update -g @mint.club/v2-cli');
     }
   },
 };
@@ -350,7 +350,7 @@ export function createProgram(
 
   program
     .command('upgrade')
-    .description('Upgrade mint.club-cli to the latest version')
+    .description('Upgrade @mint.club/v2-cli to the latest version')
     .action(() => action(() => handlers.upgrade())());
 
   return program;

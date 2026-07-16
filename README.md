@@ -9,13 +9,16 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://badgen.net/npm/v/mint.club-cli?label=CLI&color=0ea5e9" alt="CLI npm" /></a>
-  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://badgen.net/npm/dm/mint.club-cli?label=downloads&color=14b8a6" alt="CLI downloads" /></a>
-  <a href="https://packagephobia.com/result?p=mint.club-cli"><img src="https://badgen.net/packagephobia/install/mint.club-cli?color=8b5cf6" alt="CLI install size" /></a>
+  <a href="https://www.npmjs.com/package/@mint.club/v2-cli"><img src="https://badgen.net/npm/v/@mint.club/v2-cli?label=CLI&color=0ea5e9" alt="CLI npm" /></a>
+  <a href="https://www.npmjs.com/package/@mint.club/v2-cli"><img src="https://badgen.net/npm/dm/@mint.club/v2-cli?label=downloads&color=14b8a6" alt="CLI downloads" /></a>
+  <a href="https://packagephobia.com/result?p=%40mint.club%2Fv2-cli"><img src="https://badgen.net/packagephobia/install/@mint.club/v2-cli?color=8b5cf6" alt="CLI install size" /></a>
   <br />
-  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://badgen.net/npm/v/mintclub-mcp?label=MCP&color=0ea5e9" alt="MCP npm" /></a>
-  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://badgen.net/npm/dm/mintclub-mcp?label=downloads&color=14b8a6" alt="MCP downloads" /></a>
-  <a href="https://packagephobia.com/result?p=mintclub-mcp"><img src="https://badgen.net/packagephobia/install/mintclub-mcp?color=8b5cf6" alt="MCP install size" /></a>
+  <a href="https://www.npmjs.com/package/@mint.club/v2-mcp"><img src="https://badgen.net/npm/v/@mint.club/v2-mcp?label=MCP&color=0ea5e9" alt="MCP npm" /></a>
+  <a href="https://www.npmjs.com/package/@mint.club/v2-mcp"><img src="https://badgen.net/npm/dm/@mint.club/v2-mcp?label=downloads&color=14b8a6" alt="MCP downloads" /></a>
+  <a href="https://packagephobia.com/result?p=%40mint.club%2Fv2-mcp"><img src="https://badgen.net/packagephobia/install/@mint.club/v2-mcp?color=8b5cf6" alt="MCP install size" /></a>
+  <br />
+  <a href="https://www.npmjs.com/package/@mint.club/v2-eliza-plugin"><img src="https://badgen.net/npm/v/@mint.club/v2-eliza-plugin?label=Eliza&color=0ea5e9" alt="Eliza plugin npm" /></a>
+  <a href="https://www.npmjs.com/package/@mint.club/v2-eliza-plugin"><img src="https://badgen.net/npm/dm/@mint.club/v2-eliza-plugin?label=downloads&color=14b8a6" alt="Eliza plugin downloads" /></a>
   <br />
   <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://badgen.net/github/stars/Steemhunt/mint.club-v2-ai?icon=github&label=stars&color=3b82f6" alt="GitHub stars" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://badgen.net/badge/license/MIT/3b82f6" alt="MIT" /></a>
@@ -29,17 +32,28 @@ AI-facing tools for protocol-native [Mint Club V2](https://mint.club) operations
 
 | Package | Purpose |
 |---|---|
-| [`mint.club-cli`](./cli) | Direct CLI for Bond, bounded local Uniswap routing, ZapV2, token creation, transfers, prices, and balances |
-| [`mintclub-mcp`](./mcp) | MCP tools backed by the CLI |
-| [`@elizaos/plugin-mintclub`](./eliza-plugin) | ElizaOS actions backed by the CLI |
+| [`@mint.club/v2-cli`](./cli) | Direct CLI for Bond, bounded local Uniswap routing, ZapV2, token creation, transfers, prices, and balances |
+| [`@mint.club/v2-mcp`](./mcp) | MCP tools backed by the CLI |
+| [`@mint.club/v2-eliza-plugin`](./eliza-plugin) | ElizaOS actions backed by the CLI |
 | [`SKILL.md`](./SKILL.md) | Agent instructions for using `mc` safely |
 
-All three adapters consume the published [`chain-registry.json`](./cli/chain-registry.json) from `mint.club-cli`. The registry is the shared source for chain keys, aliases, IDs, and capability flags; the CLI validates it against its full contract/token/RPC configuration at startup.
+All three adapters consume the published [`chain-registry.json`](./cli/chain-registry.json) from `@mint.club/v2-cli`. The registry is the shared source for chain keys, aliases, IDs, and capability flags; the CLI validates it against its full contract/token/RPC configuration at startup.
+
+## Package migration
+
+The 2.0 release moves the public packages into the `@mint.club` npm organization:
+
+| Previous package | 2.0 package |
+|---|---|
+| `mint.club-cli` | `@mint.club/v2-cli` |
+| `mintclub-mcp` | `@mint.club/v2-mcp` |
+
+The previous CLI and MCP packages are deprecated in favor of the scoped packages. `@mint.club/v2-eliza-plugin` is a new package; the earlier `@elizaos/plugin-mintclub` name was never published.
 
 ## Quick start
 
 ```bash
-npm install -g mint.club-cli
+npm install -g @mint.club/v2-cli
 mc wallet --generate
 
 mc --chain base info SIGNET
@@ -105,7 +119,7 @@ AI agent / user
       ├── ElizaOS plugin ── argv ──┤
       └── Agent skill ─────────────┤
                                    ▼
-                            mint.club-cli
+                          @mint.club/v2-cli
                                    │
                   ┌────────────────┼─────────────────┐
                   ▼                ▼                 ▼
@@ -155,7 +169,7 @@ npm run build
 
 The default tests are deterministic and offline. `test:integration` performs read-only checks against all supported networks, while `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
-For registry releases, publish `mint.club-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
+For registry releases, publish `@mint.club/v2-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
 
 ## License
 

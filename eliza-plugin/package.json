@@ -1,6 +1,6 @@
 {
-  "name": "@elizaos/plugin-mintclub",
-  "version": "1.0.0",
+  "name": "@mint.club/v2-eliza-plugin",
+  "version": "2.0.0",
   "description": "ElizaOS plugin for all-chain Mint Club V2 Bond and local Uniswap ZapV2 operations",
   "files": [
     "dist",
@@ -17,11 +17,28 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "mint.club-cli": "^2.0.0",
+    "@mint.club/v2-cli": "^2.0.0",
     "zod": "^4.3.5"
   },
   "peerDependencies": {
     "@elizaos/core": "^1.7.2"
+  },
+  "keywords": [
+    "elizaos",
+    "mint-club",
+    "bonding-curve",
+    "uniswap",
+    "defi",
+    "ai"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Steemhunt/mint.club-v2-ai.git",
+    "directory": "eliza-plugin"
+  },
+  "homepage": "https://github.com/Steemhunt/mint.club-v2-ai/tree/main/eliza-plugin",
+  "bugs": {
+    "url": "https://github.com/Steemhunt/mint.club-v2-ai/issues"
   },
   "devDependencies": {
     "@elizaos/core": "^1.7.2",
@@ -29,5 +46,8 @@
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

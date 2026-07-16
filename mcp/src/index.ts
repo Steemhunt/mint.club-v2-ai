@@ -17,7 +17,7 @@ interface ChainRegistryData {
 }
 
 const chainRegistry = require(
-  'mint.club-cli/chain-registry.json',
+  '@mint.club/v2-cli/chain-registry.json',
 ) as ChainRegistryData;
 
 export const SUPPORTED_CHAINS = Object.freeze(
@@ -370,11 +370,11 @@ export function resolveCliInvocation(argv: string[]): {
   if (override) return { command: override, args: argv };
 
   try {
-    const cliEntrypoint = require.resolve('mint.club-cli');
+    const cliEntrypoint = require.resolve('@mint.club/v2-cli');
     return { command: process.execPath, args: [cliEntrypoint, ...argv] };
   } catch {
     throw new Error(
-      'mint.club-cli 2.x is not installed; reinstall mintclub-mcp with production dependencies',
+      '@mint.club/v2-cli 2.x is not installed; reinstall @mint.club/v2-mcp with production dependencies',
     );
   }
 }
@@ -396,7 +396,7 @@ export function runCli(argv: string[]): string {
 
 export function createServer(execute = runCli): Server {
   const server = new Server(
-    { name: 'mintclub', version: '0.2.0' },
+    { name: 'mintclub', version: '2.0.0' },
     { capabilities: { tools: {} } },
   );
 

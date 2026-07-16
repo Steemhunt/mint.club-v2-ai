@@ -2,7 +2,7 @@
 
 ElizaOS actions for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap ZapV2 routing across ten mainnets and two testnets.
 
-The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not interpolate user input into shell commands. Chain keys and aliases come from the CLI package's published `chain-registry.json`.
+The plugin invokes [`@mint.club/v2-cli`](../cli) with argv arrays and does not interpolate user input into shell commands. Chain keys and aliases come from the CLI package's published `chain-registry.json`.
 
 ## Actions
 
@@ -23,16 +23,16 @@ There is no general-purpose DEX swap action. Zap routing checks only direct and 
 ## Setup
 
 ```bash
-npm install @elizaos/plugin-mintclub
+npm install @mint.club/v2-eliza-plugin
 ```
 
-The plugin installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` through the ElizaOS secret/environment configuration. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an agent conversation.
+The plugin installs the compatible `@mint.club/v2-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` through the ElizaOS secret/environment configuration. To use the shared `~/.mintclub` wallet file instead, install `@mint.club/v2-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an agent conversation.
 
 Add the plugin to an ElizaOS character configuration:
 
 ```json
 {
-  "plugins": ["@elizaos/plugin-mintclub"]
+  "plugins": ["@mint.club/v2-eliza-plugin"]
 }
 ```
 

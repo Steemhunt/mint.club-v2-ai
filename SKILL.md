@@ -10,7 +10,7 @@ Use the `mc` CLI for Mint Club V2 Bond operations and bounded local Uniswap ZapV
 ## Setup
 
 ```bash
-npm install -g mint.club-cli
+npm install -g @mint.club/v2-cli
 mc --help
 ```
 
@@ -30,7 +30,7 @@ Canonical chain values:
 
 `ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `zora`, `unichain`, `robinhood`, `sepolia`, `base-sepolia`.
 
-Aliases and capabilities come from `mint.club-cli/chain-registry.json`. Blast is unsupported by this integration.
+Aliases and capabilities come from `@mint.club/v2-cli/chain-registry.json`. Blast is unsupported by this integration.
 
 ## Read operations
 

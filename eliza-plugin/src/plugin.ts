@@ -33,11 +33,11 @@ export function resolveCliInvocation(argv: string[]): {
   if (override) return { command: override, args: argv };
 
   try {
-    const cliEntrypoint = require.resolve('mint.club-cli');
+    const cliEntrypoint = require.resolve('@mint.club/v2-cli');
     return { command: process.execPath, args: [cliEntrypoint, ...argv] };
   } catch {
     throw new Error(
-      'mint.club-cli 2.x is not installed; reinstall @elizaos/plugin-mintclub with production dependencies',
+      '@mint.club/v2-cli 2.x is not installed; reinstall @mint.club/v2-eliza-plugin with production dependencies',
     );
   }
 }
@@ -240,7 +240,7 @@ const mintclubProvider: Provider = {
     ].join('\n'),
     values: {
       platform: 'Mint Club V2',
-      cli: 'mint.club-cli',
+      cli: '@mint.club/v2-cli',
       chains: SUPPORTED_CHAINS.join(','),
     },
     data: {},

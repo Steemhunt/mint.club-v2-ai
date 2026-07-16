@@ -2,15 +2,15 @@
 
 An MCP server exposing Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across ten mainnets and two testnets.
 
-The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, route discovery, pricing, and transactions. Chain keys are loaded from the CLI's published `chain-registry.json` rather than duplicated in the MCP package.
+The server delegates to [`@mint.club/v2-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, route discovery, pricing, and transactions. Chain keys are loaded from the CLI's published `chain-registry.json` rather than duplicated in the MCP package.
 
 ## Install
 
 ```bash
-npm install -g mintclub-mcp
+npm install -g @mint.club/v2-mcp
 ```
 
-`mintclub-mcp` installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an MCP conversation.
+`@mint.club/v2-mcp` installs the compatible `@mint.club/v2-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `@mint.club/v2-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an MCP conversation.
 
 ## Configure
 
@@ -83,7 +83,7 @@ Optional `minOutput` is denominated in the output asset. `amount` is the exact M
 
 The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates by RPC, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
 
-ZapV2 is deployed on every supported chain listed above. Deployment addresses are maintained by `mint.club-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
+ZapV2 is deployed on every supported chain listed above. Deployment addresses are maintained by `@mint.club/v2-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
 
 ## Example requests
 

@@ -21,7 +21,7 @@ interface ChainRegistryData {
 
 const require = createRequire(import.meta.url);
 const chainRegistry = require(
-  'mint.club-cli/chain-registry.json',
+  '@mint.club/v2-cli/chain-registry.json',
 ) as ChainRegistryData;
 
 export const SUPPORTED_CHAINS = Object.freeze(
