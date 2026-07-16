@@ -10,7 +10,14 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/v/mint.club-cli.svg?style=flat-square&label=CLI" alt="CLI npm" /></a>
+  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/dm/mint.club-cli.svg?style=flat-square&label=downloads" alt="CLI downloads" /></a>
+  <a href="https://packagephobia.com/result?p=mint.club-cli"><img src="https://badgen.net/packagephobia/install/mint.club-cli" alt="CLI install size" /></a>
+  <br />
   <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/v/mintclub-mcp.svg?style=flat-square&label=MCP" alt="MCP npm" /></a>
+  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/dm/mintclub-mcp.svg?style=flat-square&label=downloads" alt="MCP downloads" /></a>
+  <a href="https://packagephobia.com/result?p=mintclub-mcp"><img src="https://badgen.net/packagephobia/install/mintclub-mcp" alt="MCP install size" /></a>
+  <br />
+  <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://img.shields.io/github/stars/Steemhunt/mint.club-v2-ai?style=flat-square&logo=github" alt="GitHub stars" /></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT" /></a>
 </p>
 
