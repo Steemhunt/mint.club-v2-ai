@@ -1,84 +1,129 @@
-import { type Address, formatEther, parseEther } from 'viem';
-import { getPublicClient, getWalletClient } from '../client';
-import { getWethAddress, getZapAddress } from '../config/contracts';
+import {
+  formatUnits,
+  parseUnits,
+  type Address,
+} from 'viem';
+import { ZAP_V2_ABI } from '../abi/zap-v2';
 import type { SupportedChain } from '../config/chains';
-import { parse } from '../utils/format';
-import { ensureApproval } from '../utils/approve';
-import { getSymbol } from '../utils/symbol';
-import { getBondInfo, getBurnRefund } from '../utils/bond';
-import { executeTransaction, setupClients } from '../utils/transaction';
-import { buildZapBurnCall, subtractSlippage } from '../utils/zap-v1';
+import {
+  DEFAULT_ZAP_DEPENDENCIES,
+  createZapDeadline,
+  type ZapCommandDependencies,
+} from '../utils/zap-v2';
+
+export interface ZapSellParams {
+  privateKey: `0x${string}`;
+  token: Address;
+  amount: string;
+  outputToken: Address;
+  minOutput?: string;
+  slippageBps: number;
+  chain?: SupportedChain;
+}
 
 export async function zapSell(
-  token: Address,
-  amount: string,
-  minRefund: string | undefined,
-  slippage: number,
-  privateKey: `0x${string}`,
-  chain: SupportedChain = 'base',
-) {
-  const { publicClient, walletClient, account } = setupClients(
-    getPublicClient,
-    getWalletClient,
-    privateKey,
+  params: ZapSellParams,
+  dependencies: ZapCommandDependencies = DEFAULT_ZAP_DEPENDENCIES,
+): Promise<void> {
+  const chain = params.chain ?? 'base';
+  // Resolve deployment before creating clients or allowing any approval side effect.
+  const zapV2 = dependencies.getZapV2Address(chain);
+  const { publicClient, walletClient } = dependencies.setupClients(
+    params.privateKey,
     chain,
   );
 
-  const tokensToBurn = parse(amount);
-  const [tokenSymbol, bondInfo] = await Promise.all([
-    getSymbol(publicClient, token, chain),
-    getBondInfo(publicClient, token, chain),
-  ]);
+  const [bondInfo, tokenDecimals, outputDecimals, tokenSymbol, outputSymbol] =
+    await Promise.all([
+      dependencies.getBondInfo(publicClient, params.token, chain),
+      dependencies.getDecimals(publicClient, params.token, chain),
+      dependencies.getDecimals(publicClient, params.outputToken, chain),
+      dependencies.getSymbol(publicClient, params.token, chain),
+      dependencies.getSymbol(publicClient, params.outputToken, chain),
+    ]);
+  const amount = parseUnits(params.amount, tokenDecimals);
+  if (amount <= 0n) throw new Error('Sell amount must be greater than zero');
 
-  if (
-    bondInfo.reserveToken.toLowerCase() !==
-    getWethAddress(chain).toLowerCase()
-  ) {
-    throw new Error(
-      `Zap requires a WETH-reserve token; ${tokenSymbol} uses ${bondInfo.reserveSymbol}`,
-    );
-  }
-
-  const { netRefund } = await getBurnRefund(
+  console.log(
+    `⚡ Zapping ${params.amount} ${tokenSymbol} into ${outputSymbol}...`,
+  );
+  const { netRefund } = await dependencies.getBurnRefund(
     publicClient,
-    token,
-    tokensToBurn,
+    params.token,
+    amount,
     chain,
   );
-  const minEthRefund = minRefund
-    ? parseEther(minRefund)
-    : subtractSlippage(netRefund, slippage);
-
-  if (minEthRefund > netRefund) {
+  const deadline = createZapDeadline(dependencies.nowSeconds());
+  const route = await dependencies.findBestRoute({
+    client: publicClient,
+    chain,
+    input: bondInfo.reserveToken,
+    output: params.outputToken,
+    amountIn: netRefund,
+  });
+  const plan = dependencies.encodeUniversalRouterPlan(route, {
+    recipient: zapV2,
+    slippageBps: params.slippageBps,
+    deadline,
+  });
+  if (plan.value !== 0n) {
     throw new Error(
-      `Refund ${formatEther(netRefund)} ETH is below minimum ${formatEther(minEthRefund)} ETH`,
+      `Zap burn route unexpectedly requires native value: ${plan.value}`,
     );
   }
 
-  console.log(`⚡ Zap selling ${amount} ${tokenSymbol} for native ETH...`);
-  console.log(`   Quote: ${formatEther(netRefund)} ETH`);
-  console.log(`   Min refund: ${formatEther(minEthRefund)} ETH`);
+  const minOutputAmount =
+    params.minOutput !== undefined
+      ? parseUnits(params.minOutput, outputDecimals)
+      : route.protocol === 'none'
+        ? route.amountOut
+        : plan.minimumAmountOut;
+  if (minOutputAmount < 0n) {
+    throw new Error('Minimum output cannot be negative');
+  }
+  if (minOutputAmount > route.amountOut) {
+    throw new Error(
+      `Minimum output ${formatUnits(minOutputAmount, outputDecimals)} exceeds quoted output ${formatUnits(route.amountOut, outputDecimals)} ${outputSymbol}`,
+    );
+  }
 
-  await ensureApproval(
-    publicClient,
-    walletClient,
-    token,
-    getZapAddress(chain),
-    tokensToBurn,
+  console.log(
+    `   Route: ${route.protocol.toUpperCase()} (${route.pools.length} pool${route.pools.length === 1 ? '' : 's'})`,
+  );
+  console.log(
+    `   Quote: ${formatUnits(route.amountOut, outputDecimals)} ${outputSymbol}`,
+  );
+  console.log(
+    `   Minimum: ${formatUnits(minOutputAmount, outputDecimals)} ${outputSymbol}`,
   );
 
-  await executeTransaction(
+  await dependencies.ensureApproval(
     publicClient,
     walletClient,
-    token,
-    buildZapBurnCall({
-      chain,
-      token,
-      tokensToBurn,
-      minEthRefund,
-      receiver: account,
-    }),
-    `Zap sold ${amount} ${tokenSymbol} for ${formatEther(netRefund)} ETH`,
+    params.token,
+    zapV2,
+    amount,
+  );
+
+  await dependencies.executeTransaction(
+    publicClient,
+    walletClient,
+    undefined,
+    {
+      address: zapV2,
+      abi: ZAP_V2_ABI,
+      functionName: 'zapBurn',
+      args: [
+        params.token,
+        amount,
+        params.outputToken,
+        minOutputAmount,
+        plan.commands,
+        plan.inputs,
+        plan.deadline,
+      ],
+    },
+    `Zapped ${params.amount} ${tokenSymbol} into ${outputSymbol}`,
     chain,
   );
 }

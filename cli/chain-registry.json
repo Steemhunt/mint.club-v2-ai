@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "chains": [
+    {
+      "key": "ethereum",
+      "name": "Ethereum",
+      "chainId": 1,
+      "nativeSymbol": "ETH",
+      "aliases": ["ethereum mainnet", "ethereum", "mainnet", "eth"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "optimism",
+      "name": "Optimism",
+      "chainId": 10,
+      "nativeSymbol": "ETH",
+      "aliases": ["optimism mainnet", "optimism", "op mainnet", "op"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "arbitrum",
+      "name": "Arbitrum One",
+      "chainId": 42161,
+      "nativeSymbol": "ETH",
+      "aliases": ["arbitrum one", "arbitrum", "arb"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "avalanche",
+      "name": "Avalanche C-Chain",
+      "chainId": 43114,
+      "nativeSymbol": "AVAX",
+      "aliases": ["avalanche c-chain", "avalanche", "avax c-chain", "avax"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "base",
+      "name": "Base",
+      "chainId": 8453,
+      "nativeSymbol": "ETH",
+      "aliases": ["base mainnet", "base"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "polygon",
+      "name": "Polygon PoS",
+      "chainId": 137,
+      "nativeSymbol": "POL",
+      "aliases": ["polygon pos", "polygon", "matic"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "bsc",
+      "name": "BNB Smart Chain",
+      "chainId": 56,
+      "nativeSymbol": "BNB",
+      "aliases": ["binance smart chain", "bnb chain", "bsc", "bnb", "binance"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "blast",
+      "name": "Blast",
+      "chainId": 81457,
+      "nativeSymbol": "ETH",
+      "aliases": ["blast"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "zora",
+      "name": "Zora",
+      "chainId": 7777777,
+      "nativeSymbol": "ETH",
+      "aliases": ["zora"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": false,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": false
+      }
+    },
+    {
+      "key": "unichain",
+      "name": "Unichain",
+      "chainId": 130,
+      "nativeSymbol": "ETH",
+      "aliases": ["unichain"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": false,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "robinhood",
+      "name": "Robinhood Chain",
+      "chainId": 4663,
+      "nativeSymbol": "ETH",
+      "aliases": ["robinhood chain", "robinhood", "rh"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
+      }
+    },
+    {
+      "key": "sepolia",
+      "name": "Sepolia",
+      "chainId": 11155111,
+      "nativeSymbol": "ETH",
+      "aliases": ["ethereum sepolia", "sepolia"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": false
+      }
+    }
+  ]
+}

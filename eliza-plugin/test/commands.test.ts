@@ -1,20 +1,61 @@
 import { describe, expect, it } from 'vitest';
-import { buildActionArgs } from '../src/commands';
+import {
+  SUPPORTED_CHAINS,
+  buildActionArgs,
+} from '../src/commands';
+
+const expectedChains = [
+  'ethereum',
+  'optimism',
+  'arbitrum',
+  'avalanche',
+  'base',
+  'polygon',
+  'bsc',
+  'blast',
+  'zora',
+  'unichain',
+  'robinhood',
+  'sepolia',
+];
 
 describe('Eliza action CLI mapping', () => {
-  it('maps Robinhood native ETH minting to ZapV1', () => {
+  it('exports the exact supported-chain registry', () => {
+    expect(SUPPORTED_CHAINS).toEqual(expectedChains);
+  });
+
+  it('maps exact-input arbitrary-token minting to ZapV2', () => {
     expect(
       buildActionArgs(
         'ZAP_BUY',
-        'Buy 10 RHCOIN with ETH on Robinhood',
+        'Buy RHCOIN with 10 USDC on Arbitrum with 0.5% slippage',
       ),
     ).toEqual([
       '--chain',
-      'robinhood',
+      'arbitrum',
       'zap-buy',
       'RHCOIN',
-      '--amount',
+      '--input-token',
+      'USDC',
+      '--input-amount',
       '10',
+      '--slippage',
+      '0.5',
+    ]);
+    expect(
+      buildActionArgs(
+        'ZAP_BUY',
+        'Zap buy RHCOIN using 0.25 native currency on Avalanche',
+      ),
+    ).toEqual([
+      '--chain',
+      'avalanche',
+      'zap-buy',
+      'RHCOIN',
+      '--input-token',
+      'NATIVE',
+      '--input-amount',
+      '0.25',
     ]);
   });
 
@@ -37,16 +78,18 @@ describe('Eliza action CLI mapping', () => {
     ]);
   });
 
-  it('maps native ETH redemption to ZapV1 burnToEth', () => {
+  it('maps arbitrary output redemption to ZapV2', () => {
     expect(
-      buildActionArgs('ZAP_SELL', 'Sell 5 RHCOIN for ETH on Robinhood'),
+      buildActionArgs('ZAP_SELL', 'Sell 5 RHCOIN for USDC on Unichain'),
     ).toEqual([
       '--chain',
-      'robinhood',
+      'unichain',
       'zap-sell',
       'RHCOIN',
       '--amount',
       '5',
+      '--output-token',
+      'USDC',
     ]);
   });
 
@@ -59,7 +102,31 @@ describe('Eliza action CLI mapping', () => {
     ]);
   });
 
-  it('honors an explicit Base chain and fails closed on mixed chains', () => {
+  it('recognizes chain aliases and fails closed on ambiguity', () => {
+    expect(buildActionArgs('BUY_TOKEN', 'Buy 10 TOKEN on BNB Chain')).toEqual([
+      '--chain',
+      'bsc',
+      'buy',
+      'TOKEN',
+      '--amount',
+      '10',
+    ]);
+    expect(buildActionArgs('BUY_TOKEN', 'Buy 10 TOKEN on Ethereum mainnet')).toEqual([
+      '--chain',
+      'ethereum',
+      'buy',
+      'TOKEN',
+      '--amount',
+      '10',
+    ]);
+    expect(buildActionArgs('BUY_TOKEN', 'Buy 10 TOKEN on Sepolia')).toEqual([
+      '--chain',
+      'sepolia',
+      'buy',
+      'TOKEN',
+      '--amount',
+      '10',
+    ]);
     expect(
       buildActionArgs('BUY_TOKEN', 'Buy 10 SIGNET on Base, not Robinhood'),
     ).toEqual(['--chain', 'base', 'buy', 'SIGNET', '--amount', '10']);
@@ -69,6 +136,9 @@ describe('Eliza action CLI mapping', () => {
         'Buy 10 SIGNET on Base and on Robinhood',
       ),
     ).toThrow('Specify exactly one chain');
+    expect(() =>
+      buildActionArgs('BUY_TOKEN', 'Buy 10 SIGNET not on Base'),
+    ).toThrow('Specify exactly one chain');
   });
 
   it('maps native and ERC-20 sends without shell interpolation', () => {
@@ -76,20 +146,20 @@ describe('Eliza action CLI mapping', () => {
     expect(
       buildActionArgs(
         'SEND_TOKEN',
-        `Send 1 ETH to ${recipient} on Robinhood`,
+        `Send 1 AVAX to ${recipient} on Avalanche`,
       ),
-    ).toEqual(['--chain', 'robinhood', 'send', recipient, '--amount', '1']);
+    ).toEqual(['--chain', 'avalanche', 'send', recipient, '--amount', '1']);
     expect(
-      buildActionArgs('SEND_TOKEN', `Send 10 USDG to ${recipient} on Base`),
+      buildActionArgs('SEND_TOKEN', `Send 10 USDC to ${recipient} on Polygon`),
     ).toEqual([
       '--chain',
-      'base',
+      'polygon',
       'send',
       recipient,
       '--amount',
       '10',
       '--token',
-      'USDG',
+      'USDC',
     ]);
   });
 
@@ -97,18 +167,18 @@ describe('Eliza action CLI mapping', () => {
     expect(
       buildActionArgs(
         'CREATE_TOKEN',
-        'Create token "My Token" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood',
+        'Create token "My Token" (MYT) backed by USDC with max supply 1000000 using a linear curve from 0.01 to 1 on Optimism',
       ),
     ).toEqual([
       '--chain',
-      'robinhood',
+      'optimism',
       'create',
       '--name',
       'My Token',
       '--symbol',
       'MYT',
       '--reserve',
-      'USDG',
+      'USDC',
       '--max-supply',
       '1000000',
       '--curve',
@@ -119,5 +189,11 @@ describe('Eliza action CLI mapping', () => {
       '1',
       '--yes',
     ]);
+  });
+
+  it('rejects the old ambiguous ZapV1 target-amount syntax', () => {
+    expect(() =>
+      buildActionArgs('ZAP_BUY', 'Buy 10 RHCOIN with ETH on Robinhood'),
+    ).toThrow('Buy TOKEN with AMOUNT INPUT_TOKEN');
   });
 });

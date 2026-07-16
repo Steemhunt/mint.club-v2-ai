@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
 import {
+  SUPPORTED_CHAINS,
   buildActionArgs,
   type MintClubActionName,
 } from './commands.js';
@@ -149,8 +150,8 @@ const buyTokenAction = createAction({
   similes: ['MINT_TOKEN', 'BOND_BUY'],
   description: 'Mint a token with its Bond reserve ERC-20',
   validateText: (text) =>
-    /\b(buy|mint)\b/i.test(text) &&
-    !/\bzap\b|\bwith\s+(?:native\s+)?eth\b/i.test(text),
+    canBuildActionArgs('BUY_TOKEN', text) &&
+    !canBuildActionArgs('ZAP_BUY', text),
   examplePrompt: 'Buy 10 SIGNET',
   exampleResult: 'Minted 10 SIGNET through MCV2_Bond.',
 });
@@ -160,34 +161,30 @@ const sellTokenAction = createAction({
   similes: ['BURN_TOKEN', 'BOND_SELL'],
   description: 'Burn a token for its Bond reserve ERC-20',
   validateText: (text) =>
-    /\b(sell|burn)\b/i.test(text) &&
-    !/\bzap\b|\bfor\s+(?:native\s+)?eth\b/i.test(text),
+    canBuildActionArgs('SELL_TOKEN', text) &&
+    !canBuildActionArgs('ZAP_SELL', text),
   examplePrompt: 'Sell 5 SIGNET',
   exampleResult: 'Burned 5 SIGNET through MCV2_Bond.',
 });
 
 const zapBuyAction = createAction({
   name: 'ZAP_BUY',
-  similes: ['BUY_WITH_ETH', 'MINT_WITH_ETH'],
+  similes: ['BUY_WITH_ASSET', 'MINT_WITH_ASSET', 'ROUTED_MINT'],
   description:
-    'Mint a WETH-reserve token with native ETH via MCV2_ZapV1',
-  validateText: (text) =>
-    /\b(buy|mint)\b/i.test(text) &&
-    (/\bzap\b/i.test(text) || /\bwith\s+(?:native\s+)?eth\b/i.test(text)),
-  examplePrompt: 'Buy 10 TOKEN with ETH on Robinhood',
-  exampleResult: 'Minted 10 TOKEN with native ETH through MCV2_ZapV1.',
+    'Mint a Mint Club token from an exact amount of any routed asset via MCV2_ZapV2',
+  validateText: (text) => canBuildActionArgs('ZAP_BUY', text),
+  examplePrompt: 'Buy TOKEN with 10 USDC on Arbitrum',
+  exampleResult: 'Minted TOKEN from 10 USDC through MCV2_ZapV2.',
 });
 
 const zapSellAction = createAction({
   name: 'ZAP_SELL',
-  similes: ['SELL_FOR_ETH', 'BURN_TO_ETH'],
+  similes: ['SELL_FOR_ASSET', 'BURN_TO_ASSET', 'ROUTED_BURN'],
   description:
-    'Burn a WETH-reserve token for native ETH via MCV2_ZapV1',
-  validateText: (text) =>
-    /\b(sell|burn)\b/i.test(text) &&
-    (/\bzap\b/i.test(text) || /\bfor\s+(?:native\s+)?eth\b/i.test(text)),
-  examplePrompt: 'Sell 5 TOKEN for ETH on Robinhood',
-  exampleResult: 'Burned 5 TOKEN for native ETH through MCV2_ZapV1.',
+    'Burn a Mint Club token into any routed output asset via MCV2_ZapV2',
+  validateText: (text) => canBuildActionArgs('ZAP_SELL', text),
+  examplePrompt: 'Sell 5 TOKEN for USDC on Unichain',
+  exampleResult: 'Burned 5 TOKEN into USDC through MCV2_ZapV2.',
 });
 
 const walletBalanceAction = createAction({
@@ -202,7 +199,7 @@ const walletBalanceAction = createAction({
 const sendTokenAction = createAction({
   name: 'SEND_TOKEN',
   similes: ['TRANSFER_TOKEN', 'SEND_ASSET'],
-  description: 'Send native ETH or an ERC-20 token to an address',
+  description: 'Send native currency or an ERC-20 token to an address',
   validateText: (text) => canBuildActionArgs('SEND_TOKEN', text),
   examplePrompt:
     'Send 10 USDG to 0x1111111111111111111111111111111111111111 on Robinhood',
@@ -222,7 +219,7 @@ const createTokenAction = createAction({
 const mintclubProvider: Provider = {
   name: 'MINTCLUB_PROVIDER',
   description:
-    'Provides context about Mint Club V2 protocol operations on Base and Robinhood Chain',
+    'Provides context about Mint Club V2 protocol operations across supported Uniswap chains',
   get: async (
     _runtime: IAgentRuntime,
     _message: Memory,
@@ -232,18 +229,19 @@ const mintclubProvider: Provider = {
       'Mint Club V2 bonding curve actions:',
       '- TOKEN_INFO / TOKEN_PRICE: read token data',
       '- BUY_TOKEN / SELL_TOKEN: MCV2_Bond mint and burn with reserve ERC-20',
-      '- ZAP_BUY / ZAP_SELL: MCV2_ZapV1 native ETH operations for WETH-reserve tokens',
+      '- ZAP_BUY / ZAP_SELL: MCV2_ZapV2 exact-input local Uniswap routing',
       '- WALLET_BALANCE: show chain-local wallet balances',
-      '- SEND_TOKEN: send native ETH or ERC-20 tokens',
+      '- SEND_TOKEN: send native currency or ERC-20 tokens',
       '- CREATE_TOKEN: create an ERC-20 bonding curve token',
       '',
-      'Supported chains: Base (default) and Robinhood Chain.',
+      `Supported chains: ${SUPPORTED_CHAINS.join(', ')}. Base is the default.`,
+      'Zap routing enumerates direct and one-intermediary V2/V3/V4 candidates; ZapV2 must be deployed for writes.',
       'The compatible mc CLI is installed as a plugin dependency; write actions require CLI wallet configuration.',
     ].join('\n'),
     values: {
       platform: 'Mint Club V2',
       cli: 'mint.club-cli',
-      chains: 'base,robinhood',
+      chains: SUPPORTED_CHAINS.join(','),
     },
     data: {},
   }),
@@ -252,7 +250,7 @@ const mintclubProvider: Provider = {
 export const mintclubPlugin: Plugin = {
   name: 'plugin-mintclub',
   description:
-    'Mint Club V2 plugin for protocol-native bonding curve operations on Base and Robinhood Chain',
+    'Mint Club V2 plugin for all-chain bonding curves and local Uniswap ZapV2 routing',
   config: { PRIVATE_KEY: process.env.PRIVATE_KEY },
   async init(config: Record<string, string>) {
     logger.info('Initializing Mint Club V2 plugin');

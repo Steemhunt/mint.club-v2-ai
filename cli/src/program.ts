@@ -2,7 +2,12 @@ import { execSync } from 'child_process';
 import { Command } from 'commander';
 import type { Address } from 'viem';
 import { getPublicClient } from './client';
-import { validateChain, type SupportedChain } from './config/chains';
+import {
+  SUPPORTED_CHAIN_KEYS,
+  ZERO_ADDRESS,
+  validateChain,
+  type SupportedChain,
+} from './config/chains';
 import { resolveTokenAsync } from './config/contracts';
 import { buy } from './commands/buy';
 import { create, type CreateOptions } from './commands/create';
@@ -11,8 +16,9 @@ import { price } from './commands/price';
 import { sell } from './commands/sell';
 import { send } from './commands/send';
 import { wallet } from './commands/wallet';
-import { zapBuy } from './commands/zap-buy';
-import { zapSell } from './commands/zap-sell';
+import { zapBuy, type ZapBuyParams } from './commands/zap-buy';
+import { zapSell, type ZapSellParams } from './commands/zap-sell';
+import { parseSlippageBps } from './utils/zap-v2';
 
 export type ProgramHandlers = {
   price: (token: Address, chain: SupportedChain) => Promise<void>;
@@ -40,22 +46,8 @@ export type ProgramHandlers = {
     options: CreateOptions,
     chain: SupportedChain,
   ) => Promise<void>;
-  zapBuy: (
-    token: Address,
-    amount: string,
-    maxCost: string | undefined,
-    slippage: number,
-    privateKey: `0x${string}`,
-    chain: SupportedChain,
-  ) => Promise<void>;
-  zapSell: (
-    token: Address,
-    amount: string,
-    minRefund: string | undefined,
-    slippage: number,
-    privateKey: `0x${string}`,
-    chain: SupportedChain,
-  ) => Promise<void>;
+  zapBuy: (params: ZapBuyParams) => Promise<void>;
+  zapSell: (params: ZapSellParams) => Promise<void>;
   send: (
     to: Address,
     amount: string,
@@ -143,9 +135,13 @@ export function createProgram(
   const handlers = { ...defaultHandlers, ...overrides };
   const program = new Command()
     .name('mc')
-    .description('Mint Club V2 CLI — bonding curve tokens on Base and Robinhood')
+    .description('Mint Club V2 CLI — all-chain bonding curves with local Uniswap routing')
     .version(version)
-    .option('-c, --chain <chain>', 'Blockchain to use: base or robinhood', 'base');
+    .option(
+      '-c, --chain <chain>',
+      `Blockchain to use: ${SUPPORTED_CHAIN_KEYS.join(', ')}`,
+      'base',
+    );
 
   const selectedChain = () => validateChain(program.opts().chain);
   const token = (input: string, chain: SupportedChain) =>
@@ -250,44 +246,66 @@ export function createProgram(
 
   program
     .command('zap-buy')
-    .description('Buy WETH-reserve tokens with native ETH via MCV2_ZapV1')
-    .argument('<token>', 'Token address or symbol')
-    .requiredOption('-a, --amount <n>', 'Tokens to buy')
-    .option('-m, --max-cost <n>', 'Maximum native ETH cost')
+    .description('Buy a Mint Club token from any routed asset via MCV2_ZapV2')
+    .argument('<token>', 'Mint Club token address or symbol')
+    .requiredOption('-i, --input-token <token>', 'Exact-input token address or symbol')
+    .requiredOption('-a, --input-amount <n>', 'Exact input amount')
+    .option('-m, --min-tokens <n>', 'Minimum Mint Club tokens to receive')
     .option('-s, --slippage <pct>', 'Slippage tolerance %', '1')
-    .action((input: string, options) =>
-      action(async () => {
-        const chain = selectedChain();
-        await handlers.zapBuy(
-          await token(input, chain),
-          options.amount,
-          options.maxCost,
-          Number.parseFloat(options.slippage),
-          requireKey(),
-          chain,
-        );
-      })(),
+    .action(
+      (
+        input: string,
+        options: {
+          inputToken: string;
+          inputAmount: string;
+          minTokens?: string;
+          slippage: string;
+        },
+      ) =>
+        action(async () => {
+          const chain = selectedChain();
+          await handlers.zapBuy({
+            privateKey: requireKey(),
+            token: await token(input, chain),
+            inputToken: await token(options.inputToken, chain),
+            inputAmount: options.inputAmount,
+            minTokens: options.minTokens,
+            slippageBps: parseSlippageBps(options.slippage),
+            chain,
+          });
+        })(),
     );
 
   program
     .command('zap-sell')
-    .description('Sell WETH-reserve tokens for native ETH via MCV2_ZapV1')
-    .argument('<token>', 'Token address or symbol')
-    .requiredOption('-a, --amount <n>', 'Tokens to sell')
-    .option('-m, --min-refund <n>', 'Minimum native ETH refund')
+    .description('Sell a Mint Club token into any routed asset via MCV2_ZapV2')
+    .argument('<token>', 'Mint Club token address or symbol')
+    .requiredOption('-a, --amount <n>', 'Mint Club tokens to sell')
+    .requiredOption('-o, --output-token <token>', 'Output token address or symbol')
+    .option('-m, --min-output <n>', 'Minimum output-token amount')
     .option('-s, --slippage <pct>', 'Slippage tolerance %', '1')
-    .action((input: string, options) =>
-      action(async () => {
-        const chain = selectedChain();
-        await handlers.zapSell(
-          await token(input, chain),
-          options.amount,
-          options.minRefund,
-          Number.parseFloat(options.slippage),
-          requireKey(),
-          chain,
-        );
-      })(),
+    .action(
+      (
+        input: string,
+        options: {
+          amount: string;
+          outputToken: string;
+          minOutput?: string;
+          slippage: string;
+        },
+      ) =>
+        action(async () => {
+          const chain = selectedChain();
+          await handlers.zapSell({
+            privateKey: requireKey(),
+            token: await token(input, chain),
+            amount: options.amount,
+            outputToken: await token(options.outputToken, chain),
+            minOutput: options.minOutput,
+            slippageBps: parseSlippageBps(options.slippage),
+            chain,
+          });
+        })(),
     );
 
   program
@@ -300,14 +318,20 @@ export function createProgram(
     .action((to: Address, options) =>
       action(async () => {
         const chain = selectedChain();
+        const resolvedToken = options.token
+          ? await token(options.token, chain)
+          : undefined;
+        const nativeToken =
+          resolvedToken?.toLowerCase() === ZERO_ADDRESS.toLowerCase();
+        if (nativeToken && options.tokenId !== undefined) {
+          throw new Error('--token-id requires an ERC-1155 contract address');
+        }
         await handlers.send(
           to,
           options.amount,
           requireKey(),
           {
-            token: options.token
-              ? await token(options.token, chain)
-              : undefined,
+            token: nativeToken ? undefined : resolvedToken,
             tokenId: options.tokenId,
           },
           chain,

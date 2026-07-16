@@ -3,16 +3,21 @@ import {
   type PublicClient,
   concat,
   encodePacked,
+  getAddress,
   getCreate2Address,
+  isAddress,
   keccak256,
 } from 'viem';
-import { CHAIN_CONFIGS, type SupportedChain } from './chains';
+import {
+  CHAIN_CONFIGS,
+  ZERO_ADDRESS,
+  type KnownToken,
+  type SupportedChain,
+} from './chains';
 
-export type KnownTokenConfig = {
+export interface KnownTokenConfig extends KnownToken {
   symbol: string;
-  address: Address;
-  decimals: number;
-};
+}
 
 export function getContracts(chain: SupportedChain = 'base') {
   return CHAIN_CONFIGS[chain].contracts;
@@ -28,43 +33,68 @@ export function getBondAddress(chain: SupportedChain = 'base'): Address {
   return getContracts(chain).bond;
 }
 
-export function getZapAddress(chain: SupportedChain = 'base'): Address {
-  return getContracts(chain).zap;
-}
-
-export function getTokenImplementation(chain: SupportedChain = 'base'): Address {
+export function getTokenImplementation(
+  chain: SupportedChain = 'base',
+): Address {
   return getContracts(chain).tokenImplementation;
 }
 
-export function getWethAddress(chain: SupportedChain = 'base'): Address {
-  return getTokens(chain).find((token) => token.symbol === 'WETH')!.address;
+export function getZapV2Address(chain: SupportedChain = 'base'): Address {
+  const address = getContracts(chain).zapV2;
+  if (!address) {
+    throw new Error(
+      `MCV2_ZapV2 is not configured on ${CHAIN_CONFIGS[chain].chain.name}`,
+    );
+  }
+  return address;
 }
 
-/** Resolve a known symbol or pass through a token address on the selected chain. */
+export function getNativeToken(
+  chain: SupportedChain = 'base',
+): KnownTokenConfig {
+  const token = getTokens(chain).find(
+    ({ address }) => address.toLowerCase() === ZERO_ADDRESS,
+  );
+  if (!token) throw new Error(`Native token is not configured on ${chain}`);
+  return token;
+}
+
+export function getWrappedNativeToken(
+  chain: SupportedChain = 'base',
+): KnownTokenConfig {
+  const token = getTokens(chain).find(({ wrappedNative }) => wrappedNative);
+  if (!token) throw new Error(`Wrapped native token is not configured on ${chain}`);
+  return token;
+}
+
+export function getWrappedNativeAddress(
+  chain: SupportedChain = 'base',
+): Address {
+  return getWrappedNativeToken(chain).address;
+}
+
+/** Resolve a configured symbol, NATIVE, or a literal ERC-20 address. */
 export function resolveToken(
   input: string,
   chain: SupportedChain = 'base',
 ): Address {
-  if (input.startsWith('0x') && input.length === 42) return input as Address;
+  if (isAddress(input)) return getAddress(input);
 
-  const tokens = getTokens(chain);
-  const token = tokens.find(
-    (candidate) => candidate.symbol.toUpperCase() === input.toUpperCase(),
-  );
-  if (token) return token.address;
+  const normalized = input.trim().toUpperCase();
+  if (normalized === 'NATIVE') return ZERO_ADDRESS;
 
-  const chainName = CHAIN_CONFIGS[chain].chain.name;
-  throw new Error(
-    `Unknown token "${input}" on ${chainName}. Use an address or one of: ${tokens
-      .map((candidate) => candidate.symbol)
-      .join(', ')}`,
+  const token = getTokens(chain).find(
+    ({ symbol }) => symbol.toUpperCase() === normalized,
   );
+  if (!token) {
+    throw new Error(
+      `Unknown token "${input}" on ${CHAIN_CONFIGS[chain].chain.name}. Use a configured symbol or token address.`,
+    );
+  }
+  return token.address;
 }
 
-/**
- * Predict the deterministic address for a Mint Club bonding curve token.
- * Uses CREATE2 with the EIP-1167 minimal proxy pattern used by MCV2_Bond.
- */
+/** Predict an MCV2 bonding-curve token's deterministic CREATE2 address. */
 export function predictTokenAddress(
   symbol: string,
   implementation: Address = getTokenImplementation('base'),
@@ -84,17 +114,19 @@ export function predictTokenAddress(
   });
 }
 
-/** Resolve known and deterministic Mint Club token symbols on the selected chain. */
+/** Resolve configured and deterministic Mint Club token symbols. */
 export async function resolveTokenAsync(
   input: string,
   client: PublicClient,
   chain: SupportedChain = 'base',
 ): Promise<Address> {
-  if (input.startsWith('0x') && input.length === 42) return input as Address;
+  if (isAddress(input)) return getAddress(input);
 
-  const tokens = getTokens(chain);
-  const known = tokens.find(
-    (candidate) => candidate.symbol.toUpperCase() === input.toUpperCase(),
+  const normalized = input.trim().toUpperCase();
+  if (normalized === 'NATIVE') return ZERO_ADDRESS;
+
+  const known = getTokens(chain).find(
+    ({ symbol }) => symbol.toUpperCase() === normalized,
   );
   if (known) return known.address;
 
@@ -113,8 +145,8 @@ export async function resolveTokenAsync(
 
   throw new Error(
     `Token "${input}" not found on ${CHAIN_CONFIGS[chain].chain.name}. ` +
-      `Use a contract address, or one of: ${tokens
-        .map((candidate) => candidate.symbol)
+      `Use a contract address, or one of: ${getTokens(chain)
+        .map(({ symbol }) => symbol)
         .join(', ')}`,
   );
 }

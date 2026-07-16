@@ -1,75 +1,144 @@
-import { type Address, formatEther, parseEther } from 'viem';
-import { getPublicClient, getWalletClient } from '../client';
-import { getWethAddress } from '../config/contracts';
-import type { SupportedChain } from '../config/chains';
-import { parse } from '../utils/format';
-import { getSymbol } from '../utils/symbol';
-import { getBondInfo, getMintCost } from '../utils/bond';
-import { executeTransaction, setupClients } from '../utils/transaction';
-import { addSlippage, buildZapMintCall } from '../utils/zap-v1';
+import {
+  formatUnits,
+  parseUnits,
+  type Address,
+} from 'viem';
+import { ZAP_V2_ABI } from '../abi/zap-v2';
+import { ZERO_ADDRESS, type SupportedChain } from '../config/chains';
+import { calculateMinimumAmountOut } from '../utils/uniswap/encode';
+import {
+  DEFAULT_ZAP_DEPENDENCIES,
+  createZapDeadline,
+  previewTokensReceived,
+  type ZapCommandDependencies,
+} from '../utils/zap-v2';
+
+export interface ZapBuyParams {
+  privateKey: `0x${string}`;
+  token: Address;
+  inputToken: Address;
+  inputAmount: string;
+  minTokens?: string;
+  slippageBps: number;
+  chain?: SupportedChain;
+}
 
 export async function zapBuy(
-  token: Address,
-  amount: string,
-  maxCost: string | undefined,
-  slippage: number,
-  privateKey: `0x${string}`,
-  chain: SupportedChain = 'base',
-) {
-  const { publicClient, walletClient, account } = setupClients(
-    getPublicClient,
-    getWalletClient,
-    privateKey,
+  params: ZapBuyParams,
+  dependencies: ZapCommandDependencies = DEFAULT_ZAP_DEPENDENCIES,
+): Promise<void> {
+  const chain = params.chain ?? 'base';
+  // Resolve deployment before creating clients or allowing any approval side effect.
+  const zapV2 = dependencies.getZapV2Address(chain);
+  const { publicClient, walletClient, account } = dependencies.setupClients(
+    params.privateKey,
     chain,
   );
 
-  const tokensToMint = parse(amount);
-  const [tokenSymbol, bondInfo] = await Promise.all([
-    getSymbol(publicClient, token, chain),
-    getBondInfo(publicClient, token, chain),
-  ]);
+  const [bondInfo, inputDecimals, tokenDecimals, tokenSymbol, inputSymbol] =
+    await Promise.all([
+      dependencies.getBondInfo(publicClient, params.token, chain),
+      dependencies.getDecimals(publicClient, params.inputToken, chain),
+      dependencies.getDecimals(publicClient, params.token, chain),
+      dependencies.getSymbol(publicClient, params.token, chain),
+      dependencies.getSymbol(publicClient, params.inputToken, chain),
+    ]);
+  const inputAmount = parseUnits(params.inputAmount, inputDecimals);
+  if (inputAmount <= 0n) throw new Error('Input amount must be greater than zero');
 
-  if (
-    bondInfo.reserveToken.toLowerCase() !==
-    getWethAddress(chain).toLowerCase()
-  ) {
-    throw new Error(
-      `Zap requires a WETH-reserve token; ${tokenSymbol} uses ${bondInfo.reserveSymbol}`,
-    );
-  }
-
-  const { totalCost } = await getMintCost(
-    publicClient,
-    token,
-    tokensToMint,
-    chain,
+  const deadline = createZapDeadline(dependencies.nowSeconds());
+  console.log(
+    `⚡ Zapping ${params.inputAmount} ${inputSymbol} into ${tokenSymbol}...`,
   );
-  const maxEthAmount = maxCost
-    ? parseEther(maxCost)
-    : addSlippage(totalCost, slippage);
+  const route = await dependencies.findBestRoute({
+    client: publicClient,
+    chain,
+    input: params.inputToken,
+    output: bondInfo.reserveToken,
+    amountIn: inputAmount,
+  });
+  const plan = dependencies.encodeUniversalRouterPlan(route, {
+    recipient: zapV2,
+    slippageBps: params.slippageBps,
+    deadline,
+  });
 
-  if (maxEthAmount < totalCost) {
+  const nativeInput =
+    params.inputToken.toLowerCase() === ZERO_ADDRESS.toLowerCase();
+  const value = nativeInput ? inputAmount : 0n;
+  if (plan.value !== value) {
     throw new Error(
-      `Cost ${formatEther(totalCost)} ETH exceeds max ${formatEther(maxEthAmount)} ETH`,
+      `Universal Router value mismatch: expected ${value}, encoded ${plan.value}`,
     );
   }
 
-  console.log(`⚡ Zap buying ${amount} ${tokenSymbol} with native ETH...`);
-  console.log(`   Quote: ${formatEther(totalCost)} ETH`);
-  console.log(`   Max cost: ${formatEther(maxEthAmount)} ETH`);
+  console.log(
+    `   Route: ${route.protocol.toUpperCase()} (${route.pools.length} pool${route.pools.length === 1 ? '' : 's'})`,
+  );
+  console.log(
+    `   Quoted reserve: ${bondInfo.formatReserve(route.amountOut)} ${bondInfo.reserveSymbol}`,
+  );
 
-  await executeTransaction(
+  if (!nativeInput) {
+    await dependencies.ensureApproval(
+      publicClient,
+      walletClient,
+      params.inputToken,
+      zapV2,
+      inputAmount,
+    );
+  }
+
+  const argsWithMinimum = (minTokensOut: bigint) =>
+    [
+      params.token,
+      params.inputToken,
+      inputAmount,
+      minTokensOut,
+      plan.commands,
+      plan.inputs,
+      plan.deadline,
+    ] as const;
+
+  let minTokensOut: bigint;
+  if (params.minTokens !== undefined) {
+    minTokensOut = parseUnits(params.minTokens, tokenDecimals);
+  } else {
+    const preview = await publicClient.simulateContract({
+      account,
+      address: zapV2,
+      abi: ZAP_V2_ABI,
+      functionName: 'zapMint',
+      args: argsWithMinimum(0n),
+      value,
+    });
+    const expectedTokens = previewTokensReceived(preview.result);
+    minTokensOut = calculateMinimumAmountOut(
+      expectedTokens,
+      params.slippageBps,
+    );
+    console.log(
+      `   Expected: ${formatUnits(expectedTokens, tokenDecimals)} ${tokenSymbol}`,
+    );
+  }
+
+  if (minTokensOut < 0n) throw new Error('Minimum token output cannot be negative');
+  console.log(
+    `   Minimum: ${formatUnits(minTokensOut, tokenDecimals)} ${tokenSymbol}`,
+  );
+
+  await dependencies.executeTransaction(
     publicClient,
     walletClient,
-    token,
-    buildZapMintCall({
-      chain,
-      token,
-      tokensToMint,
-      maxEthAmount,
-      receiver: account,
-    }),
-    `Zap bought ${amount} ${tokenSymbol} for ${formatEther(totalCost)} ETH`,
+    params.token,
+    {
+      address: zapV2,
+      abi: ZAP_V2_ABI,
+      functionName: 'zapMint',
+      args: argsWithMinimum(minTokensOut),
+      value,
+    },
+    `Zapped ${params.inputAmount} ${inputSymbol} into ${tokenSymbol}`,
     chain,
   );
 }

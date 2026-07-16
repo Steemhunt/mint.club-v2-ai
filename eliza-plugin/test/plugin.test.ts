@@ -63,4 +63,40 @@ describe('Eliza action execution', () => {
       text: '--chain|robinhood|wallet',
     });
   });
+
+  it('selects ZapV2 actions without also selecting direct Bond actions', async () => {
+    const zapBuy = mintclubPlugin.actions?.find(({ name }) => name === 'ZAP_BUY')!;
+    const buy = mintclubPlugin.actions?.find(({ name }) => name === 'BUY_TOKEN')!;
+    const zapSell = mintclubPlugin.actions?.find(({ name }) => name === 'ZAP_SELL')!;
+    const sell = mintclubPlugin.actions?.find(({ name }) => name === 'SELL_TOKEN')!;
+    const runtime = {} as never;
+    const buyMessage = {
+      content: { text: 'Buy TOKEN with 10 USDC on Arbitrum' },
+    } as never;
+    const sellMessage = {
+      content: { text: 'Sell 5 TOKEN for USDC on Unichain' },
+    } as never;
+
+    await expect(zapBuy.validate(runtime, buyMessage)).resolves.toBe(true);
+    await expect(buy.validate(runtime, buyMessage)).resolves.toBe(false);
+    await expect(zapSell.validate(runtime, sellMessage)).resolves.toBe(true);
+    await expect(sell.validate(runtime, sellMessage)).resolves.toBe(false);
+    expect(zapBuy.description).toContain('MCV2_ZapV2');
+    expect(zapSell.description).toContain('MCV2_ZapV2');
+  });
+
+  it('publishes the exact all-chain ZapV2 context', async () => {
+    const provider = mintclubPlugin.providers?.[0];
+    if (!provider) throw new Error('MINTCLUB_PROVIDER not found');
+    const result = await provider.get({} as never, {} as never);
+
+    expect(result.text).toContain('MCV2_ZapV2');
+    expect(result.text).not.toContain('ZapV1');
+    expect(result.text).toContain('ethereum, optimism, arbitrum');
+    expect(result.text).toContain('sepolia');
+    expect(result.values?.chains).toBe(
+      'ethereum,optimism,arbitrum,avalanche,base,polygon,bsc,blast,zora,unichain,robinhood,sepolia',
+    );
+    expect(mintclubPlugin.description).not.toContain('Base and Robinhood');
+  });
 });

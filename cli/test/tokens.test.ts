@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe('token tracking', () => {
-  it('loads tracked token addresses only for the selected chain', () => {
+  it('loads tracked token addresses for any supported chain and ignores unknown keys', () => {
     const dir = mkdtempSync(join(tmpdir(), 'mintclub-tokens-'));
     tempDirs.push(dir);
     const file = join(dir, 'tokens.json');
@@ -19,28 +19,30 @@ describe('token tracking', () => {
       file,
       JSON.stringify({
         base: ['0x1111111111111111111111111111111111111111'],
-        robinhood: ['0x2222222222222222222222222222222222222222'],
+        arbitrum: ['0x2222222222222222222222222222222222222222'],
+        unsupported: ['0x3333333333333333333333333333333333333333'],
       }),
     );
 
     expect(loadTokens('base', file)).toEqual([
       '0x1111111111111111111111111111111111111111',
     ]);
-    expect(loadTokens('robinhood', file)).toEqual([
+    expect(loadTokens('arbitrum', file)).toEqual([
       '0x2222222222222222222222222222222222222222',
     ]);
+    expect(loadTokens('ethereum', file)).toEqual([]);
   });
 
-  it('migrates legacy Base arrays while adding a Robinhood token', () => {
+  it('migrates legacy Base arrays while adding a token on another chain', () => {
     expect(
       mergeTrackedToken(
         ['0x1111111111111111111111111111111111111111'],
         '0x2222222222222222222222222222222222222222',
-        'robinhood',
+        'unichain',
       ),
     ).toEqual({
       base: ['0x1111111111111111111111111111111111111111'],
-      robinhood: ['0x2222222222222222222222222222222222222222'],
+      unichain: ['0x2222222222222222222222222222222222222222'],
     });
   });
 });

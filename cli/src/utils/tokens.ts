@@ -2,7 +2,10 @@ import { dirname, resolve } from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { type Address, getAddress } from 'viem';
-import type { SupportedChain } from '../config/chains';
+import {
+  SUPPORTED_CHAIN_KEYS,
+  type SupportedChain,
+} from '../config/chains';
 
 const TOKEN_FILE = resolve(homedir(), '.mintclub', 'tokens.json');
 
@@ -12,13 +15,14 @@ function normalizeTokenStore(data: unknown): TokenStore {
   if (Array.isArray(data)) return { base: data as Address[] };
   if (!data || typeof data !== 'object') return {};
 
-  const input = data as Partial<Record<SupportedChain, unknown>>;
-  return {
-    ...(Array.isArray(input.base) ? { base: input.base as Address[] } : {}),
-    ...(Array.isArray(input.robinhood)
-      ? { robinhood: input.robinhood as Address[] }
-      : {}),
-  };
+  const input = data as Record<string, unknown>;
+  const store: TokenStore = {};
+  for (const chain of SUPPORTED_CHAIN_KEYS) {
+    if (Array.isArray(input[chain])) {
+      store[chain] = input[chain] as Address[];
+    }
+  }
+  return store;
 }
 
 function readTokenStore(tokenFile: string): TokenStore {

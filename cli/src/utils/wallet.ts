@@ -3,8 +3,9 @@ import { ERC20_ABI } from '../abi/erc20';
 import { BOND_ABI } from '../abi/bond';
 import {
   getBondAddress,
+  getNativeToken,
   getTokens,
-  getWethAddress,
+  getWrappedNativeAddress,
 } from '../config/contracts';
 import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
 import { getUsdPrice } from './price';
@@ -52,23 +53,26 @@ export async function getWalletBalances(
   const knownTokens = getTokens(chain);
   const bond = getBondAddress(chain);
 
-  // Get ETH balance
+  // Get native-currency balance
+  const nativeToken = getNativeToken(chain);
   const ethBalance = await client.getBalance({ address });
-  const ethUsd = await getUsdPrice(getWethAddress(chain), chain);
+  const ethUsd = await getUsdPrice(getWrappedNativeAddress(chain), chain);
   const ethVal = Number(formatUnits(ethBalance, 18));
   const ethUsdVal = ethUsd !== null ? ethVal * ethUsd : undefined;
   if (ethUsdVal !== undefined) totalUsd += ethUsdVal;
 
   const ethBalanceInfo: WalletBalance = {
-    token: '0x0000000000000000000000000000000000000000' as Address,
-    symbol: 'ETH',
+    token: nativeToken.address,
+    symbol: nativeToken.symbol,
     balance: ethBalance,
-    decimals: 18,
+    decimals: nativeToken.decimals,
     usdValue: ethUsdVal,
   };
 
   // Get ERC20 token balances
-  const erc20Tokens = knownTokens.filter((token) => token.symbol !== 'ETH');
+  const erc20Tokens = knownTokens.filter(
+    (token) => token.address.toLowerCase() !== nativeToken.address.toLowerCase(),
+  );
   const erc20Results = await client.multicall({
     contracts: erc20Tokens.map(t => ({
       address: t.address,

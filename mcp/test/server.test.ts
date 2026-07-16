@@ -1,11 +1,26 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  SUPPORTED_CHAINS,
   TOOL_DEFINITIONS,
   buildCliArgs,
   resolveCliInvocation,
 } from '../src/index';
 
 const originalCli = process.env.MINTCLUB_CLI;
+const expectedChains = [
+  'ethereum',
+  'optimism',
+  'arbitrum',
+  'avalanche',
+  'base',
+  'polygon',
+  'bsc',
+  'blast',
+  'zora',
+  'unichain',
+  'robinhood',
+  'sepolia',
+];
 
 afterEach(() => {
   if (originalCli === undefined) delete process.env.MINTCLUB_CLI;
@@ -13,9 +28,10 @@ afterEach(() => {
 });
 
 describe('MCP tool surface', () => {
-  it('exposes only protocol-native tools with chain selection', () => {
+  it('exposes only protocol-native tools with exact all-chain selection', () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
 
+    expect(SUPPORTED_CHAINS).toEqual(expectedChains);
     expect(names).toEqual([
       'token_info',
       'token_price',
@@ -31,7 +47,7 @@ describe('MCP tool surface', () => {
 
     for (const tool of TOOL_DEFINITIONS) {
       expect(tool.inputSchema.properties.chain).toMatchObject({
-        enum: ['base', 'robinhood'],
+        enum: expectedChains,
         default: 'base',
       });
       const isReadOnly = [
@@ -64,54 +80,90 @@ describe('MCP tool surface', () => {
       buildCliArgs('create_token', {
         name: 'Token',
         symbol: 'TKN',
-        reserve: 'USDG',
+        reserve: 'USDC',
         maxSupply: '1000',
       }),
     ).toThrow('Missing required argument: curve');
   });
 
-  it('builds Robinhood ZapV1 argv without shell interpolation', () => {
+  it('defines exact-input arbitrary-token ZapV2 schemas', () => {
+    const buy = TOOL_DEFINITIONS.find(({ name }) => name === 'zap_buy')!;
+    const sell = TOOL_DEFINITIONS.find(({ name }) => name === 'zap_sell')!;
+
+    expect(buy.description).toContain('MCV2_ZapV2');
+    expect(buy.inputSchema.required).toEqual([
+      'token',
+      'inputToken',
+      'inputAmount',
+    ]);
+    expect(Object.keys(buy.inputSchema.properties)).toEqual([
+      'chain',
+      'token',
+      'inputToken',
+      'inputAmount',
+      'minTokens',
+      'slippage',
+    ]);
+    expect(sell.inputSchema.required).toEqual([
+      'token',
+      'amount',
+      'outputToken',
+    ]);
+    expect(Object.keys(sell.inputSchema.properties)).not.toContain('minRefund');
+  });
+
+  it('builds all-chain ZapV2 buy argv without shell interpolation', () => {
     const token = 'TOKEN; touch /tmp/should-not-run';
 
     expect(
       buildCliArgs('zap_buy', {
-        chain: 'robinhood',
+        chain: 'arbitrum',
         token,
-        amount: '10',
-        maxCost: '0.01',
+        inputToken: 'USDT',
+        inputAmount: '10',
+        minTokens: '2',
         slippage: '0.5',
       }),
     ).toEqual([
       '--chain',
-      'robinhood',
+      'arbitrum',
       'zap-buy',
       token,
-      '--amount',
+      '--input-token',
+      'USDT',
+      '--input-amount',
       '10',
-      '--max-cost',
-      '0.01',
+      '--min-tokens',
+      '2',
       '--slippage',
       '0.5',
     ]);
   });
 
-  it('maps ZapV1 sell to native ETH refund options', () => {
+  it('maps ZapV2 sell output token and minimum options', () => {
     expect(
       buildCliArgs('zap_sell', {
+        chain: 'unichain',
         token: 'TOKEN',
         amount: '5',
-        minRefund: '0.001',
+        outputToken: 'USDC',
+        minOutput: '4.5',
       }),
     ).toEqual([
       '--chain',
-      'base',
+      'unichain',
       'zap-sell',
       'TOKEN',
       '--amount',
       '5',
-      '--min-refund',
-      '0.001',
+      '--output-token',
+      'USDC',
+      '--min-output',
+      '4.5',
     ]);
+    expect(() => buildCliArgs('wallet_balance', { chain: 'degen' })).toThrow(
+      'Unsupported chain: degen',
+    );
   });
 
   it('passes an explicit CLI override as an executable plus argv array', () => {

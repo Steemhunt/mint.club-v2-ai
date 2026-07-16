@@ -10,9 +10,25 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+const require = createRequire(import.meta.url);
+
+interface ChainRegistryData {
+  chains: readonly { key: string }[];
+}
+
+const chainRegistry = require(
+  'mint.club-cli/chain-registry.json',
+) as ChainRegistryData;
+
+export const SUPPORTED_CHAINS = Object.freeze(
+  chainRegistry.chains.map(({ key }) => key),
+);
+
+type SupportedChain = string;
+
 const CHAIN_PROPERTY = {
   type: 'string',
-  enum: ['base', 'robinhood'],
+  enum: SUPPORTED_CHAINS,
   default: 'base',
   description: 'Chain to use',
 } as const;
@@ -106,31 +122,38 @@ export const TOOL_DEFINITIONS = [
   {
     name: 'zap_buy',
     description:
-      'Mint a WETH-reserve token with native ETH via MCV2_ZapV1.mintWithEth',
+      'Mint a Mint Club token from an exact amount of any routed asset via MCV2_ZapV2',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
       properties: {
         chain: CHAIN_PROPERTY,
         token: tokenProperty,
-        amount: { type: 'string', description: 'Exact tokens to mint' },
-        maxCost: {
+        inputToken: {
+          ...tokenProperty,
+          description: 'Exact-input token address or chain-local symbol',
+        },
+        inputAmount: {
           type: 'string',
-          description: 'Maximum native ETH cost (optional)',
+          description: 'Exact input-token amount',
+        },
+        minTokens: {
+          type: 'string',
+          description: 'Minimum Mint Club tokens to receive (optional)',
         },
         slippage: {
           type: 'string',
-          description: 'Quote slippage percent when maxCost is omitted',
+          description: 'Route and token-output slippage percent',
           default: '1',
         },
       },
-      required: ['token', 'amount'],
+      required: ['token', 'inputToken', 'inputAmount'],
     },
   },
   {
     name: 'zap_sell',
     description:
-      'Burn a WETH-reserve token for native ETH via MCV2_ZapV1.burnToEth',
+      'Burn a Mint Club token into any routed output asset via MCV2_ZapV2',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
@@ -138,22 +161,26 @@ export const TOOL_DEFINITIONS = [
         chain: CHAIN_PROPERTY,
         token: tokenProperty,
         amount: { type: 'string', description: 'Exact tokens to burn' },
-        minRefund: {
+        outputToken: {
+          ...tokenProperty,
+          description: 'Output token address or chain-local symbol',
+        },
+        minOutput: {
           type: 'string',
-          description: 'Minimum native ETH refund (optional)',
+          description: 'Minimum output-token amount (optional)',
         },
         slippage: {
           type: 'string',
-          description: 'Quote slippage percent when minRefund is omitted',
+          description: 'Route slippage percent',
           default: '1',
         },
       },
-      required: ['token', 'amount'],
+      required: ['token', 'amount', 'outputToken'],
     },
   },
   {
     name: 'send_token',
-    description: 'Send native ETH or an ERC-20 token',
+    description: 'Send native currency or an ERC-20 token',
     annotations: WRITE_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
@@ -163,7 +190,7 @@ export const TOOL_DEFINITIONS = [
         amount: { type: 'string', description: 'Amount to send' },
         token: {
           type: 'string',
-          description: 'ERC-20 symbol/address; omit for native ETH',
+          description: 'ERC-20 symbol/address; omit for native currency',
         },
       },
       required: ['to', 'amount'],
@@ -223,12 +250,15 @@ function optionalString(args: ToolArguments, key: string): string | undefined {
   return value;
 }
 
-function selectedChain(args: ToolArguments): 'base' | 'robinhood' {
+function selectedChain(args: ToolArguments): SupportedChain {
   const chain = args?.chain ?? 'base';
-  if (chain !== 'base' && chain !== 'robinhood') {
+  if (
+    typeof chain !== 'string' ||
+    !SUPPORTED_CHAINS.includes(chain as SupportedChain)
+  ) {
     throw new Error(`Unsupported chain: ${String(chain)}`);
   }
-  return chain;
+  return chain as SupportedChain;
 }
 
 function appendOption(
@@ -276,10 +306,12 @@ export function buildCliArgs(
       argv.push(
         'zap-buy',
         requiredString(args, 'token'),
-        '--amount',
-        requiredString(args, 'amount'),
+        '--input-token',
+        requiredString(args, 'inputToken'),
+        '--input-amount',
+        requiredString(args, 'inputAmount'),
       );
-      appendOption(argv, '--max-cost', optionalString(args, 'maxCost'));
+      appendOption(argv, '--min-tokens', optionalString(args, 'minTokens'));
       appendOption(argv, '--slippage', optionalString(args, 'slippage'));
       return argv;
     }
@@ -289,8 +321,10 @@ export function buildCliArgs(
         requiredString(args, 'token'),
         '--amount',
         requiredString(args, 'amount'),
+        '--output-token',
+        requiredString(args, 'outputToken'),
       );
-      appendOption(argv, '--min-refund', optionalString(args, 'minRefund'));
+      appendOption(argv, '--min-output', optionalString(args, 'minOutput'));
       appendOption(argv, '--slippage', optionalString(args, 'slippage'));
       return argv;
     }
@@ -327,8 +361,6 @@ export function buildCliArgs(
     }
   }
 }
-
-const require = createRequire(import.meta.url);
 
 export function resolveCliInvocation(argv: string[]): {
   command: string;

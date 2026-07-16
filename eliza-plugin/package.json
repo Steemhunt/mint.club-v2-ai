@@ -1,7 +1,7 @@
 {
   "name": "@elizaos/plugin-mintclub",
   "version": "1.0.0",
-  "description": "Mint Club V2 protocol plugin for ElizaOS on Base and Robinhood Chain",
+  "description": "ElizaOS plugin for all-chain Mint Club V2 Bond and local Uniswap ZapV2 operations",
   "files": [
     "dist",
     "README.md"

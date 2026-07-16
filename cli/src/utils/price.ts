@@ -1,14 +1,24 @@
 import type { Address } from 'viem';
 import {
   CHAIN_CONFIGS,
+  ZERO_ADDRESS,
   type SupportedChain,
 } from '../config/chains';
-import { getWethAddress } from '../config/contracts';
+import { getWrappedNativeAddress } from '../config/contracts';
 
-const NATIVE = '0x0000000000000000000000000000000000000000';
-const DEFILLAMA_CHAIN: Record<SupportedChain, string> = {
+const DEFILLAMA_CHAIN: Record<SupportedChain, string | null> = {
+  ethereum: 'ethereum',
+  optimism: 'optimism',
+  arbitrum: 'arbitrum',
+  avalanche: 'avax',
   base: 'base',
+  polygon: 'polygon',
+  bsc: 'bsc',
+  blast: 'blast',
+  zora: 'zora',
+  unichain: 'unichain',
   robinhood: 'robinhood',
+  sepolia: null,
 };
 
 export type UsdRateResolver = (
@@ -17,7 +27,10 @@ export type UsdRateResolver = (
 ) => Promise<number | null>;
 
 export const defillamaUsdRate: UsdRateResolver = async (chain, token) => {
-  const key = `${DEFILLAMA_CHAIN[chain]}:${token}`;
+  const namespace = DEFILLAMA_CHAIN[chain];
+  if (!namespace) return null;
+
+  const key = `${namespace}:${token}`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
@@ -49,12 +62,11 @@ export async function getUsdPrice(
   resolveUsdRate: UsdRateResolver = defillamaUsdRate,
 ): Promise<number | null> {
   const source =
-    token.toLowerCase() === NATIVE ? getWethAddress(chain) : token;
-  const stable =
-    chain === 'base'
-      ? CHAIN_CONFIGS.base.tokens.USDC
-      : CHAIN_CONFIGS.robinhood.tokens.USDG;
+    token.toLowerCase() === ZERO_ADDRESS
+      ? getWrappedNativeAddress(chain)
+      : token;
+  const stable = CHAIN_CONFIGS[chain].usdToken;
 
-  if (source.toLowerCase() === stable.address.toLowerCase()) return 1;
+  if (stable && source.toLowerCase() === stable.toLowerCase()) return 1;
   return resolveUsdRate(chain, source);
 }

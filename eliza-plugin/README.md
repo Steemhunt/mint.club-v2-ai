@@ -1,8 +1,8 @@
 # Mint Club V2 — ElizaOS Plugin
 
-ElizaOS actions for protocol-native [Mint Club V2](https://mint.club) operations on **Base** and **Robinhood Chain**.
+ElizaOS actions for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap ZapV2 routing across 11 mainnets plus Sepolia.
 
-The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not interpolate user input into shell commands.
+The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not interpolate user input into shell commands. Chain keys and aliases come from the CLI package's published `chain-registry.json`.
 
 ## Actions
 
@@ -12,13 +12,13 @@ The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not inter
 | `TOKEN_PRICE` | Token price in reserve and USD |
 | `BUY_TOKEN` | Mint with the configured reserve ERC-20 via `MCV2_Bond` |
 | `SELL_TOKEN` | Burn for the configured reserve ERC-20 via `MCV2_Bond` |
-| `ZAP_BUY` | Mint a WETH-reserve token with native ETH via `MCV2_ZapV1` |
-| `ZAP_SELL` | Burn a WETH-reserve token for native ETH via `MCV2_ZapV1` |
+| `ZAP_BUY` | Exact routed input asset → `MCV2_ZapV2.zapMint` |
+| `ZAP_SELL` | `MCV2_ZapV2.zapBurn` → routed output asset |
 | `WALLET_BALANCE` | Show chain-local wallet balances |
-| `SEND_TOKEN` | Send native ETH or an ERC-20 token |
+| `SEND_TOKEN` | Send native currency or an ERC-20 token |
 | `CREATE_TOKEN` | Create an ERC-20 bonding curve token |
 
-There is no general-purpose DEX swap action.
+There is no general-purpose DEX swap action. Zap routing checks only direct and one-intermediary homogeneous V2/V3/V4 paths by RPC.
 
 ## Setup
 
@@ -44,13 +44,21 @@ Read-only actions work without a private key. Write actions and wallet balances 
 - “What is the price of TOKEN on Robinhood?”
 - “Buy 25 SIGNET.”
 - “Sell 5 SIGNET.”
-- “Buy 10 TOKEN with ETH on Robinhood.”
-- “Sell 5 TOKEN for ETH on Robinhood.”
-- “Show my wallet balance on Robinhood.”
+- “Buy TOKEN with 10 USDT on Arbitrum with 0.5% slippage.”
+- “Sell 5 TOKEN for USDC on Unichain.”
+- “Show my wallet balance on Polygon.”
 - “Send 10 USDG to `0x1111111111111111111111111111111111111111` on Robinhood.”
 - “Create token \"My Token\" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood.”
 
-Use “on Base” or “on Robinhood” for explicit chain selection. Base is the default; contradictory chain instructions are rejected rather than guessed.
+The Zap parser deliberately rejects the old ambiguous target-amount form “Buy 10 TOKEN with ETH.” Use “Buy TOKEN with 0.1 ETH” so the exact routed input amount is explicit.
+
+Supported canonical chain keys:
+
+`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `blast` · `zora` · `unichain` · `robinhood` · `sepolia`
+
+Natural-language aliases such as “Ethereum mainnet,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default. Contradictory or multiple positive chain instructions are rejected rather than guessed.
+
+**ZapV2 addresses are intentionally unconfigured in this revision.** Zap actions fail before approvals or transaction construction until an official address is added to the CLI registry.
 
 ## Development
 

@@ -1,8 +1,8 @@
 # Mint Club V2 MCP Server
 
-An MCP server exposing protocol-native Mint Club V2 operations on **Base** and **Robinhood Chain**.
+An MCP server exposing Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across 11 mainnets plus Sepolia.
 
-The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, pricing, and transactions.
+The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, route discovery, pricing, and transactions. Chain keys are loaded from the CLI's published `chain-registry.json` rather than duplicated in the MCP package.
 
 ## Install
 
@@ -38,30 +38,57 @@ Write tools and `wallet_balance` require a configured key. Pass `PRIVATE_KEY`, o
 | `wallet_balance` | Chain-local configured-wallet balances |
 | `buy_token` | `MCV2_Bond.mint` with reserve ERC-20 |
 | `sell_token` | `MCV2_Bond.burn` for reserve ERC-20 |
-| `zap_buy` | `MCV2_ZapV1.mintWithEth` for WETH-reserve tokens |
-| `zap_sell` | `MCV2_ZapV1.burnToEth` for WETH-reserve tokens |
-| `send_token` | Send native ETH or ERC-20 |
+| `zap_buy` | Exact routed input asset → `MCV2_ZapV2.zapMint` |
+| `zap_sell` | `MCV2_ZapV2.zapBurn` → routed output asset |
+| `send_token` | Send native currency or ERC-20 |
 | `create_token` | Create a bonding curve token |
 
 `create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply.
 
-Every tool accepts an optional `chain` property:
+Every tool accepts an optional canonical `chain` property. Base is the default. Supported values are:
+
+`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `blast` · `zora` · `unichain` · `robinhood` · `sepolia`
+
+## ZapV2 inputs
+
+`zap_buy` requires:
 
 ```json
-{ "chain": "base" }
+{
+  "chain": "arbitrum",
+  "token": "0xMINT_CLUB_TOKEN",
+  "inputToken": "USDT",
+  "inputAmount": "10",
+  "slippage": 1
+}
 ```
 
-Supported values are `base` (default) and `robinhood`.
+Optional `minTokens` is denominated in the Mint Club token. `inputAmount` is exact.
 
-Zap tools mint or burn an **exact Mint Club token amount**. They use native ETH and only work for WETH-reserve tokens; they do not perform a DEX swap.
+`zap_sell` requires:
+
+```json
+{
+  "chain": "unichain",
+  "token": "0xMINT_CLUB_TOKEN",
+  "amount": "100",
+  "outputToken": "USDC",
+  "slippage": 1
+}
+```
+
+Optional `minOutput` is denominated in the output asset. `amount` is the exact Mint Club token burn amount.
+
+The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates by RPC, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
+
+**ZapV2 addresses are intentionally unconfigured in this revision.** Zap tools fail before approvals or transaction construction until an official address is added to the CLI registry. Other tools remain available.
 
 ## Example requests
 
 - “Get token info for SIGNET on Base.” → `token_info`
 - “Mint 100 TOKEN on Robinhood with its USDG reserve.” → `buy_token`
-- “Buy 100 TOKEN with ETH on Robinhood.” → `zap_buy`
-- “Sell 50 TOKEN for ETH on Robinhood.” → `zap_sell`
-- “Create a token named MYT...” → ask for the complete curve definition
+- “Buy TOKEN with exactly 10 USDT on Arbitrum.” → `zap_buy`
+- “Sell 50 TOKEN for USDC on Unichain.” → `zap_sell`
 - “Create token My Token (MYT), backed by USDG on Robinhood, with maximum supply 1,000,000 and a linear curve from 0.01 to 1 USDG.” → `create_token`
 
 ## Safe CLI execution
