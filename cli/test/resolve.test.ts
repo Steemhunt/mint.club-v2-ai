@@ -4,23 +4,34 @@
  * Run: npx vitest run test/resolve.test.ts
  */
 
-import { describe, it, expect, vi } from 'vitest';
-vi.setConfig({ testTimeout: 30_000 });
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Address, PublicClient } from 'viem';
+import {
+  getBondAddress,
+  getTokenImplementation,
+  predictTokenAddress,
+  resolveToken,
+  resolveTokenAsync,
+} from '../src/config/contracts';
+import { HUNT, SIGNET, USDC } from './helpers';
 
-import { createPublicClient, http, fallback, type Address } from 'viem';
-import { base } from 'viem/chains';
-import { resolveToken, resolveTokenAsync, predictTokenAddress, TOKENS, TOKEN_IMPLEMENTATION, BOND } from '../src/config/contracts';
-import { SIGNET, HUNT, USDC, MT } from './helpers';
+const TOKEN_IMPLEMENTATION = getTokenImplementation('base');
+const BOND = getBondAddress('base');
+const deployed = new Set<string>();
+const getCode = vi.fn(async ({ address }: { address: Address }) =>
+  deployed.has(address.toLowerCase()) ? ('0x6000' as const) : ('0x' as const),
+);
+const client = { getCode } as unknown as PublicClient;
 
-const RPCS = [
-  'https://base-rpc.publicnode.com',
-  'https://base.meowrpc.com',
-  'https://mainnet.base.org',
-];
-
-const client = createPublicClient({
-  chain: base,
-  transport: fallback(RPCS.map(url => http(url, { retryCount: 2, timeout: 10_000 }))),
+beforeEach(() => {
+  deployed.clear();
+  deployed.add(
+    predictTokenAddress('SIGNET', TOKEN_IMPLEMENTATION, BOND).toLowerCase(),
+  );
+  deployed.add(
+    predictTokenAddress('H1', TOKEN_IMPLEMENTATION, BOND).toLowerCase(),
+  );
+  getCode.mockClear();
 });
 
 // ─── predictTokenAddress (pure, no RPC) ────────────────────────────────────
@@ -68,7 +79,7 @@ describe('resolveToken (sync)', () => {
   });
 });
 
-// ─── resolveTokenAsync (with on-chain verification) ────────────────────────
+// ─── resolveTokenAsync (with deterministic deployment lookup) ─────────────
 
 describe('resolveTokenAsync', () => {
   it('should resolve hardcoded tokens instantly', async () => {

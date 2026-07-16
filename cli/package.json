@@ -1,31 +1,41 @@
 {
   "name": "mint.club-cli",
-  "version": "1.5.1",
-  "description": "CLI for Mint Club V2 — trade bonding curve tokens, zap through Uniswap, create tokens from your terminal.",
+  "version": "2.0.0",
+  "description": "All-chain Mint Club V2 CLI with bounded local Uniswap ZapV2 routing",
+  "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./chain-registry.json": "./chain-registry.json"
+  },
   "files": [
     "dist",
     "README.md",
-    "build.sh"
+    "build.sh",
+    "chain-registry.json"
   ],
   "bin": {
-    "mc": "./dist/index.js"
+    "mc": "dist/index.js"
   },
   "scripts": {
     "build": "bash build.sh",
     "prepublishOnly": "bash build.sh",
     "start": "bun src/index.ts",
     "check": "tsc --noEmit",
-    "test": "npx vitest run test/cli.test.ts"
+    "test": "vitest run",
+    "test:integration": "RUN_INTEGRATION_TESTS=1 vitest run test/cli.test.ts",
+    "test:fork": "RUN_FORK_TESTS=1 vitest run test/write.test.ts"
   },
   "keywords": [
     "mint-club",
     "bonding-curve",
     "cli",
     "web3",
-    "base",
-    "viem",
     "uniswap",
+    "universal-router",
+    "zap-v2",
+    "multi-chain",
+    "viem",
     "defi",
     "token-launch"
   ],
@@ -47,8 +57,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@uniswap/sdk-core": "^7.18.0",
+    "@uniswap/universal-router-sdk": "^5.9.0",
+    "bun": "^1.3.14",
     "typescript": "^5.7.3",
-    "vitest": "^4.0.18"
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,6 +1,8 @@
 export const ZAP_V2_ABI = [
   {
-    type: 'function', name: 'zapMint', stateMutability: 'payable',
+    type: 'function',
+    name: 'zapMint',
+    stateMutability: 'payable',
     inputs: [
       { name: 'token', type: 'address' },
       { name: 'inputToken', type: 'address' },
@@ -17,7 +19,9 @@ export const ZAP_V2_ABI = [
     ],
   },
   {
-    type: 'function', name: 'zapBurn', stateMutability: 'nonpayable',
+    type: 'function',
+    name: 'zapBurn',
+    stateMutability: 'nonpayable',
     inputs: [
       { name: 'token', type: 'address' },
       { name: 'tokensToBurn', type: 'uint256' },

@@ -1,18 +1,28 @@
 {
   "name": "mintclub-mcp",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "mcpName": "io.github.h1-hunt/mintclub",
-  "description": "Model Context Protocol server for Mint Club V2 on Base — trade bonding curve tokens via AI",
+  "description": "MCP server for all-chain Mint Club V2 Bond and local Uniswap ZapV2 operations",
   "type": "module",
   "main": "dist/index.js",
-  "module": "./src/index.ts",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "bin": {
-    "mintclub-mcp": "./dist/index.js"
+    "mintclub-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "bun build src/index.ts --outdir dist --target node --format esm",
-    "start": "node dist/index.js"
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "keywords": [
     "mcp",
     "model-context-protocol",
@@ -20,7 +30,7 @@
     "bonding-curve",
     "defi",
     "base",
-    "uniswap",
+    "robinhood-chain",
     "ai",
     "claude",
     "cursor"
@@ -37,11 +47,13 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "viem": "^2.48.11"
+    "mint.club-cli": "^2.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "bun": "^1.3.14",
     "bun-types": "^1.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
   }
 }

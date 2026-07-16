@@ -1,104 +1,159 @@
-import { type Address } from 'viem';
-import { getPublicClient, getWalletClient } from '../client';
-import { ZAP_V2 } from '../config/contracts';
-import { ZAP_V2_ABI } from '../abi/zap-v2';
-import { fmt, parse } from '../utils/format';
-import { ensureApproval } from '../utils/approve';
-import { getSymbol } from '../utils/symbol';
-import { getBondInfo } from '../utils/bond';
-import { executeTransaction, setupClients } from '../utils/transaction';
-import { parseZapToken, resolveZapPath, getZapDeadline } from '../utils/zap';
 import {
-  encodeV3SwapInput,
-  V3_SWAP_COMMAND,
-  WRAP_ETH_COMMAND,
-  encodeWrapEthInput,
-} from '../utils/swap';
+  formatUnits,
+  type Address,
+} from 'viem';
+import { ZAP_V2_ABI } from '../abi/zap-v2';
+import { ZERO_ADDRESS, type SupportedChain } from '../config/chains';
+import { parseTokenAmount } from '../utils/format';
+import { calculateMinimumAmountOut } from '../utils/uniswap/encode';
+import {
+  DEFAULT_ZAP_DEPENDENCIES,
+  createZapDeadline,
+  previewTokensReceived,
+  type ZapCommandDependencies,
+} from '../utils/zap-v2';
+
+export interface ZapBuyParams {
+  privateKey: `0x${string}`;
+  token: Address;
+  inputToken: Address;
+  inputAmount: string;
+  minTokens?: string;
+  slippageBps: number;
+  chain?: SupportedChain;
+}
 
 export async function zapBuy(
-  token: Address,
-  inputToken: Address,
-  inputAmount: string,
-  minTokens: string | undefined,
-  pathStr: string | undefined,
-  privateKey: `0x${string}`,
-) {
-  const { publicClient, walletClient, account } = setupClients(
-    getPublicClient,
-    getWalletClient,
-    privateKey,
+  params: ZapBuyParams,
+  dependencies: ZapCommandDependencies = DEFAULT_ZAP_DEPENDENCIES,
+): Promise<void> {
+  const chain = params.chain ?? 'base';
+  // Resolve deployment before creating clients or allowing any approval side effect.
+  const zapV2 = dependencies.getZapV2Address(chain);
+  const { publicClient, walletClient, account } = dependencies.setupClients(
+    params.privateKey,
+    chain,
   );
 
-  // Parse input token info
-  const inputInfo = await parseZapToken(publicClient, inputToken, true);
-  const amountIn = parse(inputAmount, inputInfo.decimals);
-  const minOut = minTokens ? parse(minTokens) : 0n;
+  const [bondInfo, inputDecimals, tokenDecimals, tokenSymbol, inputSymbol] =
+    await Promise.all([
+      dependencies.getBondInfo(publicClient, params.token, chain),
+      dependencies.getDecimals(publicClient, params.inputToken, chain),
+      dependencies.getDecimals(publicClient, params.token, chain),
+      dependencies.getSymbol(publicClient, params.token, chain),
+      dependencies.getSymbol(publicClient, params.inputToken, chain),
+    ]);
+  const inputAmount = parseTokenAmount(params.inputAmount, inputDecimals);
+  if (inputAmount <= 0n) throw new Error('Input amount must be greater than zero');
+  const explicitMinTokens =
+    params.minTokens === undefined
+      ? undefined
+      : parseTokenAmount(params.minTokens, tokenDecimals);
+  if (explicitMinTokens !== undefined && explicitMinTokens < 0n) {
+    throw new Error('Minimum token output cannot be negative');
+  }
 
-  // Get token and bond info
-  const [tokenSymbol, bondInfo] = await Promise.all([
-    getSymbol(publicClient, token),
-    getBondInfo(publicClient, token),
-  ]);
-
-  console.log(`⚡ Zap buying ${tokenSymbol} with ${inputAmount} ${inputInfo.symbol}...`);
-
-  // Resolve swap path
-  const zapPath = await resolveZapPath(
-    publicClient,
-    inputToken,
-    bondInfo.reserveToken,
-    amountIn,
-    pathStr,
+  const deadline = createZapDeadline(dependencies.nowSeconds());
+  console.log(
+    `⚡ Zapping ${params.inputAmount} ${inputSymbol} into ${tokenSymbol}...`,
   );
-
-  if (zapPath.description && zapPath.amountOut) {
-    console.log(`   Route: ${zapPath.description}`);
-    console.log(`   Expected swap output: ${fmt(zapPath.amountOut)} ${bondInfo.reserveSymbol}`);
-  }
-
-  // Prepare swap commands
-  const swapInput = encodeV3SwapInput(ZAP_V2, amountIn, 0n, zapPath.path);
-  const deadline = getZapDeadline();
-
-  let commands: `0x${string}`;
-  let inputs: `0x${string}`[];
-
-  if (inputInfo.isETH) {
-    commands = ('0x' + WRAP_ETH_COMMAND.slice(2) + V3_SWAP_COMMAND.slice(2)) as `0x${string}`;
-    inputs = [encodeWrapEthInput(amountIn), swapInput];
-  } else {
-    commands = V3_SWAP_COMMAND;
-    inputs = [swapInput];
-    // Approve input token spending
-    await ensureApproval(publicClient, walletClient, inputToken, ZAP_V2, amountIn);
-  }
-
-  // Simulate to get expected results
-  const { result } = await publicClient.simulateContract({
-    account: walletClient.account,
-    address: ZAP_V2,
-    abi: ZAP_V2_ABI,
-    functionName: 'zapMint',
-    args: [token, inputInfo.actualToken, amountIn, minOut, commands, inputs, deadline, account],
-    value: inputInfo.isETH ? amountIn : 0n,
+  const route = await dependencies.findBestRoute({
+    client: publicClient,
+    chain,
+    input: params.inputToken,
+    output: bondInfo.reserveToken,
+    amountIn: inputAmount,
+  });
+  const plan = dependencies.encodeUniversalRouterPlan(route, {
+    recipient: zapV2,
+    slippageBps: params.slippageBps,
+    deadline,
+    ...(route.protocol === 'none'
+      ? {}
+      : {
+          inputRefund: {
+            token: params.inputToken,
+            recipient: account,
+          },
+        }),
   });
 
+  const nativeInput =
+    params.inputToken.toLowerCase() === ZERO_ADDRESS.toLowerCase();
+  const value = nativeInput ? inputAmount : 0n;
+  if (plan.value !== value) {
+    throw new Error(
+      `Universal Router value mismatch: expected ${value}, encoded ${plan.value}`,
+    );
+  }
+
   console.log(
-    `   Expected: ${fmt(result[0])} ${tokenSymbol} | Reserve used: ${fmt(result[1])} ${bondInfo.reserveSymbol}`,
+    `   Route: ${route.protocol.toUpperCase()} (${route.pools.length} pool${route.pools.length === 1 ? '' : 's'})`,
+  );
+  console.log(
+    `   Quoted reserve: ${bondInfo.formatReserve(route.amountOut)} ${bondInfo.reserveSymbol}`,
   );
 
-  // Execute zap mint transaction
-  await executeTransaction(
-    publicClient,
-    walletClient,
-    token,
-    {
-      address: ZAP_V2,
+  if (!nativeInput) {
+    await dependencies.ensureApproval(
+      publicClient,
+      walletClient,
+      params.inputToken,
+      zapV2,
+      inputAmount,
+    );
+  }
+
+  const argsWithMinimum = (minTokensOut: bigint) =>
+    [
+      params.token,
+      params.inputToken,
+      inputAmount,
+      minTokensOut,
+      plan.commands,
+      plan.inputs,
+      plan.deadline,
+      account,
+    ] as const;
+
+  let minTokensOut: bigint;
+  if (explicitMinTokens !== undefined) {
+    minTokensOut = explicitMinTokens;
+  } else {
+    const preview = await publicClient.simulateContract({
+      account,
+      address: zapV2,
       abi: ZAP_V2_ABI,
       functionName: 'zapMint',
-      args: [token, inputInfo.actualToken, amountIn, minOut, commands, inputs, deadline, account],
-      value: inputInfo.isETH ? amountIn : 0n,
+      args: argsWithMinimum(0n),
+      value,
+    });
+    const expectedTokens = previewTokensReceived(preview.result);
+    minTokensOut = calculateMinimumAmountOut(
+      expectedTokens,
+      params.slippageBps,
+    );
+    console.log(
+      `   Expected: ${formatUnits(expectedTokens, tokenDecimals)} ${tokenSymbol}`,
+    );
+  }
+
+  console.log(
+    `   Minimum: ${formatUnits(minTokensOut, tokenDecimals)} ${tokenSymbol}`,
+  );
+
+  await dependencies.executeTransaction(
+    publicClient,
+    walletClient,
+    params.token,
+    {
+      address: zapV2,
+      abi: ZAP_V2_ABI,
+      functionName: 'zapMint',
+      args: argsWithMinimum(minTokensOut),
+      value,
     },
-    `Zap bought ${fmt(result[0])} ${tokenSymbol} with ${inputAmount} ${inputInfo.symbol}`,
+    `Zapped ${params.inputAmount} ${inputSymbol} into ${tokenSymbol}`,
+    chain,
   );
 }

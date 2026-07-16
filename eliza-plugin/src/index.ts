@@ -1,4 +1,4 @@
-import { mintclubPlugin } from './plugin.ts';
+import { mintclubPlugin } from './plugin.js';
 
-export { mintclubPlugin } from './plugin.ts';
+export { mintclubPlugin } from './plugin.js';
 export default mintclubPlugin;

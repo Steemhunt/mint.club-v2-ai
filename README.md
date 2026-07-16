@@ -5,7 +5,7 @@
 <h1 align="center">Mint Club V2 — AI Tools</h1>
 
 <p align="center">
-  Trade, create, and manage <a href="https://github.com/Steemhunt/mint.club-v2-contract#design-choices-">bonding curve tokens</a> on Base — from the terminal, AI assistants, or autonomous agents.
+  Trade, create, and manage <a href="https://github.com/Steemhunt/mint.club-v2-contract#design-choices-">bonding curve tokens</a> across supported Uniswap chains — from the terminal, AI assistants, or autonomous agents.
 </p>
 
 <p align="center">
@@ -23,116 +23,140 @@
 
 ---
 
-## What is Mint Club V2?
+AI-facing tools for protocol-native [Mint Club V2](https://mint.club) operations across the chains where both Mint Club V2 and official Uniswap deployments are available.
 
-[Mint Club V2](https://mint.club) is a permissionless bonding curve protocol on **Base**. Launch tokens backed by any reserve asset (HUNT, ETH, USDC) with automated pricing — no liquidity pool required. The protocol handles minting, burning, and price discovery through smart contracts.
+## Components
 
-This monorepo provides AI-ready tooling for the protocol:
+| Package | Purpose |
+|---|---|
+| [`mint.club-cli`](./cli) | Direct CLI for Bond, bounded local Uniswap routing, ZapV2, token creation, transfers, prices, and balances |
+| [`mintclub-mcp`](./mcp) | MCP tools backed by the CLI |
+| [`@elizaos/plugin-mintclub`](./eliza-plugin) | ElizaOS actions backed by the CLI |
+| [`SKILL.md`](./SKILL.md) | Agent instructions for using `mc` safely |
 
-| Package | Description | Install |
-|---------|-------------|---------|
-| **[`cli/`](./cli/)** | `mc` command-line interface | `npm i -g mint.club-cli` |
-| **[`mcp/`](./mcp/)** | MCP server for Claude, Cursor, etc. | `npx mintclub-mcp` |
-| **[`agent-skills/`](./agent-skills/)** | Agent skill for OpenClaw | `clawhub install mintclub` |
-| **[`eliza-plugin/`](./eliza-plugin/)** | ElizaOS plugin | [PR #6498](https://github.com/elizaOS/eliza/pull/6498) |
+All three adapters consume the published [`chain-registry.json`](./cli/chain-registry.json) from `mint.club-cli`. The registry is the shared source for chain keys, aliases, IDs, and capability flags; the CLI validates it against its full contract/token/RPC configuration at startup.
 
----
-
-## Quick Start
-
-### CLI
+## Quick start
 
 ```bash
 npm install -g mint.club-cli
+mc wallet --generate
 
-mc wallet --generate              # Create a wallet
-mc price SIGNET                   # Check token price
-mc swap -i ETH -o HUNT -a 0.01   # Swap via Uniswap V3/V4
-mc zap-buy SIGNET -i ETH -a 0.01 # Buy with any token
-mc create -n "MyToken" -s MYT -r HUNT -x 1000000 --curve exponential
+mc --chain base info SIGNET
+mc --chain arbitrum price 0xTOKEN
+mc --chain robinhood wallet
 ```
 
-→ **[Full CLI docs](./cli/README.md)**
+## Protocol operations
 
-### MCP Server
+| Operation | Contract path |
+|---|---|
+| Buy with reserve ERC-20 | `MCV2_Bond.mint` |
+| Sell for reserve ERC-20 | `MCV2_Bond.burn` |
+| Buy from any routed asset | local Uniswap quote + `MCV2_ZapV2.zapMint` |
+| Sell into any routed asset | `MCV2_ZapV2.zapBurn` + local Uniswap quote |
+| Create token | `MCV2_Bond.createToken` |
 
-Add to Claude Desktop / Cursor config:
-
-```json
-{
-  "mcpServers": {
-    "mintclub": {
-      "command": "npx",
-      "args": ["-y", "mintclub-mcp"],
-      "env": { "PRIVATE_KEY": "0x..." }
-    }
-  }
-}
-```
-
-10 tools: `token_info` · `token_price` · `wallet_balance` · `buy_token` · `sell_token` · `swap` · `zap_buy` · `zap_sell` · `send_token` · `create_token`
-
-→ **[Full MCP docs](./mcp/README.md)**
-
-### Agent Skill
+Example ZapV2 syntax:
 
 ```bash
-clawhub install mintclub
+mc --chain arbitrum zap-buy 0xMINT_CLUB_TOKEN \
+  --input-token USDT \
+  --input-amount 10 \
+  --slippage 1
+
+mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
+  --amount 100 \
+  --output-token USDC \
+  --slippage 1
 ```
 
-→ **[Full agent skill docs](./agent-skills/README.md)**
+ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
----
+## Local routing model
 
-## How It Works
+Routing does not call the Uniswap Trading API, Smart Order Router, Mint Club route services, or any API-key quote service. It uses chain RPC calls only:
 
+1. Enumerate direct paths and paths with one configured wrapped-native or stablecoin intermediary.
+2. Quote homogeneous Uniswap V2, V3, and V4 candidates.
+3. Isolate expected missing-pool reverts while surfacing transport failures.
+4. Choose the highest exact-input output with deterministic tie-breaking.
+5. Encode only the selected path with `@uniswap/universal-router-sdk`.
+
+The encoder uses Universal Router V2.0 commands with router-balance payment (`payerIsUser = false`) and the ZapV2 contract as recipient. It rejects Permit2 ingress commands and settles any unused routed input directly back to the caller.
+
+Deliberate limits: no split routes, mixed-protocol paths, arbitrary-length graph search, dynamic-fee V4 pools, or hooked V4 pools. V4 discovery checks only canonical hookless fee/tick-spacing pairs. This repository does not expose a general-purpose swap command.
+
+## MCP tools
+
+The MCP server exposes nine tools:
+
+`token_info` · `token_price` · `wallet_balance` · `buy_token` · `sell_token` · `zap_buy` · `zap_sell` · `send_token` · `create_token`
+
+Every tool accepts an optional canonical `chain` key from the table below. Base is the default.
+
+## Architecture
+
+```text
+AI agent / user
+      │
+      ├── mc CLI
+      ├── MCP server ────── argv ──┐
+      ├── ElizaOS plugin ── argv ──┤
+      └── Agent skill ─────────────┤
+                                   ▼
+                            mint.club-cli
+                                   │
+                  ┌────────────────┼─────────────────┐
+                  ▼                ▼                 ▼
+             MCV2_Bond        local RPC quotes   DefiLlama API
+            mint/burn/create   V2 / V3 / V4       USD pricing
+                                   │
+                                   ▼
+                        Universal Router encoding
+                                   │
+                                   ▼
+                              MCV2_ZapV2
 ```
-User / AI Agent
-      │
-      ├── CLI ──────────── mc swap -i ETH -o HUNT -a 0.01
-      ├── MCP Server ───── tool call → mc CLI → transaction
-      ├── Agent Skill ──── reads SKILL.md → runs mc CLI
-      └── ElizaOS Plugin ─ action handler → Bun.spawn(mc)
-      │
-      ▼
-   mc CLI (mint.club-cli)
-      │
-      ├── Bonding Curve ── MCV2_Bond contract (buy/sell/create)
-      ├── Zap ──────────── MCV2_ZapV2 (swap + bond in one tx)
-      ├── Uniswap ──────── UniversalRouter V2 (V3 + V4 pools)
-      └── Pricing ──────── 1inch Spot Price Aggregator (USD)
-      │
-      ▼
-   Base L2 (Chain 8453)
+
+MCP and Eliza invoke the CLI with argument arrays rather than shell-interpolated commands.
+
+## Supported chains
+
+| Chain | CLI key | Chain ID |
+|---|---|---:|
+| Ethereum | `ethereum` | 1 |
+| Optimism | `optimism` | 10 |
+| Arbitrum One | `arbitrum` | 42161 |
+| Avalanche C-Chain | `avalanche` | 43114 |
+| Base | `base` | 8453 |
+| Polygon PoS | `polygon` | 137 |
+| BNB Smart Chain | `bsc` | 56 |
+| Zora | `zora` | 7777777 |
+| Unichain | `unichain` | 130 |
+| Robinhood Chain | `robinhood` | 4663 |
+| Sepolia | `sepolia` | 11155111 |
+| Base Sepolia | `base-sepolia` | 84532 |
+
+See the [CLI reference](./cli/README.md) for command options, routing details, and contract configuration.
+
+## Development
+
+The three publishable packages share one npm workspace lockfile:
+
+```bash
+npm ci
+npm run check
+npm test
+npm run test:integration
+npm run test:fork
+npm run build
 ```
 
-**Smart swap routing:** `mc swap` auto-detects the optimal path — bonding curve buy/sell for Mint Club tokens, Uniswap V3/V4 for everything else, or zap (swap + bond) for cross-token purchases.
+The default tests are deterministic and offline. `test:integration` performs read-only checks against all supported networks, while `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
----
-
-## Directory Listings
-
-| Registry | Link |
-|----------|------|
-| npm (CLI) | [`mint.club-cli`](https://www.npmjs.com/package/mint.club-cli) |
-| npm (MCP) | [`mintclub-mcp`](https://www.npmjs.com/package/mintclub-mcp) |
-| MCP Registry | [`io.github.h1-hunt/mintclub`](https://registry.modelcontextprotocol.io) |
-| mcp.so | [`mint-club`](https://mcp.so/server/mint-club/H-1) |
-| ClawHub | [`mintclub`](https://clawhub.com/skills/mintclub) |
-| ElizaOS | [Plugin PR #6498](https://github.com/elizaOS/eliza/pull/6498) |
-
-## Links
-
-| | |
-|---|---|
-| 🌐 **App** | [mint.club](https://mint.club) |
-| 📖 **Docs** | [docs.mint.club](https://docs.mint.club) |
-| 📦 **SDK** | [mint.club-v2-sdk](https://www.npmjs.com/package/mint.club-v2-sdk) |
-| 🔗 **Contracts** | [Steemhunt/mint.club-v2-contract](https://github.com/Steemhunt/mint.club-v2-contract) |
-| 💬 **Community** | [OnChat](https://onchat.sebayaki.com/mintclub) |
-| 🐦 **Twitter** | [@MintClubPro](https://twitter.com/MintClubPro) |
-| 🏗️ **Hunt Town** | [hunt.town](https://hunt.town) |
+For registry releases, publish `mint.club-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
 
 ## License
 
-MIT — built with 🏗️ by [Hunt Town](https://hunt.town)
+MIT

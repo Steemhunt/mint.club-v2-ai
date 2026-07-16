@@ -1,15 +1,20 @@
 import { type Address } from 'viem';
 import { getPublicClient } from '../client';
-import { fmt, printTokenInfo } from '../utils/format';
+import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
+import { printTokenInfo } from '../utils/format';
 import { getTokenDetails, getTokenPricing, formatUsd } from '../utils/token-info';
 
-export async function info(token: Address) {
-  console.log(`🔍 Fetching token info for ${token} on Base...\n`);
-  
-  const client = getPublicClient();
-  const details = await getTokenDetails(client, token);
+export async function info(
+  token: Address,
+  chain: SupportedChain = 'base',
+) {
+  console.log(
+    `🔍 Fetching token info for ${token} on ${CHAIN_CONFIGS[chain].chain.name}...\n`,
+  );
 
-  // Print basic token info
+  const client = getPublicClient(chain);
+  const details = await getTokenDetails(client, token, chain);
+
   printTokenInfo({
     name: details.name,
     symbol: details.symbol,
@@ -17,7 +22,9 @@ export async function info(token: Address) {
     creator: details.bondInfo.creator,
     reserveToken: details.bondInfo.reserveToken,
     reserveSymbol: details.bondInfo.reserveSymbol,
+    reserveDecimals: details.bondInfo.reserveDecimals,
     reserveBalance: details.bondInfo.reserveBalance,
+    tokenDecimals: details.decimals,
     currentSupply: details.totalSupply,
     maxSupply: details.maxSupply,
     mintRoyalty: details.bondInfo.mintRoyalty,
@@ -26,23 +33,33 @@ export async function info(token: Address) {
     steps: details.steps ?? [],
   });
 
-  // Show pricing info if token has supply
   if (details.totalSupply > 0n && details.currentPrice) {
     try {
-      const pricing = await getTokenPricing(client, token, details.totalSupply);
-      
-      let priceStr = `\n💱 Current Price: ${fmt(pricing.tokenPrice)} ${details.bondInfo.reserveSymbol} per 1 ${details.symbol}`;
+      const pricing = await getTokenPricing(
+        client,
+        token,
+        details.totalSupply,
+        chain,
+        details.decimals,
+      );
 
-      if (pricing.tokenUsd !== undefined && pricing.reserveValue !== undefined) {
-        priceStr += ` (~$${formatUsd(pricing.tokenUsd)})`;
-        priceStr += `\n💵 Reserve Value: ~$${formatUsd(pricing.reserveValue)}`;
+      let priceText =
+        `\n💱 Current Price: ${details.bondInfo.formatReserve(pricing.tokenPrice)}` +
+        ` ${details.bondInfo.reserveSymbol} per 1 ${details.symbol}`;
+
+      if (
+        pricing.tokenUsd !== undefined &&
+        pricing.reserveValue !== undefined
+      ) {
+        priceText += ` (~$${formatUsd(pricing.tokenUsd)})`;
+        priceText += `\n💵 Reserve Value: ~$${formatUsd(pricing.reserveValue)}`;
 
         if (pricing.marketCap !== undefined) {
-          priceStr += `\n📊 Market Cap: ~$${formatUsd(pricing.marketCap)}`;
+          priceText += `\n📊 Market Cap: ~$${formatUsd(pricing.marketCap)}`;
         }
       }
 
-      console.log(priceStr);
+      console.log(priceText);
     } catch {
       console.log('\n⚠️  Could not fetch current price');
     }

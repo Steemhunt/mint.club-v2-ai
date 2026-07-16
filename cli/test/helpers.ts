@@ -10,7 +10,7 @@ export const MT: Address = '0xFf45161474C39cB00699070Dd49582e417b57a7E';
 export const WHALE: Address = '0xCB3f3e0E992435390e686D7b638FCb8baBa6c5c7';
 
 // Test constants
-export const FORK_BLOCK = 28_000_000n; // pinned block for deterministic tests
+export const FORK_BLOCK = 48_705_797n;
 
 // Spot price aggregator ABI
 export const SPOT_ABI = [{
