@@ -17,6 +17,7 @@ import type {
 
 const ZERO = '0x0000000000000000000000000000000000000000' as Address;
 const ZAP = '0x1111111111111111111111111111111111111111' as Address;
+const ACCOUNT = '0x2222222222222222222222222222222222222222' as Address;
 const WETH = '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73' as Address;
 const USDG = '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168' as Address;
 
@@ -57,6 +58,13 @@ const options = {
   deadline: 2_000_000_000n,
 };
 
+function routedOptions(inputToken: Address = WETH) {
+  return {
+    ...options,
+    inputRefund: { token: inputToken, recipient: ACCOUNT },
+  };
+}
+
 function commandBytes(commands: `0x${string}`): number[] {
   return commands
     .slice(2)
@@ -82,10 +90,10 @@ describe('Universal Router SDK encoding for ZapV2', () => {
         usdg,
         996_006n,
       ),
-      options,
+      routedOptions(),
     );
 
-    expect(commandBytes(plan.commands)).toEqual([0x08]);
+    expect(commandBytes(plan.commands)).toEqual([0x08, 0x04]);
     const [recipient, amountIn, amountOutMin, path, payerIsUser] =
       decodeAbiParameters(
         parseAbiParameters('address,uint256,uint256,address[],bool'),
@@ -112,10 +120,10 @@ describe('Universal Router SDK encoding for ZapV2', () => {
           tickCurrent: '0',
         },
       ]),
-      options,
+      routedOptions(),
     );
 
-    expect(commandBytes(plan.commands)).toEqual([0x00]);
+    expect(commandBytes(plan.commands)).toEqual([0x00, 0x04]);
     const [recipient, amountIn, amountOutMin, , payerIsUser] =
       decodeAbiParameters(
         parseAbiParameters('address,uint256,uint256,bytes,bool'),
@@ -125,6 +133,35 @@ describe('Universal Router SDK encoding for ZapV2', () => {
     expect(amountIn).toBe(1_000_000_000_000_000_000n);
     expect(amountOutMin).toBe(990n);
     expect(payerIsUser).toBe(false);
+  });
+
+  it('sweeps unused routed input to the specified account', () => {
+    const plan = encodeUniversalRouterPlan(
+      route('v3', [
+        {
+          type: 'v3-pool',
+          tokenIn: weth,
+          tokenOut: usdg,
+          fee: '3000',
+          sqrtRatioX96: '79228162514264337593543950336',
+          liquidity: '1',
+          tickCurrent: '0',
+        },
+      ]),
+      {
+        ...options,
+        inputRefund: { token: WETH, recipient: ACCOUNT },
+      },
+    );
+
+    expect(commandBytes(plan.commands)).toEqual([0x00, 0x04]);
+    const [token, recipient, amountMinimum] = decodeAbiParameters(
+      parseAbiParameters('address,address,uint256'),
+      plan.inputs[1],
+    );
+    expect(token.toLowerCase()).toBe(WETH.toLowerCase());
+    expect(recipient.toLowerCase()).toBe(ACCOUNT.toLowerCase());
+    expect(amountMinimum).toBe(0n);
   });
 
   it('unwraps a V3 native output from router custody into ZapV2', () => {
@@ -147,10 +184,10 @@ describe('Universal Router SDK encoding for ZapV2', () => {
           },
         ],
       },
-      options,
+      routedOptions(USDG),
     );
 
-    expect(commandBytes(plan.commands)).toEqual([0x00, 0x0c]);
+    expect(commandBytes(plan.commands)).toEqual([0x00, 0x0c, 0x04]);
     const [swapRecipient, , , , payerIsUser] = decodeAbiParameters(
       parseAbiParameters('address,uint256,uint256,bytes,bool'),
       plan.inputs[0],
@@ -165,6 +202,52 @@ describe('Universal Router SDK encoding for ZapV2', () => {
     );
     expect(unwrapRecipient).toBe(ZAP.toLowerCase());
     expect(plan.value).toBe(0n);
+  });
+
+  it('wraps native V3 input from forwarded value without Permit2', () => {
+    const plan = encodeUniversalRouterPlan(
+      {
+        protocol: 'v3',
+        inputToken: eth,
+        outputToken: usdg,
+        amountIn: 1_000_000_000_000_000_000n,
+        amountOut: 1_000n,
+        pools: [
+          {
+            type: 'v3-pool',
+            tokenIn: weth,
+            tokenOut: usdg,
+            fee: '3000',
+            sqrtRatioX96: '79228162514264337593543950336',
+            liquidity: '1',
+            tickCurrent: '0',
+          },
+        ],
+      },
+      routedOptions(ZERO),
+    );
+
+    expect(commandBytes(plan.commands)).toEqual([0x0b, 0x00, 0x0c]);
+    const [wrapRecipient] = decodeAbiParameters(
+      parseAbiParameters('address,uint256'),
+      plan.inputs[0],
+    );
+    expect(wrapRecipient).toBe(
+      '0x0000000000000000000000000000000000000002',
+    );
+    const [swapRecipient, , , , payerIsUser] = decodeAbiParameters(
+      parseAbiParameters('address,uint256,uint256,bytes,bool'),
+      plan.inputs[1],
+    );
+    expect(swapRecipient).toBe(ZAP.toLowerCase());
+    expect(payerIsUser).toBe(false);
+    const [refundRecipient, refundMinimum] = decodeAbiParameters(
+      parseAbiParameters('address,uint256'),
+      plan.inputs[2],
+    );
+    expect(refundRecipient).toBe(ACCOUNT.toLowerCase());
+    expect(refundMinimum).toBe(0n);
+    expect(plan.value).toBe(1_000_000_000_000_000_000n);
   });
 
   it('encodes native V4 input with a nested minimum and no Permit2 ingress', () => {
@@ -186,7 +269,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
         ],
         eth,
       ),
-      options,
+      routedOptions(ZERO),
     );
 
     const commands = commandBytes(plan.commands);
@@ -214,7 +297,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       plan.inputs[1],
     );
     expect(refundCurrency).toBe(ZERO);
-    expect(recipient).toBe(ZAP.toLowerCase());
+    expect(recipient).toBe(ACCOUNT.toLowerCase());
     expect(amountMinimum).toBe(0n);
     expect(plan.value).toBe(1_000_000_000_000_000_000n);
   });
@@ -238,6 +321,27 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       deadline: 2_000_000_000n,
       minimumAmountOut: 990n,
       value: 0n,
+    });
+  });
+
+  it('forwards native value for a direct native-to-wrapped path', () => {
+    const amount = 1_000_000_000_000_000_000n;
+    const plan = encodeUniversalRouterPlan(
+      {
+        protocol: 'none',
+        inputToken: eth,
+        outputToken: weth,
+        amountIn: amount,
+        amountOut: amount,
+        pools: [],
+      },
+      options,
+    );
+
+    expect(plan).toMatchObject({
+      commands: '0x',
+      inputs: [],
+      value: amount,
     });
   });
 
@@ -268,6 +372,18 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       assertZapCompatiblePlan('0x08', [wrongRecipient], ZAP),
     ).toThrow('does not target ZapV2');
 
+    expect(() => assertZapCompatiblePlan('0x05', ['0x'], ZAP)).toThrow(
+      'unsupported command 0x05',
+    );
+
+    const wrongWrapRecipient = encodeAbiParameters(
+      parseAbiParameters('address,uint256'),
+      [ACCOUNT, 1n],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x0b', [wrongWrapRecipient], ZAP),
+    ).toThrow('WRAP_ETH does not target router custody');
+
     const maliciousSettle = encodeAbiParameters(
       parseAbiParameters('address,uint256,bool'),
       [WETH, 1n, true],
@@ -279,6 +395,75 @@ describe('Universal Router SDK encoding for ZapV2', () => {
     expect(() => assertZapCompatiblePlan('0x10', [v4Input], ZAP)).toThrow(
       'V4 SETTLE payerIsUser=true',
     );
+
+    const validSettle = encodeAbiParameters(
+      parseAbiParameters('address,uint256,bool'),
+      [WETH, 1n, false],
+    );
+    const validTake = encodeAbiParameters(
+      parseAbiParameters('address,address,uint256'),
+      [USDG, ZAP, 1n],
+    );
+    const missingV4Swap = encodeAbiParameters(
+      parseAbiParameters('bytes,bytes[]'),
+      ['0x0b0e', [validSettle, validTake]],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x10', [missingV4Swap], ZAP),
+    ).toThrow('exactly one exact-input swap');
+
+    const unknownV4Action = encodeAbiParameters(
+      parseAbiParameters('bytes,bytes[]'),
+      ['0x06', ['0x']],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x10', [unknownV4Action], ZAP),
+    ).toThrow('unsupported action 0x06');
+
+    const externalSweep = encodeAbiParameters(
+      parseAbiParameters('address,address,uint256'),
+      [WETH, ACCOUNT, 0n],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP),
+    ).toThrow('does not target the input refund recipient');
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, {
+        token: USDG,
+        recipient: ACCOUNT,
+      }),
+    ).toThrow('does not target the input refund recipient');
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, {
+        token: WETH,
+        recipient: ACCOUNT,
+      }),
+    ).not.toThrow();
+
+    const zapSweep = encodeAbiParameters(
+      parseAbiParameters('address,address,uint256'),
+      [WETH, ZAP, 0n],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [zapSweep], ZAP),
+    ).toThrow('does not target the input refund recipient');
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [zapSweep], ZAP, {
+        token: WETH,
+        recipient: ACCOUNT,
+      }),
+    ).toThrow('does not target the input refund recipient');
+
+    const nonzeroZapSweep = encodeAbiParameters(
+      parseAbiParameters('address,address,uint256'),
+      [WETH, ZAP, 1n],
+    );
+    expect(() =>
+      assertZapCompatiblePlan('0x04', [nonzeroZapSweep], ZAP, {
+        token: WETH,
+        recipient: ZAP,
+      }),
+    ).toThrow('Input refund recipient must be the user account');
   });
 
   it('validates slippage and deadline and floors integer output', () => {

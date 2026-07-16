@@ -24,6 +24,7 @@ export async function info(
     reserveSymbol: details.bondInfo.reserveSymbol,
     reserveDecimals: details.bondInfo.reserveDecimals,
     reserveBalance: details.bondInfo.reserveBalance,
+    tokenDecimals: details.decimals,
     currentSupply: details.totalSupply,
     maxSupply: details.maxSupply,
     mintRoyalty: details.bondInfo.mintRoyalty,
@@ -39,6 +40,7 @@ export async function info(
         token,
         details.totalSupply,
         chain,
+        details.decimals,
       );
 
       let priceText =

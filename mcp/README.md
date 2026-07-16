@@ -1,6 +1,6 @@
 # Mint Club V2 MCP Server
 
-An MCP server exposing Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across 11 mainnets plus Sepolia.
+An MCP server exposing Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across ten mainnets and two testnets.
 
 The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, route discovery, pricing, and transactions. Chain keys are loaded from the CLI's published `chain-registry.json` rather than duplicated in the MCP package.
 
@@ -10,7 +10,7 @@ The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single
 npm install -g mintclub-mcp
 ```
 
-`mintclub-mcp` installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key`.
+`mintclub-mcp` installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` in the MCP client as shown below. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an MCP conversation.
 
 ## Configure
 
@@ -47,7 +47,9 @@ Write tools and `wallet_balance` require a configured key. Pass `PRIVATE_KEY`, o
 
 Every tool accepts an optional canonical `chain` property. Base is the default. Supported values are:
 
-`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `blast` · `zora` · `unichain` · `robinhood` · `sepolia`
+`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `zora` · `unichain` · `robinhood` · `sepolia` · `base-sepolia`
+
+Blast is unsupported by this integration.
 
 ## ZapV2 inputs
 
@@ -59,7 +61,7 @@ Every tool accepts an optional canonical `chain` property. Base is the default. 
   "token": "0xMINT_CLUB_TOKEN",
   "inputToken": "USDT",
   "inputAmount": "10",
-  "slippage": 1
+  "slippage": "1"
 }
 ```
 
@@ -73,7 +75,7 @@ Optional `minTokens` is denominated in the Mint Club token. `inputAmount` is exa
   "token": "0xMINT_CLUB_TOKEN",
   "amount": "100",
   "outputToken": "USDC",
-  "slippage": 1
+  "slippage": "1"
 }
 ```
 
@@ -81,7 +83,7 @@ Optional `minOutput` is denominated in the output asset. `amount` is the exact M
 
 The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates by RPC, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
 
-**ZapV2 addresses are intentionally unconfigured in this revision.** Zap tools fail before approvals or transaction construction until an official address is added to the CLI registry. Other tools remain available.
+ZapV2 is deployed on every supported chain listed above. Deployment addresses are maintained by `mint.club-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
 
 ## Example requests
 
@@ -103,9 +105,9 @@ From the repository root:
 
 ```bash
 npm ci
-npm run check --workspace mintclub-mcp
-npm test --workspace mintclub-mcp
-npm run build --workspace mintclub-mcp
+npm --prefix mcp run check
+npm --prefix mcp test
+npm --prefix mcp run build
 ```
 
 ## License

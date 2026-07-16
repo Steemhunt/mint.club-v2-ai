@@ -14,6 +14,7 @@ export type MintClubActionName =
 interface ChainRegistryData {
   chains: readonly {
     key: string;
+    nativeSymbol: string;
     aliases: readonly string[];
   }[];
 }
@@ -29,43 +30,84 @@ export const SUPPORTED_CHAINS = Object.freeze(
 
 type SupportedChain = string;
 
-const CHAIN_ALIASES = Object.fromEntries(
-  chainRegistry.chains.map(({ key, aliases }) => [key, aliases]),
-) as Record<SupportedChain, readonly string[]>;
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function aliasPattern(aliases: readonly string[]): string {
-  return [...aliases]
-    .sort((left, right) => right.length - left.length)
-    .map((alias) => escapeRegExp(alias).replace(/\s+/g, '\\s+'))
-    .join('|');
+function normalizeChainAlias(value: string): string {
+  return value.toLowerCase().replace(/[\s_-]+/g, '');
 }
 
-function chainArgs(text: string): string[] {
-  const negated = new Set<SupportedChain>();
-  let positiveText = text;
+function aliasPattern(alias: string): string {
+  return alias
+    .split(/[\s_-]+/)
+    .map(escapeRegExp)
+    .join('[\\s_-]*');
+}
 
-  for (const chain of SUPPORTED_CHAINS) {
-    const aliases = aliasPattern(CHAIN_ALIASES[chain]);
-    const negation = new RegExp(
-      `\\b(?:not|without|except)\\s+(?:on\\s+)?(?:the\\s+)?(?:${aliases})(?:\\s+chain)?\\b`,
-      'gi',
-    );
-    if (negation.test(text)) negated.add(chain);
-    positiveText = positiveText.replace(negation, ' ');
+const chainByAlias = new Map<string, SupportedChain>();
+const nativeSymbolByChain = new Map<SupportedChain, string>();
+const nativeSymbols = new Set<string>();
+const legacyNativeChainBySymbol = new Map<string, SupportedChain>([
+  ['MATIC', 'polygon'],
+]);
+const aliases: string[] = [];
+
+for (const {
+  key,
+  nativeSymbol,
+  aliases: configuredAliases,
+} of chainRegistry.chains) {
+  const normalizedNativeSymbol = nativeSymbol.toUpperCase();
+  nativeSymbolByChain.set(key, normalizedNativeSymbol);
+  nativeSymbols.add(normalizedNativeSymbol);
+
+  for (const alias of new Set([key, ...configuredAliases])) {
+    const normalized = normalizeChainAlias(alias);
+    const existing = chainByAlias.get(normalized);
+    if (existing && existing !== key) {
+      throw new Error(
+        `Duplicate chain alias "${alias}" for ${existing} and ${key}`,
+      );
+    }
+    chainByAlias.set(normalized, key);
+    aliases.push(alias);
   }
+}
+
+for (const symbol of legacyNativeChainBySymbol.keys()) {
+  nativeSymbols.add(symbol);
+}
+
+const CHAIN_ALIAS_PATTERN = [...new Set(aliases)]
+  .sort((left, right) => right.length - left.length)
+  .map(aliasPattern)
+  .join('|');
+
+function resolveChainAlias(alias: string): SupportedChain {
+  const chain = chainByAlias.get(normalizeChainAlias(alias));
+  if (!chain) throw new Error(`Unknown chain alias: ${alias}`);
+  return chain;
+}
+
+function chainArgs(text: string): ['--chain', SupportedChain] {
+  const negated = new Set<SupportedChain>();
+  const negation = new RegExp(
+    `\\b(?:not|without|except)\\s+(?:on\\s+)?(?:the\\s+)?(${CHAIN_ALIAS_PATTERN})(?:\\s+chain)?\\b`,
+    'gi',
+  );
+  const positiveText = text.replace(negation, (_match, alias: string) => {
+    negated.add(resolveChainAlias(alias));
+    return ' ';
+  });
 
   const mentioned = new Set<SupportedChain>();
-  for (const chain of SUPPORTED_CHAINS) {
-    const aliases = aliasPattern(CHAIN_ALIASES[chain]);
-    const positive = new RegExp(
-      `(?:\\bon\\s+(?:the\\s+)?(?:${aliases})(?:\\s+chain)?\\b|\\b(?:${aliases})\\s+(?:chain|mainnet|wallet|balance|holdings)\\b)`,
-      'i',
-    );
-    if (positive.test(positiveText)) mentioned.add(chain);
+  const positive = new RegExp(
+    `(?:\\bon\\s+(?:the\\s+)?(${CHAIN_ALIAS_PATTERN})(?:\\s+chain)?\\b|\\b(${CHAIN_ALIAS_PATTERN})\\s+(?:chain|mainnet|wallet|balance|holdings)\\b)`,
+    'gi',
+  );
+  for (const match of positiveText.matchAll(positive)) {
+    mentioned.add(resolveChainAlias(match[1] ?? match[2]));
   }
 
   const hasConflict = [...mentioned].some((chain) => negated.has(chain));
@@ -93,15 +135,48 @@ function normalizeAsset(value: string): string {
   return /^native(?:\s+currency)?$/i.test(value) ? 'NATIVE' : value;
 }
 
-function tradeParts(text: string): { amount: string; token: string } {
+function rejectUnsupportedIntent(
+  text: string,
+  pattern: RegExp,
+  description: string,
+): void {
+  if (pattern.test(text)) {
+    throw new Error(`${description} is not supported by this text parser`);
+  }
+}
+
+function tradeParts(
+  text: string,
+  action: 'buy' | 'sell',
+): { amount: string; token: string } {
+  rejectUnsupportedIntent(
+    text,
+    action === 'buy'
+      ? /\bmax(?:imum)?\s+cost\b/i
+      : /\bmin(?:imum)?\s+refund\b/i,
+    action === 'buy' ? 'Maximum cost' : 'Minimum refund',
+  );
+  const verbs = action === 'buy' ? '(?:buy|mint)' : '(?:sell|burn)';
   const match = text.match(
     new RegExp(
-      `\\b(?:buy|mint|sell|burn)\\s+${AMOUNT_PATTERN}\\s+(?:of\\s+)?${TOKEN_PATTERN}\\b`,
+      `\\b${verbs}\\s+${AMOUNT_PATTERN}\\s+(?:of\\s+)?${TOKEN_PATTERN}\\b`,
       'i',
     ),
   );
   if (!match) {
     throw new Error('Specify an amount and token, for example: "buy 10 SIGNET"');
+  }
+  const trailingText = text.slice((match.index ?? 0) + match[0].length);
+  const routedIntent =
+    action === 'buy'
+      ? /\b(?:with|using|from)\b/i
+      : /\b(?:for|to|into)\b/i;
+  if (routedIntent.test(trailingText)) {
+    throw new Error(
+      action === 'buy'
+        ? 'Use the exact-input form: Buy TOKEN with AMOUNT INPUT_TOKEN'
+        : 'Use the routed-output form: Sell AMOUNT TOKEN for OUTPUT_TOKEN',
+    );
   }
   return { amount: match[1], token: match[2] };
 }
@@ -111,6 +186,11 @@ function zapBuyParts(text: string): {
   inputAmount: string;
   inputToken: string;
 } {
+  rejectUnsupportedIntent(
+    text,
+    /\bmin(?:imum)?\s+tokens?\b/i,
+    'Minimum token output',
+  );
   const match = text.match(
     new RegExp(
       `\\b(?:zap\\s+)?(?:buy|mint)\\s+(?:token\\s+)?${TOKEN_PATTERN}\\s+(?:with|using|from)\\s+${AMOUNT_PATTERN}\\s+(?:of\\s+)?${ASSET_PATTERN}\\b`,
@@ -134,6 +214,11 @@ function zapSellParts(text: string): {
   amount: string;
   outputToken: string;
 } {
+  rejectUnsupportedIntent(
+    text,
+    /\bmin(?:imum)?\s+output\b/i,
+    'Minimum routed output',
+  );
   const match = text.match(
     new RegExp(
       `\\b(?:zap\\s+)?(?:sell|burn)\\s+${AMOUNT_PATTERN}\\s+(?:of\\s+)?${TOKEN_PATTERN}\\s+(?:for|to|into)\\s+${ASSET_PATTERN}\\b`,
@@ -180,17 +265,7 @@ function tokenFromText(text: string, action: 'info' | 'price'): string {
   throw new Error(`Specify a token for ${action}`);
 }
 
-const NATIVE_SYMBOLS = new Set([
-  'eth',
-  'native',
-  'native currency',
-  'avax',
-  'bnb',
-  'pol',
-  'matic',
-]);
-
-function sendParts(text: string): {
+function sendParts(text: string, chain: SupportedChain): {
   amount: string;
   token?: string;
   recipient: string;
@@ -207,12 +282,34 @@ function sendParts(text: string): {
     );
   }
   const token = match[2];
+  const normalizedToken = token
+    ? normalizeAsset(token).toUpperCase()
+    : undefined;
+  const nativeSymbol = nativeSymbolByChain.get(chain);
+  if (!nativeSymbol) throw new Error(`Missing native symbol for ${chain}`);
+  const isSelectedNativeSymbol =
+    normalizedToken === nativeSymbol ||
+    legacyNativeChainBySymbol.get(normalizedToken ?? '') === chain;
+
+  if (
+    normalizedToken &&
+    normalizedToken !== 'NATIVE' &&
+    nativeSymbols.has(normalizedToken) &&
+    !isSelectedNativeSymbol
+  ) {
+    throw new Error(
+      `${normalizedToken} is not the native currency on ${chain}; use ${nativeSymbol} or NATIVE`,
+    );
+  }
+
   return {
     amount: match[1],
     token:
-      token && !NATIVE_SYMBOLS.has(token.toLowerCase())
-        ? normalizeAsset(token)
-        : undefined,
+      normalizedToken === undefined ||
+      normalizedToken === 'NATIVE' ||
+      isSelectedNativeSymbol
+        ? undefined
+        : token,
     recipient: match[3],
   };
 }
@@ -226,6 +323,11 @@ function createParts(text: string): {
   initialPrice: string;
   finalPrice: string;
 } {
+  rejectUnsupportedIntent(
+    text,
+    /\b(?:(?:mint|burn)\s+)?royalt(?:y|ies)\b/i,
+    'Explicit royalty configuration',
+  );
   const match = text.match(
     /\b(?:create|launch)\s+(?:a\s+)?token\s+"([^"]{1,64})"\s+\(([a-zA-Z][a-zA-Z0-9_-]*)\)\s+backed\s+by\s+(0x[a-fA-F0-9]{40}|[a-zA-Z][a-zA-Z0-9_-]*)\s+with\s+max(?:imum)?\s+supply\s+([0-9]+(?:\.[0-9]+)?)\s+using\s+(?:a\s+)?(linear|exponential|logarithmic|flat)\s+curve\s+from\s+([0-9]+(?:\.[0-9]+)?)\s+to\s+([0-9]+(?:\.[0-9]+)?)\b/i,
   );
@@ -259,11 +361,11 @@ export function buildActionArgs(
     case 'WALLET_BALANCE':
       return [...prefix, 'wallet'];
     case 'BUY_TOKEN': {
-      const { token, amount } = tradeParts(text);
+      const { token, amount } = tradeParts(text, 'buy');
       return [...prefix, 'buy', token, '--amount', amount];
     }
     case 'SELL_TOKEN': {
-      const { token, amount } = tradeParts(text);
+      const { token, amount } = tradeParts(text, 'sell');
       return [...prefix, 'sell', token, '--amount', amount];
     }
     case 'ZAP_BUY': {
@@ -293,7 +395,7 @@ export function buildActionArgs(
       ];
     }
     case 'SEND_TOKEN': {
-      const { amount, token, recipient } = sendParts(text);
+      const { amount, token, recipient } = sendParts(text, prefix[1]);
       return [
         ...prefix,
         'send',

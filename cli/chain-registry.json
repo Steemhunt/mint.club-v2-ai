@@ -9,7 +9,7 @@
       "aliases": ["ethereum mainnet", "ethereum", "mainnet", "eth"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -24,7 +24,7 @@
       "aliases": ["optimism mainnet", "optimism", "op mainnet", "op"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -39,7 +39,7 @@
       "aliases": ["arbitrum one", "arbitrum", "arb"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -54,7 +54,7 @@
       "aliases": ["avalanche c-chain", "avalanche", "avax c-chain", "avax"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -69,7 +69,7 @@
       "aliases": ["base mainnet", "base"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -84,7 +84,7 @@
       "aliases": ["polygon pos", "polygon", "matic"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -99,22 +99,7 @@
       "aliases": ["binance smart chain", "bnb chain", "bsc", "bnb", "binance"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
-        "uniswapV2": true,
-        "uniswapV3": true,
-        "uniswapV4": true,
-        "stableIntermediary": true
-      }
-    },
-    {
-      "key": "blast",
-      "name": "Blast",
-      "chainId": 81457,
-      "nativeSymbol": "ETH",
-      "aliases": ["blast"],
-      "capabilities": {
-        "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -129,8 +114,8 @@
       "aliases": ["zora"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
-        "uniswapV2": false,
+        "zapV2Configured": true,
+        "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
         "stableIntermediary": false
@@ -144,8 +129,8 @@
       "aliases": ["unichain"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
-        "uniswapV2": false,
+        "zapV2Configured": true,
+        "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
         "stableIntermediary": true
@@ -159,7 +144,7 @@
       "aliases": ["robinhood chain", "robinhood", "rh"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
         "uniswapV3": true,
         "uniswapV4": true,
@@ -174,8 +159,28 @@
       "aliases": ["ethereum sepolia", "sepolia"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
+        "zapV2Configured": true,
         "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": false
+      }
+    },
+    {
+      "key": "base-sepolia",
+      "name": "Base Sepolia",
+      "chainId": 84532,
+      "nativeSymbol": "ETH",
+      "aliases": [
+        "base sepolia",
+        "basesepolia",
+        "base testnet",
+        "base sepolia testnet"
+      ],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": true,
+        "uniswapV2": false,
         "uniswapV3": true,
         "uniswapV4": true,
         "stableIntermediary": false

@@ -1,14 +1,20 @@
-# Mint Club V2 — Agent Skill
+---
+name: mintclub
+description: Use the Mint Club V2 CLI for bonding-curve operations and bounded local Uniswap ZapV2 routing across supported chains.
+---
 
-Use the `mc` CLI for protocol-native Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing.
+# Mint Club V2
+
+Use the `mc` CLI for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing.
 
 ## Setup
 
 ```bash
 npm install -g mint.club-cli
-mc wallet --set-private-key 0x...
-# or export PRIVATE_KEY=0x...
+mc --help
 ```
+
+Ask the user to configure `PRIVATE_KEY` themselves outside the agent, following the CLI wallet setup. Do not run or construct the wallet import command. Never request, print, log, or pass a private key through agent/tool arguments. Recommend a dedicated wallet with limited funds.
 
 ## Chain selection
 
@@ -17,14 +23,14 @@ Base is the default. Put the global chain option before the command:
 ```bash
 mc --chain base info SIGNET
 mc --chain arbitrum info 0xTOKEN
-mc --chain robinhood wallet
+mc --chain base-sepolia wallet
 ```
 
 Canonical chain values:
 
-`ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `blast`, `zora`, `unichain`, `robinhood`, `sepolia`.
+`ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `zora`, `unichain`, `robinhood`, `sepolia`, `base-sepolia`.
 
-Aliases and capabilities come from `mint.club-cli/chain-registry.json`.
+Aliases and capabilities come from `mint.club-cli/chain-registry.json`. Blast is unsupported by this integration.
 
 ## Read operations
 
@@ -85,16 +91,12 @@ mc --chain robinhood zap-sell <mint-club-token> \
 The CLI uses RPC-only quotes and selects the highest output among enumerated candidates:
 
 - direct path or one wrapped-native/stablecoin intermediary;
-- homogeneous Uniswap V2, V3, or V4 path;
+- homogeneous Uniswap V2, V3, or V4 path where configured;
 - hookless canonical V4 fee/tick-spacing pairs only.
 
-It does not use an external route API and does not support split, mixed-protocol, arbitrary-length, dynamic-fee, or hooked V4 paths. Do not describe the result as globally optimal; say “best among enumerated candidates.”
+It does not use an external routing API and does not support split, mixed-protocol, arbitrary-length, dynamic-fee, or hooked V4 paths. Describe the result as “best among enumerated candidates,” not globally optimal.
 
 Universal Router encoding uses router-held input (`payerIsUser = false`) and ZapV2 as the output recipient.
-
-## Current Zap deployment status
-
-Every ZapV2 address is currently unconfigured. Zap commands intentionally fail before wallet setup, approvals, or transaction construction. Do not guess or substitute an address. Direct Bond/read/create/send operations remain available.
 
 ## Create a token
 
@@ -123,6 +125,6 @@ mc --chain robinhood send <address> --amount 100 --token USDG
 - Before a write, state the chain, token, exact amount, input/output asset, and max/min limit.
 - Use `info` or `price` first when the token or reserve is unclear.
 - Never print or expose `PRIVATE_KEY`.
-- Do not invent a route, ZapV2 address, or general-purpose `swap` command.
+- Do not invent a route or a general-purpose `swap` command.
 - Distinguish “best among bounded candidates” from global optimization.
 - Token addresses are tracked per chain in `~/.mintclub/tokens.json`.

@@ -2,7 +2,6 @@ import {
   type Address,
   type PublicClient,
   formatUnits,
-  parseUnits,
 } from 'viem';
 import { getBondAddress } from '../config/contracts';
 import {
@@ -11,6 +10,7 @@ import {
 } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
 import { getDecimals, getSymbol } from './symbol';
+import { parseTokenAmount } from './format';
 
 export interface BondInfo {
   creator: Address;
@@ -78,7 +78,7 @@ export function resolveMintLimit(
 ): bigint {
   if (maxCost === undefined) return quotedCost;
 
-  const limit = parseUnits(maxCost, reserveDecimals);
+  const limit = parseTokenAmount(maxCost, reserveDecimals);
   if (limit < quotedCost) {
     throw new Error(
       `Cost ${formatUnits(quotedCost, reserveDecimals)} exceeds max cost ${maxCost}`,
@@ -118,7 +118,7 @@ export function resolveBurnLimit(
 ): bigint {
   if (minRefund === undefined) return quotedRefund;
 
-  const limit = parseUnits(minRefund, reserveDecimals);
+  const limit = parseTokenAmount(minRefund, reserveDecimals);
   if (limit > quotedRefund) {
     throw new Error(
       `Refund ${formatUnits(quotedRefund, reserveDecimals)} is below minimum refund ${minRefund}`,
@@ -158,12 +158,15 @@ export async function getTokenPrice(
   client: PublicClient,
   token: Address,
   chain: SupportedChain = 'base',
+  tokenDecimals?: number,
 ): Promise<bigint> {
+  const decimals =
+    tokenDecimals ?? (await getDecimals(client, token, chain));
   const [price] = await client.readContract({
     address: getBondAddress(chain),
     abi: BOND_ABI,
     functionName: 'getReserveForToken',
-    args: [token, 10n ** 18n], // 1 token (18 decimals)
+    args: [token, 10n ** BigInt(decimals)],
   });
   return price;
 }

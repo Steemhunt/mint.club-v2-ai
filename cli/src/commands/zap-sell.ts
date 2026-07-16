@@ -1,10 +1,10 @@
 import {
   formatUnits,
-  parseUnits,
   type Address,
 } from 'viem';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import type { SupportedChain } from '../config/chains';
+import { parseTokenAmount } from '../utils/format';
 import {
   DEFAULT_ZAP_DEPENDENCIES,
   createZapDeadline,
@@ -28,7 +28,7 @@ export async function zapSell(
   const chain = params.chain ?? 'base';
   // Resolve deployment before creating clients or allowing any approval side effect.
   const zapV2 = dependencies.getZapV2Address(chain);
-  const { publicClient, walletClient } = dependencies.setupClients(
+  const { publicClient, walletClient, account } = dependencies.setupClients(
     params.privateKey,
     chain,
   );
@@ -41,8 +41,15 @@ export async function zapSell(
       dependencies.getSymbol(publicClient, params.token, chain),
       dependencies.getSymbol(publicClient, params.outputToken, chain),
     ]);
-  const amount = parseUnits(params.amount, tokenDecimals);
+  const amount = parseTokenAmount(params.amount, tokenDecimals);
   if (amount <= 0n) throw new Error('Sell amount must be greater than zero');
+  const explicitMinOutput =
+    params.minOutput === undefined
+      ? undefined
+      : parseTokenAmount(params.minOutput, outputDecimals);
+  if (explicitMinOutput !== undefined && explicitMinOutput < 0n) {
+    throw new Error('Minimum output cannot be negative');
+  }
 
   console.log(
     `⚡ Zapping ${params.amount} ${tokenSymbol} into ${outputSymbol}...`,
@@ -65,6 +72,14 @@ export async function zapSell(
     recipient: zapV2,
     slippageBps: params.slippageBps,
     deadline,
+    ...(route.protocol === 'none'
+      ? {}
+      : {
+          inputRefund: {
+            token: bondInfo.reserveToken,
+            recipient: account,
+          },
+        }),
   });
   if (plan.value !== 0n) {
     throw new Error(
@@ -73,14 +88,11 @@ export async function zapSell(
   }
 
   const minOutputAmount =
-    params.minOutput !== undefined
-      ? parseUnits(params.minOutput, outputDecimals)
+    explicitMinOutput !== undefined
+      ? explicitMinOutput
       : route.protocol === 'none'
         ? route.amountOut
         : plan.minimumAmountOut;
-  if (minOutputAmount < 0n) {
-    throw new Error('Minimum output cannot be negative');
-  }
   if (minOutputAmount > route.amountOut) {
     throw new Error(
       `Minimum output ${formatUnits(minOutputAmount, outputDecimals)} exceeds quoted output ${formatUnits(route.amountOut, outputDecimals)} ${outputSymbol}`,
@@ -97,13 +109,22 @@ export async function zapSell(
     `   Minimum: ${formatUnits(minOutputAmount, outputDecimals)} ${outputSymbol}`,
   );
 
-  await dependencies.ensureApproval(
-    publicClient,
-    walletClient,
-    params.token,
-    zapV2,
-    amount,
-  );
+  if (tokenDecimals === 0) {
+    await dependencies.ensureERC1155Approval(
+      publicClient,
+      walletClient,
+      params.token,
+      zapV2,
+    );
+  } else {
+    await dependencies.ensureApproval(
+      publicClient,
+      walletClient,
+      params.token,
+      zapV2,
+      amount,
+    );
+  }
 
   await dependencies.executeTransaction(
     publicClient,
@@ -121,6 +142,7 @@ export async function zapSell(
         plan.commands,
         plan.inputs,
         plan.deadline,
+        account,
       ],
     },
     `Zapped ${params.amount} ${tokenSymbol} into ${outputSymbol}`,

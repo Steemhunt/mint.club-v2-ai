@@ -5,7 +5,10 @@
   "description": "MCP server for all-chain Mint Club V2 Bond and local Uniswap ZapV2 operations",
   "type": "module",
   "main": "dist/index.js",
-  "module": "./src/index.ts",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "bin": {
     "mintclub-mcp": "dist/index.js"
   },

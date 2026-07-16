@@ -84,6 +84,34 @@ describe('local Uniswap route quoting', () => {
     expect(quoteV3).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['native to wrapped native', ZERO, WETH],
+    ['wrapped native to native', WETH, ZERO],
+  ] as const)('returns a direct route for %s', async (_name, input, output) => {
+    const getV2Pool = vi.fn();
+    const quoteV3 = vi.fn();
+    const quoteV4 = vi.fn();
+    const backend = mockBackend({ getV2Pool, quoteV3, quoteV4 });
+
+    const route = await findBestRoute({
+      chain: 'base',
+      input,
+      output,
+      amountIn: 77n,
+      backend,
+    });
+
+    expect(route).toMatchObject({
+      protocol: 'none',
+      amountIn: 77n,
+      amountOut: 77n,
+      pools: [],
+    });
+    expect(getV2Pool).not.toHaveBeenCalled();
+    expect(quoteV3).not.toHaveBeenCalled();
+    expect(quoteV4).not.toHaveBeenCalled();
+  });
+
   it('quotes and builds a two-pool V2 route from cached reserves', async () => {
     const backend = mockBackend({
       getV2Pool: async (left, right) => {
@@ -182,8 +210,10 @@ describe('viem on-chain quote backend', () => {
     });
   });
 
-  it('supports the legacy V3 quoter used on Zora', async () => {
-    const simulateContract = vi.fn(async () => ({ result: 321n }));
+  it('uses the configured V3 QuoterV2 on Zora', async () => {
+    const simulateContract = vi.fn(async () => ({
+      result: [321n, [], [], 45_000n] as const,
+    }));
     const backend = createOnchainQuoteBackend(
       { readContract: vi.fn(), simulateContract } as never,
       'zora',
@@ -196,6 +226,10 @@ describe('viem on-chain quote backend', () => {
     };
 
     await expect(backend.quoteV3(candidate, 100n)).resolves.toBe(321n);
+    expect(simulateContract.mock.calls[0][0]).toMatchObject({
+      address: '0x11867e1b3348F3ce4FcC170BC5af3d23E07E64Df',
+      functionName: 'quoteExactInput',
+    });
   });
 
   it('builds the current V4 exact-input path tuple', async () => {

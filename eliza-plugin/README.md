@@ -1,6 +1,6 @@
 # Mint Club V2 — ElizaOS Plugin
 
-ElizaOS actions for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap ZapV2 routing across 11 mainnets plus Sepolia.
+ElizaOS actions for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap ZapV2 routing across ten mainnets and two testnets.
 
 The plugin invokes [`mint.club-cli`](../cli) with argv arrays and does not interpolate user input into shell commands. Chain keys and aliases come from the CLI package's published `chain-registry.json`.
 
@@ -26,7 +26,7 @@ There is no general-purpose DEX swap action. Zap routing checks only direct and 
 npm install @elizaos/plugin-mintclub
 ```
 
-The plugin installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` through the ElizaOS secret/environment configuration. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key`.
+The plugin installs the compatible `mint.club-cli` 2.x runtime dependency automatically. Configure `PRIVATE_KEY` through the ElizaOS secret/environment configuration. To use the shared `~/.mintclub` wallet file instead, install `mint.club-cli` as a top-level CLI and run `mc wallet --set-private-key 0xYOUR_PRIVATE_KEY` in a trusted local terminal. Never paste a private key into an agent conversation.
 
 Add the plugin to an ElizaOS character configuration:
 
@@ -52,13 +52,15 @@ Read-only actions work without a private key. Write actions and wallet balances 
 
 The Zap parser deliberately rejects the old ambiguous target-amount form “Buy 10 TOKEN with ETH.” Use “Buy TOKEN with 0.1 ETH” so the exact routed input amount is explicit.
 
+The text parser also fails closed on explicit max/min or royalty constraints it cannot map without ambiguity. Use the CLI or MCP tools when those controls are required.
+
 Supported canonical chain keys:
 
-`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `blast` · `zora` · `unichain` · `robinhood` · `sepolia`
+`ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `zora` · `unichain` · `robinhood` · `sepolia` · `base-sepolia`
 
-Natural-language aliases such as “Ethereum mainnet,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default. Contradictory or multiple positive chain instructions are rejected rather than guessed.
+Natural-language aliases such as “Ethereum mainnet,” “Ethereum Sepolia,” “Base Sepolia,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default. Contradictory or multiple positive chain instructions are rejected rather than guessed.
 
-**ZapV2 addresses are intentionally unconfigured in this revision.** Zap actions fail before approvals or transaction construction until an official address is added to the CLI registry.
+ZapV2 is deployed on every supported chain listed above. Blast is unsupported by this integration.
 
 ## Development
 
@@ -66,9 +68,9 @@ From the repository root:
 
 ```bash
 npm ci
-npm run check --workspace @elizaos/plugin-mintclub
-npm test --workspace @elizaos/plugin-mintclub
-npm run build --workspace @elizaos/plugin-mintclub
+npm --prefix eliza-plugin run check
+npm --prefix eliza-plugin test
+npm --prefix eliza-plugin run build
 ```
 
 ## License

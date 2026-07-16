@@ -7,11 +7,18 @@
     "eliza-plugin"
   ],
   "scripts": {
-    "check": "npm run check --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "build": "npm run build --workspace mint.club-cli && npm run build --workspace mintclub-mcp && npm run build --workspace @elizaos/plugin-mintclub"
+    "check": "npm --prefix cli run check && npm --prefix mcp run check && npm --prefix eliza-plugin run check",
+    "test": "npm --prefix cli test && npm --prefix mcp test && npm --prefix eliza-plugin test",
+    "test:integration": "npm --prefix cli run test:integration",
+    "test:fork": "npm --prefix cli run test:fork",
+    "build": "npm --prefix cli run build && npm --prefix mcp run build && npm --prefix eliza-plugin run build"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "overrides": {
+    "@ethersproject/providers": {
+      "ws": "8.21.0"
+    }
   }
 }

@@ -83,6 +83,17 @@ describe('Eliza action execution', () => {
     await expect(sell.validate(runtime, sellMessage)).resolves.toBe(false);
     expect(zapBuy.description).toContain('MCV2_ZapV2');
     expect(zapSell.description).toContain('MCV2_ZapV2');
+
+    const ambiguousBuy = {
+      content: { text: 'Buy 10 TOKEN with ETH on Robinhood' },
+    } as never;
+    const ambiguousSell = {
+      content: { text: 'Sell 5 TOKEN for 10 USDC on Unichain' },
+    } as never;
+    await expect(zapBuy.validate(runtime, ambiguousBuy)).resolves.toBe(false);
+    await expect(buy.validate(runtime, ambiguousBuy)).resolves.toBe(false);
+    await expect(zapSell.validate(runtime, ambiguousSell)).resolves.toBe(false);
+    await expect(sell.validate(runtime, ambiguousSell)).resolves.toBe(false);
   });
 
   it('publishes the exact all-chain ZapV2 context', async () => {
@@ -93,9 +104,9 @@ describe('Eliza action execution', () => {
     expect(result.text).toContain('MCV2_ZapV2');
     expect(result.text).not.toContain('ZapV1');
     expect(result.text).toContain('ethereum, optimism, arbitrum');
-    expect(result.text).toContain('sepolia');
+    expect(result.text).toContain('base-sepolia');
     expect(result.values?.chains).toBe(
-      'ethereum,optimism,arbitrum,avalanche,base,polygon,bsc,blast,zora,unichain,robinhood,sepolia',
+      'ethereum,optimism,arbitrum,avalanche,base,polygon,bsc,zora,unichain,robinhood,sepolia,base-sepolia',
     );
     expect(mintclubPlugin.description).not.toContain('Base and Robinhood');
   });

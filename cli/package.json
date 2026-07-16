@@ -5,6 +5,7 @@
   "type": "module",
   "main": "dist/index.js",
   "exports": {
+    ".": "./dist/index.js",
     "./chain-registry.json": "./chain-registry.json"
   },
   "files": [
@@ -21,7 +22,9 @@
     "prepublishOnly": "bash build.sh",
     "start": "bun src/index.ts",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "RUN_INTEGRATION_TESTS=1 vitest run test/cli.test.ts",
+    "test:fork": "RUN_FORK_TESTS=1 vitest run test/write.test.ts"
   },
   "keywords": [
     "mint-club",

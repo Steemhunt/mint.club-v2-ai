@@ -235,7 +235,7 @@ const mintclubProvider: Provider = {
       '- CREATE_TOKEN: create an ERC-20 bonding curve token',
       '',
       `Supported chains: ${SUPPORTED_CHAINS.join(', ')}. Base is the default.`,
-      'Zap routing enumerates direct and one-intermediary V2/V3/V4 candidates; ZapV2 must be deployed for writes.',
+      'Zap routing enumerates direct and one-intermediary V2/V3/V4 candidates and uses the configured per-chain ZapV2 deployment.',
       'The compatible mc CLI is installed as a plugin dependency; write actions require CLI wallet configuration.',
     ].join('\n'),
     values: {

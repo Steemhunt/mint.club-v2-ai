@@ -1,10 +1,10 @@
 import {
   formatUnits,
-  parseUnits,
   type Address,
 } from 'viem';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
 import { ZERO_ADDRESS, type SupportedChain } from '../config/chains';
+import { parseTokenAmount } from '../utils/format';
 import { calculateMinimumAmountOut } from '../utils/uniswap/encode';
 import {
   DEFAULT_ZAP_DEPENDENCIES,
@@ -43,8 +43,15 @@ export async function zapBuy(
       dependencies.getSymbol(publicClient, params.token, chain),
       dependencies.getSymbol(publicClient, params.inputToken, chain),
     ]);
-  const inputAmount = parseUnits(params.inputAmount, inputDecimals);
+  const inputAmount = parseTokenAmount(params.inputAmount, inputDecimals);
   if (inputAmount <= 0n) throw new Error('Input amount must be greater than zero');
+  const explicitMinTokens =
+    params.minTokens === undefined
+      ? undefined
+      : parseTokenAmount(params.minTokens, tokenDecimals);
+  if (explicitMinTokens !== undefined && explicitMinTokens < 0n) {
+    throw new Error('Minimum token output cannot be negative');
+  }
 
   const deadline = createZapDeadline(dependencies.nowSeconds());
   console.log(
@@ -61,6 +68,14 @@ export async function zapBuy(
     recipient: zapV2,
     slippageBps: params.slippageBps,
     deadline,
+    ...(route.protocol === 'none'
+      ? {}
+      : {
+          inputRefund: {
+            token: params.inputToken,
+            recipient: account,
+          },
+        }),
   });
 
   const nativeInput =
@@ -98,11 +113,12 @@ export async function zapBuy(
       plan.commands,
       plan.inputs,
       plan.deadline,
+      account,
     ] as const;
 
   let minTokensOut: bigint;
-  if (params.minTokens !== undefined) {
-    minTokensOut = parseUnits(params.minTokens, tokenDecimals);
+  if (explicitMinTokens !== undefined) {
+    minTokensOut = explicitMinTokens;
   } else {
     const preview = await publicClient.simulateContract({
       account,
@@ -122,7 +138,6 @@ export async function zapBuy(
     );
   }
 
-  if (minTokensOut < 0n) throw new Error('Minimum token output cannot be negative');
   console.log(
     `   Minimum: ${formatUnits(minTokensOut, tokenDecimals)} ${tokenSymbol}`,
   );

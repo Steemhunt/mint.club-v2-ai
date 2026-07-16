@@ -2,7 +2,7 @@ import type { Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import { getZapV2Address } from '../config/contracts';
 import type { SupportedChain } from '../config/chains';
-import { ensureApproval } from './approve';
+import { ensureApproval, ensureERC1155Approval } from './approve';
 import { getBondInfo, getBurnRefund } from './bond';
 import { getDecimals, getSymbol } from './symbol';
 import {
@@ -28,6 +28,7 @@ export interface ZapCommandDependencies {
   findBestRoute: typeof findBestRoute;
   encodeUniversalRouterPlan: typeof encodeUniversalRouterPlan;
   ensureApproval: typeof ensureApproval;
+  ensureERC1155Approval: typeof ensureERC1155Approval;
   executeTransaction: typeof executeTransaction;
   nowSeconds(): bigint;
 }
@@ -48,6 +49,7 @@ export const DEFAULT_ZAP_DEPENDENCIES: ZapCommandDependencies = {
   findBestRoute,
   encodeUniversalRouterPlan,
   ensureApproval,
+  ensureERC1155Approval,
   executeTransaction,
   nowSeconds: () => BigInt(Math.floor(Date.now() / 1_000)),
 };

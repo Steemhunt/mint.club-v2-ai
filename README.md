@@ -9,7 +9,7 @@ AI-facing tools for protocol-native [Mint Club V2](https://mint.club) operations
 | [`mint.club-cli`](./cli) | Direct CLI for Bond, bounded local Uniswap routing, ZapV2, token creation, transfers, prices, and balances |
 | [`mintclub-mcp`](./mcp) | MCP tools backed by the CLI |
 | [`@elizaos/plugin-mintclub`](./eliza-plugin) | ElizaOS actions backed by the CLI |
-| [`agent-skills`](./agent-skills) | Agent instructions for using `mc` safely |
+| [`SKILL.md`](./SKILL.md) | Agent instructions for using `mc` safely |
 
 All three adapters consume the published [`chain-registry.json`](./cli/chain-registry.json) from `mint.club-cli`. The registry is the shared source for chain keys, aliases, IDs, and capability flags; the CLI validates it against its full contract/token/RPC configuration at startup.
 
@@ -34,7 +34,7 @@ mc --chain robinhood wallet
 | Sell into any routed asset | `MCV2_ZapV2.zapBurn` + local Uniswap quote |
 | Create token | `MCV2_Bond.createToken` |
 
-Example ZapV2 syntax after a deployment address is configured:
+Example ZapV2 syntax:
 
 ```bash
 mc --chain arbitrum zap-buy 0xMINT_CLUB_TOKEN \
@@ -48,7 +48,7 @@ mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --slippage 1
 ```
 
-**ZapV2 addresses are intentionally unset on every chain in this revision.** Zap writes fail before wallet setup, approvals, or transaction construction until an official deployment address is added to the CLI registry. Bond reads/writes and the read-only route engine remain available.
+ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
 ## Local routing model
 
@@ -60,7 +60,7 @@ Routing does not call the Uniswap Trading API, Smart Order Router, Mint Club rou
 4. Choose the highest exact-input output with deterministic tie-breaking.
 5. Encode only the selected path with `@uniswap/universal-router-sdk`.
 
-The encoder uses Universal Router V2.0 commands with router-balance payment (`payerIsUser = false`) and the ZapV2 contract as recipient. It rejects Permit2 ingress commands.
+The encoder uses Universal Router V2.0 commands with router-balance payment (`payerIsUser = false`) and the ZapV2 contract as recipient. It rejects Permit2 ingress commands and settles any unused routed input directly back to the caller.
 
 Deliberate limits: no split routes, mixed-protocol paths, arbitrary-length graph search, dynamic-fee V4 pools, or hooked V4 pools. V4 discovery checks only canonical hookless fee/tick-spacing pairs. This repository does not expose a general-purpose swap command.
 
@@ -109,11 +109,11 @@ MCP and Eliza invoke the CLI with argument arrays rather than shell-interpolated
 | Base | `base` | 8453 |
 | Polygon PoS | `polygon` | 137 |
 | BNB Smart Chain | `bsc` | 56 |
-| Blast | `blast` | 81457 |
 | Zora | `zora` | 7777777 |
 | Unichain | `unichain` | 130 |
 | Robinhood Chain | `robinhood` | 4663 |
 | Sepolia | `sepolia` | 11155111 |
+| Base Sepolia | `base-sepolia` | 84532 |
 
 See the [CLI reference](./cli/README.md) for command options, routing details, and contract configuration.
 
@@ -125,10 +125,14 @@ The three publishable packages share one npm workspace lockfile:
 npm ci
 npm run check
 npm test
+npm run test:integration
+npm run test:fork
 npm run build
 ```
 
-Package-scoped commands remain available with `--workspace`, for example `npm test --workspace mint.club-cli`. For registry releases, publish `mint.club-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
+The default tests are deterministic and offline. `test:integration` performs read-only checks against all supported networks, while `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
+
+For registry releases, publish `mint.club-cli` first, then publish MCP and Eliza so their `^2.0.0` runtime dependency and `chain-registry.json` subpath are available.
 
 ## License
 

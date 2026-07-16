@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   SUPPORTED_CHAINS,
@@ -7,6 +10,7 @@ import {
 } from '../src/index';
 
 const originalCli = process.env.MINTCLUB_CLI;
+const require = createRequire(import.meta.url);
 const expectedChains = [
   'ethereum',
   'optimism',
@@ -15,11 +19,11 @@ const expectedChains = [
   'base',
   'polygon',
   'bsc',
-  'blast',
   'zora',
   'unichain',
   'robinhood',
   'sepolia',
+  'base-sepolia',
 ];
 
 afterEach(() => {
@@ -28,6 +32,21 @@ afterEach(() => {
 });
 
 describe('MCP tool surface', () => {
+  it('publishes resolvable CLI and MCP module entrypoints', () => {
+    const registryPath = require.resolve('mint.club-cli/chain-registry.json');
+    const cliPackage = JSON.parse(
+      readFileSync(join(dirname(registryPath), 'package.json'), 'utf8'),
+    );
+    const mcpPackage = JSON.parse(
+      readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+    );
+
+    expect(cliPackage.exports['.']).toBe('./dist/index.js');
+    expect(mcpPackage.main).toBe('dist/index.js');
+    expect(mcpPackage.module).toBe('./dist/index.js');
+    expect(mcpPackage.exports['.']).toBe('./dist/index.js');
+  });
+
   it('exposes only protocol-native tools with exact all-chain selection', () => {
     const names = TOOL_DEFINITIONS.map((tool) => tool.name);
 

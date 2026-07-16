@@ -11,7 +11,7 @@ import {
   arbitrum,
   avalanche,
   base,
-  blast,
+  baseSepolia,
   bsc,
   mainnet,
   optimism,
@@ -94,18 +94,22 @@ function config(value: ChainConfig): ChainConfig {
   return value;
 }
 
+function chainRpcs(chain: Chain, preferred: readonly string[]): readonly string[] {
+  return [...new Set([...preferred, ...chain.rpcUrls.default.http])];
+}
+
 export const CHAIN_CONFIGS = {
   ethereum: config({
     chain: mainnet,
-    rpcs: [
+    rpcs: chainRpcs(mainnet, [
       'https://ethereum-rpc.publicnode.com',
-      'https://eth.llamarpc.com',
-      ...mainnet.rpcUrls.default.http,
-    ],
+      'https://eth-pokt.nodies.app',
+      'https://gateway.tenderly.co/public/mainnet',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0xf7e2cDe9E603F15118E6E389cF14f11f19C1afbc',
     },
     uniswap: {
       v2Factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
@@ -144,11 +148,15 @@ export const CHAIN_CONFIGS = {
   }),
   optimism: config({
     chain: optimism,
-    rpcs: optimism.rpcUrls.default.http,
+    rpcs: chainRpcs(optimism, [
+      'https://optimism-rpc.publicnode.com',
+      'https://optimism.meowrpc.com',
+      'https://optimism.drpc.org',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x7B09b728ee8c6a714dC3F10367b5DF9b217FE633',
     },
     uniswap: {
       v2Factory: '0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf',
@@ -175,11 +183,15 @@ export const CHAIN_CONFIGS = {
   }),
   arbitrum: config({
     chain: arbitrum,
-    rpcs: arbitrum.rpcUrls.default.http,
+    rpcs: chainRpcs(arbitrum, [
+      'https://arbitrum-one.publicnode.com',
+      'https://arbitrum.meowrpc.com',
+      'https://arb-pokt.nodies.app',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x3a8a4BFCC487d0FE9D342B6180bf0323989f251B',
     },
     uniswap: {
       v2Factory: '0xf1D7CC64Fb4452F05c498126312eBE29f30Fbcf9',
@@ -210,11 +222,15 @@ export const CHAIN_CONFIGS = {
   }),
   avalanche: config({
     chain: avalanche,
-    rpcs: avalanche.rpcUrls.default.http,
+    rpcs: chainRpcs(avalanche, [
+      'https://avalanche-c-chain-rpc.publicnode.com',
+      'https://avax.meowrpc.com',
+      'https://api.avax.network/ext/bc/C/rpc',
+    ]),
     contracts: {
       tokenImplementation: '0x5DaE94e149CF2112Ec625D46670047814aA9aC2a',
       bond: '0x3Fd5B4DcDa968C8e22898523f5343177F94ccfd1',
-      zapV2: null,
+      zapV2: '0xD0586d5F4ae18650340fFc6f3b1307AB2Ca334f4',
     },
     uniswap: {
       v2Factory: '0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C',
@@ -245,14 +261,16 @@ export const CHAIN_CONFIGS = {
   }),
   base: config({
     chain: base,
-    rpcs: [
+    rpcs: chainRpcs(base, [
       'https://base-rpc.publicnode.com',
-      ...base.rpcUrls.default.http,
-    ],
+      'https://base.drpc.org',
+      'https://base.meowrpc.com',
+      'https://1rpc.io/base',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x96282046C0e19F727a92728198c0Dc4E260Ebe0b',
     },
     uniswap: {
       v2Factory: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
@@ -287,11 +305,15 @@ export const CHAIN_CONFIGS = {
   }),
   polygon: config({
     chain: polygon,
-    rpcs: polygon.rpcUrls.default.http,
+    rpcs: chainRpcs(polygon, [
+      'https://polygon-bor-rpc.publicnode.com',
+      'https://rpc-mainnet.matic.quiknode.pro',
+      'https://polygon.meowrpc.com',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x664f626516c82772F0F492Ff64f6FA826C86F5e1',
     },
     uniswap: {
       v2Factory: '0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C',
@@ -322,11 +344,15 @@ export const CHAIN_CONFIGS = {
   }),
   bsc: config({
     chain: bsc,
-    rpcs: bsc.rpcUrls.default.http,
+    rpcs: chainRpcs(bsc, [
+      'https://bsc-rpc.publicnode.com',
+      'https://bscrpc.com',
+      'https://rpc.ankr.com/bsc',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x68f54a53d3E69e2191bCF586fB507c81E5353413',
     },
     uniswap: {
       v2Factory: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
@@ -355,54 +381,22 @@ export const CHAIN_CONFIGS = {
     ],
     usdToken: '0x55d398326f99059fF775485246999027B3197955',
   }),
-  blast: config({
-    chain: blast,
-    rpcs: blast.rpcUrls.default.http,
-    contracts: {
-      tokenImplementation: '0x1349A9DdEe26Fe16D0D44E35B3CB9B0CA18213a4',
-      bond: '0x621c335b4BD8f2165E120DC70d3AfcAfc6628681',
-      zapV2: null,
-    },
-    uniswap: {
-      v2Factory: '0x5C346464d33F90bABaf70dB6388507CC889C1070',
-      v3Quoter: {
-        address: '0x6Cdcd65e03c1CEc3730AeeCd45bc140D57A25C77',
-        version: 'v2',
-      },
-      v4Quoter: '0x6f71cdcb0d119ff72c6eb501abceb576fbf62bcf',
-    },
-    tokens: {
-      ETH: { address: ZERO_ADDRESS, decimals: 18 },
-      WETH: {
-        address: '0x4300000000000000000000000000000000000004',
-        decimals: 18,
-        wrappedNative: true,
-      },
-      USDB: {
-        address: '0x4300000000000000000000000000000000000003',
-        decimals: 18,
-        stable: true,
-      },
-    },
-    routeIntermediaries: [
-      '0x4300000000000000000000000000000000000004',
-      '0x4300000000000000000000000000000000000003',
-    ],
-    usdToken: '0x4300000000000000000000000000000000000003',
-  }),
   zora: config({
     chain: zora,
-    rpcs: zora.rpcUrls.default.http,
+    rpcs: chainRpcs(zora, [
+      'https://rpc.zora.energy',
+      'https://zora.drpc.org',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17',
     },
     uniswap: {
-      v2Factory: null,
+      v2Factory: '0x0F797dC7efaEA995bB916f268D919d0a1950eE3C',
       v3Quoter: {
         address: '0x11867e1b3348F3ce4FcC170BC5af3d23E07E64Df',
-        version: 'v1',
+        version: 'v2',
       },
       v4Quoter: '0x5edaccc0660e0a2c44b06e07ce8b915e625dc2c6',
     },
@@ -415,14 +409,18 @@ export const CHAIN_CONFIGS = {
   }),
   unichain: config({
     chain: unichain,
-    rpcs: unichain.rpcUrls.default.http,
+    rpcs: chainRpcs(unichain, [
+      'https://unichain-rpc.publicnode.com',
+      'https://mainnet.unichain.org',
+      'https://unichain.drpc.org',
+    ]),
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0x06FD26c092Db44E5491abB7cDC580CE24D93030c',
     },
     uniswap: {
-      v2Factory: null,
+      v2Factory: '0x1f98400000000000000000000000000000000002',
       v3Quoter: {
         address: '0x385a5cf5f83e99f7bb2852b6a19c3538b9fa7658',
         version: 'v2',
@@ -446,11 +444,13 @@ export const CHAIN_CONFIGS = {
   }),
   robinhood: config({
     chain: robinhood,
-    rpcs: ['https://rpc.mainnet.chain.robinhood.com'],
+    rpcs: chainRpcs(robinhood, [
+      'https://rpc.mainnet.chain.robinhood.com',
+    ]),
     contracts: {
       tokenImplementation: '0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387',
       bond: '0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa',
-      zapV2: null,
+      zapV2: '0x621c335b4BD8f2165E120DC70d3AfcAfc6628681',
     },
     uniswap: {
       v2Factory: '0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f',
@@ -481,14 +481,18 @@ export const CHAIN_CONFIGS = {
   }),
   sepolia: config({
     chain: sepolia,
-    rpcs: sepolia.rpcUrls.default.http,
+    rpcs: chainRpcs(sepolia, [
+      'https://ethereum-sepolia-rpc.publicnode.com',
+      'https://eth-sepolia-public.unifra.io',
+      'https://sepolia.drpc.org',
+    ]),
     contracts: {
       tokenImplementation: '0x749bA94344521727f55a3007c777FbeB5F52C2Eb',
       bond: '0x8dce343A86Aa950d539eeE0e166AFfd0Ef515C0c',
-      zapV2: null,
+      zapV2: '0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9',
     },
     uniswap: {
-      v2Factory: '0xB7f907f7A9eBC822a80BD25E224be42Ce0A698A0',
+      v2Factory: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
       v3Quoter: {
         address: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',
         version: 'v2',
@@ -506,6 +510,31 @@ export const CHAIN_CONFIGS = {
     routeIntermediaries: [
       '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14',
     ],
+    usdToken: null,
+  }),
+  'base-sepolia': config({
+    chain: baseSepolia,
+    rpcs: chainRpcs(baseSepolia, [
+      'https://base-sepolia-rpc.publicnode.com',
+    ]),
+    contracts: {
+      tokenImplementation: '0x37F540de37afE8bDf6C722d87CB019F30e5E406a',
+      bond: '0x5dfA75b0185efBaEF286E80B847ce84ff8a62C2d',
+      zapV2: '0x60432191893c4F742205a2C834817a1891feC435',
+    },
+    uniswap: {
+      v2Factory: null,
+      v3Quoter: {
+        address: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27',
+        version: 'v2',
+      },
+      v4Quoter: '0x4a6513c898fe1b2d0e78d3b0e0a4a151589b1cba',
+    },
+    tokens: {
+      ETH: { address: ZERO_ADDRESS, decimals: 18 },
+      WETH: { address: WETH_L2, decimals: 18, wrappedNative: true },
+    },
+    routeIntermediaries: [WETH_L2],
     usdToken: null,
   }),
 } as const;
@@ -607,7 +636,9 @@ export function getChainConfig(input: string): ChainConfig {
 }
 
 export function getTransport(chain: SupportedChain = 'base'): Transport {
-  const envName = `MINTCLUB_RPC_${chain.toUpperCase()}`;
+  const envName = `MINTCLUB_RPC_${chain
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')}`;
   const override = process.env[envName]?.trim();
   const urls = [override, ...CHAIN_CONFIGS[chain].rpcs].filter(
     (url, index, all): url is string => Boolean(url) && all.indexOf(url) === index,

@@ -396,7 +396,19 @@ export async function findBestRoute(
     backend.getToken(options.input),
     backend.getToken(options.output),
   ]);
-  if (sameAddress(options.input, options.output)) {
+  const config = CHAIN_CONFIGS[options.chain];
+  const wrappedNative = getTokens(options.chain).find(
+    ({ wrappedNative }) => wrappedNative,
+  );
+  if (!wrappedNative) {
+    throw new Error(`Wrapped native token is not configured on ${config.chain.name}`);
+  }
+  const nativeWrappedPair =
+    (sameAddress(options.input, ZERO_ADDRESS) &&
+      sameAddress(options.output, wrappedNative.address)) ||
+    (sameAddress(options.output, ZERO_ADDRESS) &&
+      sameAddress(options.input, wrappedNative.address));
+  if (sameAddress(options.input, options.output) || nativeWrappedPair) {
     return {
       protocol: 'none',
       inputToken,
@@ -407,17 +419,9 @@ export async function findBestRoute(
     };
   }
 
-  const config = CHAIN_CONFIGS[options.chain];
   const allowed = new Set<UniswapProtocol>(
     options.protocols ?? ['v2', 'v3', 'v4'],
   );
-  const wrappedNative = getTokens(options.chain).find(
-    ({ wrappedNative }) => wrappedNative,
-  );
-  if (!wrappedNative) {
-    throw new Error(`Wrapped native token is not configured on ${config.chain.name}`);
-  }
-
   const candidates = generateRouteCandidates({
     input: options.input,
     output: options.output,

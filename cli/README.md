@@ -1,6 +1,6 @@
 # Mint Club V2 CLI
 
-A command-line client for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap routing across 11 mainnets plus Sepolia.
+A command-line client for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap routing across ten mainnets and two testnets.
 
 The CLI calls the official contracts directly:
 
@@ -48,11 +48,11 @@ mc --chain robinhood wallet
 | Base | `base` | 8453 | `ETH`, `WETH`, `USDC`, `HUNT`, `MT` |
 | Polygon PoS | `polygon` | 137 | `POL`, `WPOL`, `USDT` |
 | BNB Smart Chain | `bsc` | 56 | `BNB`, `WBNB`, `USDT` |
-| Blast | `blast` | 81457 | `ETH`, `WETH`, `USDB` |
 | Zora | `zora` | 7777777 | `ETH`, `WETH` |
 | Unichain | `unichain` | 130 | `ETH`, `WETH`, `USDC` |
 | Robinhood Chain | `robinhood` | 4663 | `ETH`, `WETH`, `USDG` |
 | Sepolia | `sepolia` | 11155111 | `ETH`, `WETH` |
+| Base Sepolia | `base-sepolia` | 84532 | `ETH`, `WETH` |
 
 `NATIVE` resolves to the selected chain's native currency. Any ERC-20 or Mint Club token can also be supplied by contract address. Created and used Mint Club token addresses are tracked per chain in `~/.mintclub/tokens.json`.
 
@@ -65,9 +65,10 @@ Each chain has public fallback RPC URLs. Override the first RPC without editing 
 ```bash
 export MINTCLUB_RPC_ARBITRUM=https://your-rpc.example
 export MINTCLUB_RPC_ROBINHOOD=https://your-rpc.example
+export MINTCLUB_RPC_BASE_SEPOLIA=https://your-rpc.example
 ```
 
-The variable format is `MINTCLUB_RPC_<UPPERCASE_CLI_KEY>`.
+The variable format is `MINTCLUB_RPC_<UPPERCASE_CLI_KEY>`, with non-alphanumeric separators replaced by underscores (`base-sepolia` becomes `BASE_SEPOLIA`).
 
 ## Read operations
 
@@ -134,7 +135,7 @@ mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
 
 ### Deployment status
 
-**Every `MCV2_ZapV2` address is currently `null`.** Zap commands fail closed before wallet setup, approvals, or transaction construction. Add only an official deployed address to `src/config/chains.ts` and set the matching `zapV2Configured` flag in `chain-registry.json`; startup validation rejects one-sided updates. Do not guess an address. Bond operations, route quoting, and command encoding remain testable without a Zap deployment.
+`MCV2_ZapV2` is deployed on all supported chains in this document. Blast is intentionally unsupported by this integration.
 
 ## Local route discovery
 
@@ -147,7 +148,7 @@ The route engine:
 5. Chooses the greatest exact-input output; ties prefer fewer hops and then `V2 → V3 → V4` deterministically.
 6. Uses `@uniswap/universal-router-sdk` only to encode the selected route.
 
-Universal Router encoding is pinned to V2.0 command semantics, uses router-held input (`payerIsUser = false`), sends swap output to ZapV2, and rejects Permit2 ingress commands.
+Universal Router encoding is pinned to V2.0 command semantics, uses router-held input (`payerIsUser = false`), sends swap output to ZapV2, rejects Permit2 ingress commands, and settles unused routed input directly back to the caller. Native V2/V3 refunds are unwrapped before delivery.
 
 Deliberate limits:
 
@@ -198,13 +199,20 @@ mc --chain polygon wallet
 
 ## Mint Club contract configuration
 
-| Chain(s) | MCV2 Bond | ERC-20 implementation | MCV2 ZapV2 |
+| Chain | MCV2 Bond | ERC-20 implementation | MCV2 ZapV2 |
 |---|---|---|---|
-| Ethereum, Optimism, Arbitrum, Base, Polygon, BSC, Zora, Unichain | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | not configured |
-| Avalanche | `0x3Fd5B4DcDa968C8e22898523f5343177F94ccfd1` | `0x5DaE94e149CF2112Ec625D46670047814aA9aC2a` | not configured |
-| Blast | `0x621c335b4BD8f2165E120DC70d3AfcAfc6628681` | `0x1349A9DdEe26Fe16D0D44E35B3CB9B0CA18213a4` | not configured |
-| Robinhood Chain | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387` | not configured |
-| Sepolia | `0x8dce343A86Aa950d539eeE0e166AFfd0Ef515C0c` | `0x749bA94344521727f55a3007c777FbeB5F52C2Eb` | not configured |
+| Ethereum | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0xf7e2cDe9E603F15118E6E389cF14f11f19C1afbc` |
+| Optimism | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x7B09b728ee8c6a714dC3F10367b5DF9b217FE633` |
+| Arbitrum One | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x3a8a4BFCC487d0FE9D342B6180bf0323989f251B` |
+| Avalanche C-Chain | `0x3Fd5B4DcDa968C8e22898523f5343177F94ccfd1` | `0x5DaE94e149CF2112Ec625D46670047814aA9aC2a` | `0xD0586d5F4ae18650340fFc6f3b1307AB2Ca334f4` |
+| Base | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x96282046C0e19F727a92728198c0Dc4E260Ebe0b` |
+| Polygon PoS | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x664f626516c82772F0F492Ff64f6FA826C86F5e1` |
+| BNB Smart Chain | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x68f54a53d3E69e2191bCF586fB507c81E5353413` |
+| Zora | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17` |
+| Unichain | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x06FD26c092Db44E5491abB7cDC580CE24D93030c` |
+| Robinhood Chain | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387` | `0x621c335b4BD8f2165E120DC70d3AfcAfc6628681` |
+| Sepolia | `0x8dce343A86Aa950d539eeE0e166AFfd0Ef515C0c` | `0x749bA94344521727f55a3007c777FbeB5F52C2Eb` | `0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9` |
+| Base Sepolia | `0x5dfA75b0185efBaEF286E80B847ce84ff8a62C2d` | `0x37F540de37afE8bDf6C722d87CB019F30e5E406a` | `0x60432191893c4F742205a2C834817a1891feC435` |
 
 Uniswap factory/quoter addresses and intermediary tokens are kept in `src/config/chains.ts` and capability summaries in `chain-registry.json`.
 
@@ -214,12 +222,22 @@ From the repository root:
 
 ```bash
 npm ci
-npm run check --workspace mint.club-cli
-npm test --workspace mint.club-cli
-npm run build --workspace mint.club-cli
+npm run check
+npm test
+npm run test:integration
+npm run test:fork
+npm run build
 ```
 
-The default suite includes unit tests and read-only Base/Robinhood deployment checks. Optional Anvil write tests exercise direct Bond operations when Anvil is installed. Mainnet transactions are never part of automated verification.
+The default suite runs without external RPC dependencies. `npm run test:integration` runs the gated, read-only deployment and immutable checks on all supported networks.
+
+`npm run test:fork` is an explicit, deterministic Base fork suite pinned to block `48,705,797`. It exercises direct Bond writes plus ZapV2 native/WETH, ERC-20, ERC-1155, routed buy/sell, and refund-sweep flows without changing live chain state.
+
+The fork suite requires Anvil. It resolves `ANVIL_PATH` first and then `anvil` from `PATH`; an explicit run fails if neither is available. Override the public Base RPC when needed:
+
+```bash
+BASE_FORK_RPC_URL=https://your-archive-base-rpc.example npm run test:fork
+```
 
 ## License
 

@@ -1,5 +1,6 @@
 import { type Address, type PublicClient, formatUnits } from 'viem';
 import { ERC20_ABI } from '../abi/erc20';
+import { ERC1155_BALANCE_ABI } from '../abi/erc1155';
 import { BOND_ABI } from '../abi/bond';
 import {
   getBondAddress,
@@ -74,8 +75,8 @@ export async function getWalletBalances(
     (token) => token.address.toLowerCase() !== nativeToken.address.toLowerCase(),
   );
   const erc20Results = await client.multicall({
-    contracts: erc20Tokens.map(t => ({
-      address: t.address,
+    contracts: erc20Tokens.map((token) => ({
+      address: token.address,
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [address],
@@ -84,7 +85,10 @@ export async function getWalletBalances(
 
   const erc20Balances: WalletBalance[] = [];
   for (let i = 0; i < erc20Tokens.length; i++) {
-    const balance = erc20Results[i].status === 'success' ? erc20Results[i].result as bigint : 0n;
+    const balance =
+      erc20Results[i].status === 'success'
+        ? (erc20Results[i].result as bigint)
+        : 0n;
     if (balance > 0n) {
       const token = erc20Tokens[i];
       const amount = Number(formatUnits(balance, token.decimals));
@@ -107,48 +111,89 @@ export async function getWalletBalances(
   const knownAddrs = new Set(
     knownTokens.map((token) => token.address.toLowerCase()),
   );
-  const mcTokenAddrs = savedTokens.filter(t => !knownAddrs.has(t.toLowerCase()));
+  const mcTokenAddrs = savedTokens.filter(
+    (token) => !knownAddrs.has(token.toLowerCase()),
+  );
 
   const mcTokenBalances: WalletBalance[] = [];
   if (mcTokenAddrs.length > 0) {
-    // Batch: balanceOf + symbol + tokenBond for each
+    const fieldsPerToken = 5;
+    // Both balance selectors are attempted so ERC-20 and ERC-1155 metadata stays
+    // in one multicall. The incompatible selector fails without failing the batch.
     const mcResults = await client.multicall({
-      contracts: mcTokenAddrs.flatMap(t => [
-        { address: t, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] },
-        { address: t, abi: ERC20_ABI, functionName: 'symbol' },
-        { address: bond, abi: BOND_ABI, functionName: 'tokenBond', args: [t] },
+      contracts: mcTokenAddrs.flatMap((token) => [
+        { address: token, abi: ERC20_ABI, functionName: 'decimals' },
+        {
+          address: token,
+          abi: ERC20_ABI,
+          functionName: 'balanceOf',
+          args: [address],
+        },
+        {
+          address: token,
+          abi: ERC1155_BALANCE_ABI,
+          functionName: 'balanceOf',
+          args: [address, 0n],
+        },
+        { address: token, abi: ERC20_ABI, functionName: 'symbol' },
+        {
+          address: bond,
+          abi: BOND_ABI,
+          functionName: 'tokenBond',
+          args: [token],
+        },
       ]),
     });
 
     for (let i = 0; i < mcTokenAddrs.length; i++) {
-      const balance = mcResults[i * 3].status === 'success' ? mcResults[i * 3].result as bigint : 0n;
+      const offset = i * fieldsPerToken;
+      const decimals =
+        mcResults[offset].status === 'success'
+          ? Number(mcResults[offset].result)
+          : 18;
+      const balanceResult = mcResults[offset + (decimals === 0 ? 2 : 1)];
+      const balance =
+        balanceResult.status === 'success'
+          ? (balanceResult.result as bigint)
+          : 0n;
       if (balance === 0n) continue;
 
-      const symbol = mcResults[i * 3 + 1].status === 'success' 
-        ? mcResults[i * 3 + 1].result as string 
-        : mcTokenAddrs[i].slice(0, 10);
+      const symbol =
+        mcResults[offset + 3].status === 'success'
+          ? (mcResults[offset + 3].result as string)
+          : mcTokenAddrs[i].slice(0, 10);
 
       let usdValue: number | undefined;
 
       // Try to get USD price via bond + chain-specific DefiLlama feed
-      if (mcResults[i * 3 + 2].status === 'success') {
+      if (mcResults[offset + 4].status === 'success') {
         try {
-          const [, , , , reserveToken] = mcResults[i * 3 + 2].result as any;
+          const bondData = mcResults[offset + 4].result as unknown as readonly [
+            Address,
+            number,
+            number,
+            number,
+            Address,
+            bigint,
+          ];
+          const reserveToken = bondData[4];
           const tokenPrice = await getTokenPrice(
             client,
             mcTokenAddrs[i] as Address,
             chain,
+            decimals,
           );
           const reserveUsd = await getUsdPrice(reserveToken, chain);
-          
+
           if (reserveUsd !== null) {
             const reserveDecimals = await getDecimals(
               client,
               reserveToken,
               chain,
             );
-            const tokenUsd = (Number(tokenPrice) / 10 ** reserveDecimals) * reserveUsd;
-            const val = (Number(balance) / 1e18) * tokenUsd;
+            const tokenUsd =
+              (Number(tokenPrice) / 10 ** reserveDecimals) * reserveUsd;
+            const val = (Number(balance) / 10 ** decimals) * tokenUsd;
             totalUsd += val;
             usdValue = val;
           }
@@ -161,7 +206,7 @@ export async function getWalletBalances(
         token: mcTokenAddrs[i] as Address,
         symbol,
         balance,
-        decimals: 18,
+        decimals,
         usdValue,
       });
     }
@@ -188,29 +233,32 @@ export function displayWalletBalances(
 
   // ETH balance
   const ethDisplay = formatUnits(ethBalance.balance, ethBalance.decimals);
-  const ethUsdDisplay = ethBalance.usdValue !== undefined 
-    ? ` (~$${formatUsd(ethBalance.usdValue)})` 
-    : '';
+  const ethUsdDisplay =
+    ethBalance.usdValue !== undefined
+      ? ` (~$${formatUsd(ethBalance.usdValue)})`
+      : '';
   console.log(`   ${ethBalance.symbol}: ${ethDisplay}${ethUsdDisplay}`);
 
   // ERC20 balances
   for (const balance of erc20Balances) {
     const display = formatUnits(balance.balance, balance.decimals);
-    const usdDisplay = balance.usdValue !== undefined 
-      ? ` (~$${formatUsd(balance.usdValue)})` 
-      : '';
+    const usdDisplay =
+      balance.usdValue !== undefined
+        ? ` (~$${formatUsd(balance.usdValue)})`
+        : '';
     console.log(`   ${balance.symbol}: ${display}${usdDisplay}`);
   }
 
   // Mint Club token balances
   if (mcTokenBalances.length > 0) {
-    console.log(`\n🪙 Mint Club Tokens:\n`);
-    
+    console.log('\n🪙 Mint Club Tokens:\n');
+
     for (const balance of mcTokenBalances) {
       const display = formatUnits(balance.balance, balance.decimals);
-      const usdDisplay = balance.usdValue !== undefined 
-        ? ` (~$${formatUsd(balance.usdValue)})` 
-        : '';
+      const usdDisplay =
+        balance.usdValue !== undefined
+          ? ` (~$${formatUsd(balance.usdValue)})`
+          : '';
       console.log(`   ${balance.symbol}: ${display}${usdDisplay}`);
     }
   }

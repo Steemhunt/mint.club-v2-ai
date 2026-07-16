@@ -1,4 +1,5 @@
-import { formatUnits, parseUnits } from 'viem';
+import { formatUnits } from 'viem';
+import { parse } from './format';
 
 export type CurveType = 'linear' | 'exponential' | 'logarithmic' | 'flat';
 
@@ -15,9 +16,9 @@ export function generateCurve(
   finalPrice: string,
   reserveDecimals = 18,
 ): { ranges: bigint[]; prices: bigint[] } {
-  const supply = parseUnits(maxSupply, 18);
-  const initialPriceRaw = parseUnits(initialPrice, reserveDecimals);
-  const finalPriceRaw = parseUnits(finalPrice, reserveDecimals);
+  const supply = parse(maxSupply, 18);
+  const initialPriceRaw = parse(initialPrice, reserveDecimals);
+  const finalPriceRaw = parse(finalPrice, reserveDecimals);
 
   if (supply <= 0n) throw new Error('Max supply must be positive');
   if (initialPriceRaw <= 0n || finalPriceRaw <= 0n) {

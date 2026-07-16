@@ -4,6 +4,7 @@ import {
   getBondInfo,
   getBurnRefund,
   getMintCost,
+  getTokenPrice,
   resolveBurnLimit,
   resolveMintLimit,
 } from '../src/utils/bond';
@@ -52,6 +53,15 @@ describe('bond quotes', () => {
     expect(resolveBurnLimit(quote, '80', 6)).toBe(80_000_000n);
     expect(() => resolveBurnLimit(quote, '91', 6)).toThrow(
       'below minimum refund',
+    );
+  });
+
+  it('rejects reserve limits that require decimal rounding', () => {
+    expect(() => resolveMintLimit(0n, '0.0000005', 6)).toThrow(
+      'Amount has more than 6 decimal places',
+    );
+    expect(() => resolveBurnLimit(1n, '0.0000005', 6)).toThrow(
+      'Amount has more than 6 decimal places',
     );
   });
 
@@ -112,6 +122,34 @@ describe('bond quotes', () => {
     expect(info.reserveDecimals).toBe(6);
     expect(info.formatReserve(1_000_000n)).toBe('1');
   });
+
+  it.each([
+    { decimals: 0, oneToken: 1n },
+    { decimals: 18, oneToken: 10n ** 18n },
+  ])(
+    'quotes one whole Mint Club token with $decimals decimals',
+    async ({ decimals, oneToken }) => {
+      const calls: Array<{ functionName: string; args?: readonly unknown[] }> = [];
+      const client = {
+        readContract: async (request: {
+          functionName: string;
+          args?: readonly unknown[];
+        }) => {
+          calls.push(request);
+          if (request.functionName === 'decimals') return decimals;
+          if (request.functionName === 'getReserveForToken') {
+            return [123n, 0n] as const;
+          }
+          throw new Error(`Unexpected function: ${request.functionName}`);
+        },
+      } as unknown as PublicClient;
+
+      await expect(getTokenPrice(client, TOKEN)).resolves.toBe(123n);
+      expect(
+        calls.find((call) => call.functionName === 'getReserveForToken')?.args,
+      ).toEqual([TOKEN, oneToken]);
+    },
+  );
 
   it('rejects ERC-20 contracts that do not have a Mint Club bond', async () => {
     const client = {

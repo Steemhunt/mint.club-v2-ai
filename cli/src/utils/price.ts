@@ -14,11 +14,11 @@ const DEFILLAMA_CHAIN: Record<SupportedChain, string | null> = {
   base: 'base',
   polygon: 'polygon',
   bsc: 'bsc',
-  blast: 'blast',
   zora: 'zora',
   unichain: 'unichain',
   robinhood: 'robinhood',
   sepolia: null,
+  'base-sepolia': null,
 };
 
 export type UsdRateResolver = (

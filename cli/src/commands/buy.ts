@@ -3,9 +3,9 @@ import { getPublicClient, getWalletClient } from '../client';
 import { getBondAddress } from '../config/contracts';
 import type { SupportedChain } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
-import { parse } from '../utils/format';
+import { parseTokenAmount } from '../utils/format';
 import { ensureApproval } from '../utils/approve';
-import { getSymbol } from '../utils/symbol';
+import { getDecimals, getSymbol } from '../utils/symbol';
 import {
   getBondInfo,
   getMintCost,
@@ -28,9 +28,12 @@ export async function buy(
   );
   const bond = getBondAddress(chain);
 
-  const tokensToMint = parse(amount);
-  const bondInfo = await getBondInfo(publicClient, token, chain);
-  const tokenSymbol = await getSymbol(publicClient, token, chain);
+  const [bondInfo, tokenDecimals, tokenSymbol] = await Promise.all([
+    getBondInfo(publicClient, token, chain),
+    getDecimals(publicClient, token, chain),
+    getSymbol(publicClient, token, chain),
+  ]);
+  const tokensToMint = parseTokenAmount(amount, tokenDecimals);
 
   console.log(`🛒 Buying ${amount} ${tokenSymbol}...`);
 

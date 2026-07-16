@@ -11,10 +11,11 @@ export const ZAP_V2_ABI = [
       { name: 'commands', type: 'bytes' },
       { name: 'inputs', type: 'bytes[]' },
       { name: 'deadline', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
     ],
     outputs: [
       { name: 'tokensReceived', type: 'uint256' },
-      { name: 'reserveObtained', type: 'uint256' },
+      { name: 'reserveUsed', type: 'uint256' },
     ],
   },
   {
@@ -23,13 +24,17 @@ export const ZAP_V2_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'token', type: 'address' },
-      { name: 'amount', type: 'uint256' },
+      { name: 'tokensToBurn', type: 'uint256' },
       { name: 'outputToken', type: 'address' },
       { name: 'minOutputAmount', type: 'uint256' },
       { name: 'commands', type: 'bytes' },
       { name: 'inputs', type: 'bytes[]' },
       { name: 'deadline', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
     ],
-    outputs: [{ name: 'outputReceived', type: 'uint256' }],
+    outputs: [
+      { name: 'outputAmount', type: 'uint256' },
+      { name: 'reserveReceived', type: 'uint256' },
+    ],
   },
 ] as const;

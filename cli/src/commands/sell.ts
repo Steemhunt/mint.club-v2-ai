@@ -3,9 +3,9 @@ import { getPublicClient, getWalletClient } from '../client';
 import { getBondAddress } from '../config/contracts';
 import type { SupportedChain } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
-import { parse } from '../utils/format';
-import { ensureApproval } from '../utils/approve';
-import { getSymbol } from '../utils/symbol';
+import { parseTokenAmount } from '../utils/format';
+import { ensureApproval, ensureERC1155Approval } from '../utils/approve';
+import { getDecimals, getSymbol } from '../utils/symbol';
 import {
   getBondInfo,
   getBurnRefund,
@@ -28,9 +28,12 @@ export async function sell(
   );
   const bond = getBondAddress(chain);
 
-  const tokensToBurn = parse(amount);
-  const bondInfo = await getBondInfo(publicClient, token, chain);
-  const tokenSymbol = await getSymbol(publicClient, token, chain);
+  const [bondInfo, tokenDecimals, tokenSymbol] = await Promise.all([
+    getBondInfo(publicClient, token, chain),
+    getDecimals(publicClient, token, chain),
+    getSymbol(publicClient, token, chain),
+  ]);
+  const tokensToBurn = parseTokenAmount(amount, tokenDecimals);
 
   console.log(`🔥 Selling ${amount} ${tokenSymbol}...`);
 
@@ -57,7 +60,11 @@ export async function sell(
     );
   }
 
-  await ensureApproval(publicClient, walletClient, token, bond, tokensToBurn);
+  if (tokenDecimals === 0) {
+    await ensureERC1155Approval(publicClient, walletClient, token, bond);
+  } else {
+    await ensureApproval(publicClient, walletClient, token, bond, tokensToBurn);
+  }
 
   await executeTransaction(
     publicClient,

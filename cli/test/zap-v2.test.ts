@@ -99,14 +99,15 @@ function dependencies(overrides: Partial<ZapCommandDependencies> = {}) {
     getSymbol: async (_client: unknown, address: Address) =>
       address.toLowerCase() === MC_TOKEN.toLowerCase() ? 'MC' : 'ASSET',
     findBestRoute: vi.fn(async () => route),
-    encodeUniversalRouterPlan: () => ({
+    encodeUniversalRouterPlan: vi.fn(() => ({
       commands: '0x00',
       inputs: ['0x1234'],
       deadline: 1_001_200n,
       minimumAmountOut: 990n,
       value: 0n,
-    }),
+    })),
     ensureApproval: vi.fn(async () => undefined),
+    ensureERC1155Approval: vi.fn(async () => undefined),
     executeTransaction: vi.fn(async () => undefined),
     nowSeconds: () => 1_000_000n,
     ...overrides,
@@ -133,21 +134,21 @@ const sellParams: ZapSellParams = {
 };
 
 describe('MCV2_ZapV2 ABI', () => {
-  it('encodes the PR #76 zapMint and zapBurn signatures', () => {
+  it('encodes the deployed zapMint and zapBurn selectors', () => {
     expect(
       encodeFunctionData({
         abi: ZAP_V2_ABI,
         functionName: 'zapMint',
-        args: [MC_TOKEN, INPUT, 1n, 2n, '0x00', ['0x1234'], 3n],
+        args: [MC_TOKEN, INPUT, 1n, 2n, '0x00', ['0x1234'], 3n, ACCOUNT],
       }).slice(0, 10),
-    ).toMatch(/^0x[0-9a-f]{8}$/);
+    ).toBe('0x248c1022');
     expect(
       encodeFunctionData({
         abi: ZAP_V2_ABI,
         functionName: 'zapBurn',
-        args: [MC_TOKEN, 1n, OUTPUT, 2n, '0x00', ['0x1234'], 3n],
+        args: [MC_TOKEN, 1n, OUTPUT, 2n, '0x00', ['0x1234'], 3n, ACCOUNT],
       }).slice(0, 10),
-    ).toMatch(/^0x[0-9a-f]{8}$/);
+    ).toBe('0xc5ed3e49');
   });
 });
 
@@ -189,6 +190,12 @@ describe('zap-buy', () => {
       ZAP,
       parseUnits('10', 6),
     );
+    expect(deps.encodeUniversalRouterPlan).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        inputRefund: { token: INPUT, recipient: ACCOUNT },
+      }),
+    );
     expect(publicClient.simulateContract).toHaveBeenCalledWith(
       expect.objectContaining({
         address: ZAP,
@@ -201,6 +208,7 @@ describe('zap-buy', () => {
           '0x00',
           ['0x1234'],
           1_001_200n,
+          ACCOUNT,
         ],
         value: 0n,
       }),
@@ -212,7 +220,16 @@ describe('zap-buy', () => {
       expect.objectContaining({
         address: ZAP,
         functionName: 'zapMint',
-        args: expect.arrayContaining([495n]),
+        args: [
+          MC_TOKEN,
+          INPUT,
+          parseUnits('10', 6),
+          495n,
+          '0x00',
+          ['0x1234'],
+          1_001_200n,
+          ACCOUNT,
+        ],
         value: 0n,
       }),
       expect.stringContaining('MC'),
@@ -253,11 +270,45 @@ describe('zap-buy', () => {
       MC_TOKEN,
       expect.objectContaining({
         value: amount,
-        args: expect.arrayContaining([parseUnits('2', 18)]),
+        args: expect.arrayContaining([parseUnits('2', 18), ACCOUNT]),
       }),
       expect.any(String),
       'base',
     );
+  });
+
+  it('rejects an explicit negative minimum before approving the input token', async () => {
+    const { deps } = dependencies();
+
+    await expect(
+      zapBuy({ ...buyParams, minTokens: '-1' }, deps),
+    ).rejects.toThrow('Minimum token output cannot be negative');
+    expect(deps.ensureApproval).not.toHaveBeenCalled();
+    expect(deps.findBestRoute).not.toHaveBeenCalled();
+    expect(deps.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects exact input precision beyond the input token decimals', async () => {
+    const { deps } = dependencies();
+
+    await expect(
+      zapBuy({ ...buyParams, inputAmount: '0.0000005' }, deps),
+    ).rejects.toThrow('Amount has more than 6 decimal places');
+    expect(deps.findBestRoute).not.toHaveBeenCalled();
+    expect(deps.ensureApproval).not.toHaveBeenCalled();
+  });
+
+  it('rejects a fractional ERC-1155 output minimum', async () => {
+    const { deps } = dependencies({
+      getDecimals: async (_client, address) =>
+        address.toLowerCase() === MC_TOKEN.toLowerCase() ? 0 : 6,
+    });
+
+    await expect(
+      zapBuy({ ...buyParams, minTokens: '1.5' }, deps),
+    ).rejects.toThrow('Amount must be a whole number');
+    expect(deps.findBestRoute).not.toHaveBeenCalled();
+    expect(deps.ensureApproval).not.toHaveBeenCalled();
   });
 });
 
@@ -283,6 +334,15 @@ describe('zap-sell', () => {
       parseUnits('5', 18),
       'base',
     );
+    expect(deps.encodeUniversalRouterPlan).toHaveBeenCalledWith(
+      route,
+      expect.objectContaining({
+        inputRefund: {
+          token: RESERVE,
+          recipient: ACCOUNT,
+        },
+      }),
+    );
     expect(deps.ensureApproval).toHaveBeenCalledWith(
       expect.anything(),
       walletClient,
@@ -304,11 +364,56 @@ describe('zap-sell', () => {
           '0x00',
           ['0x1234'],
           1_001_200n,
+          ACCOUNT,
         ],
       }),
       expect.stringContaining('ASSET'),
       'base',
     );
+  });
+
+  it('uses ERC-1155 operator approval for a multi-token sell', async () => {
+    const route = quotedRoute(RESERVE, OUTPUT, 5n, 900n);
+    const { deps, walletClient } = dependencies({
+      getDecimals: async (_client, address) =>
+        address.toLowerCase() === MC_TOKEN.toLowerCase() ? 0 : 6,
+      getBurnRefund: vi.fn(async () => ({
+        refundAmount: 5n,
+        royalty: 0n,
+        netRefund: 5n,
+      })),
+      findBestRoute: vi.fn(async () => route),
+      encodeUniversalRouterPlan: vi.fn(() => ({
+        commands: '0x00',
+        inputs: ['0x1234'],
+        deadline: 1_001_200n,
+        minimumAmountOut: 891n,
+        value: 0n,
+      })),
+    });
+
+    await zapSell(sellParams, deps);
+
+    expect(deps.ensureApproval).not.toHaveBeenCalled();
+    expect(deps.ensureERC1155Approval).toHaveBeenCalledWith(
+      expect.anything(),
+      walletClient,
+      MC_TOKEN,
+      ZAP,
+    );
+  });
+
+  it('rejects a fractional ERC-1155 burn amount', async () => {
+    const { deps } = dependencies({
+      getDecimals: async (_client, address) =>
+        address.toLowerCase() === MC_TOKEN.toLowerCase() ? 0 : 6,
+    });
+
+    await expect(
+      zapSell({ ...sellParams, amount: '1.5' }, deps),
+    ).rejects.toThrow('Amount must be a whole number');
+    expect(deps.getBurnRefund).not.toHaveBeenCalled();
+    expect(deps.ensureERC1155Approval).not.toHaveBeenCalled();
   });
 
   it('rejects a negative minimum before approving the Mint Club token', async () => {
@@ -327,8 +432,21 @@ describe('zap-sell', () => {
         deps,
       ),
     ).rejects.toThrow('Minimum output cannot be negative');
+    expect(deps.getBurnRefund).not.toHaveBeenCalled();
+    expect(deps.findBestRoute).not.toHaveBeenCalled();
     expect(deps.ensureApproval).not.toHaveBeenCalled();
     expect(deps.executeTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects output minimum precision beyond the output token decimals', async () => {
+    const { deps } = dependencies();
+
+    await expect(
+      zapSell({ ...sellParams, minOutput: '0.0000005' }, deps),
+    ).rejects.toThrow('Amount has more than 6 decimal places');
+    expect(deps.getBurnRefund).not.toHaveBeenCalled();
+    expect(deps.findBestRoute).not.toHaveBeenCalled();
+    expect(deps.ensureApproval).not.toHaveBeenCalled();
   });
 
   it('requires the exact refund for a no-swap reserve output', async () => {
@@ -345,6 +463,10 @@ describe('zap-sell', () => {
     });
 
     await zapSell({ ...sellParams, outputToken: RESERVE }, deps);
+    expect(deps.encodeUniversalRouterPlan).toHaveBeenCalledWith(
+      route,
+      expect.not.objectContaining({ inputRefund: expect.anything() }),
+    );
     expect(deps.executeTransaction).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
