@@ -1,75 +1,101 @@
 # Mint Club V2 — Agent Skill
 
-Interact with Mint Club V2 bonding curve tokens on Base using the `mc` CLI.
+Use the `mc` CLI for protocol-native Mint Club V2 operations on Base and Robinhood Chain.
 
 ## Setup
 
 ```bash
 npm install -g mint.club-cli
-```
-
-Set your private key:
-```bash
 mc wallet --set-private-key 0x...
-# Or export PRIVATE_KEY=0x...
+# or export PRIVATE_KEY=0x...
 ```
 
-## Commands
+## Chain selection
 
-### Read Operations (no key needed)
+Base is the default. Put the global chain option before the command:
 
 ```bash
-mc info <token>          # Token info (supply, reserve, price, curve)
-mc price <token>         # Price in reserve + USD
-mc wallet                # Wallet address and balances
+mc --chain base info SIGNET
+mc --chain robinhood info 0xTOKEN
 ```
 
-### Trading
+Supported chain values: `base`, `robinhood`.
+
+## Read operations
 
 ```bash
-# Buy/sell via bonding curve (reserve token)
-mc buy <token> -a <amount>                    # Buy tokens
-mc sell <token> -a <amount>                   # Sell tokens
-
-# Zap: buy/sell with any token (auto-routes via Uniswap)
-mc zap-buy <token> -i ETH -a 0.01            # Buy with ETH
-mc zap-sell <token> -a 100 -o USDC           # Sell for USDC
-
-# Direct Uniswap swap (any pair, V3 + V4)
-mc swap -i ETH -o HUNT -a 0.001              # Swap tokens
-mc swap -i HUNT -o USDC -a 100 -s 0.5        # Custom slippage
+mc --chain base info <token>
+mc --chain robinhood price <token>
+mc --chain robinhood wallet
 ```
 
-### Create Token
+## Bond mint and burn
+
+Use direct Bond operations when the user already holds the token's reserve ERC-20:
 
 ```bash
-mc create -n "My Token" -s MYT -r HUNT -x 1000000 \
-  --curve exponential --initial-price 0.01 --final-price 100
+mc --chain base buy <token> --amount 100 --max-cost 25
+mc --chain base sell <token> --amount 100 --min-refund 20
+mc --chain robinhood buy <token> --amount 100 --max-cost 25
+mc --chain robinhood sell <token> --amount 100 --min-refund 20
 ```
 
-Curve presets: `linear`, `exponential`, `logarithmic`, `flat`
+If `--max-cost` or `--min-refund` is omitted, the CLI uses the current quote as the exact on-chain limit.
 
-### Transfer
+
+`amount` is the exact Mint Club token amount. `max-cost` and `min-refund` are denominated in the reserve token.
+
+## Native ETH ZapV1
+
+Use only for WETH-reserve Mint Club tokens:
 
 ```bash
-mc send <address> -a 0.01                     # Send ETH
-mc send <address> -a 100 -t HUNT              # Send ERC-20
+# MCV2_ZapV1.mintWithEth
+mc --chain robinhood zap-buy <token> --amount 100
+mc --chain robinhood zap-buy <token> --amount 100 --max-cost 0.02
+
+# MCV2_ZapV1.burnToEth
+mc --chain robinhood zap-sell <token> --amount 100
+mc --chain robinhood zap-sell <token> --amount 100 --min-refund 0.01
 ```
 
-## Token Resolution
+Default quote slippage is 1%; override with `--slippage <percent>`. Zap is not an arbitrary-token or DEX swap.
 
-Use addresses or known symbols: `ETH`, `WETH`, `USDC`, `HUNT`, `MT`
+## Create a token
 
-## Environment
+```bash
+mc --chain robinhood create \
+  --name "My Token" \
+  --symbol MYT \
+  --reserve USDG \
+  --max-supply 1000000 \
+  --curve exponential \
+  --initial-price 0.01 \
+  --final-price 10
+```
 
-| Variable | Description |
-|----------|-------------|
-| `PRIVATE_KEY` | Wallet private key (or use `~/.mintclub/.env`) |
+Curve presets: `linear`, `exponential`, `logarithmic`, `flat`.
 
-## Notes
+## Transfer
 
-- All operations are on **Base** (chain 8453)
-- Default slippage: 1%
-- Default royalty on create: 1% mint + 1% burn
-- Token addresses are auto-saved to `~/.mintclub/tokens.json`
-- Community: https://onchat.sebayaki.com/mintclub
+```bash
+mc --chain robinhood send <address> --amount 0.01
+mc --chain robinhood send <address> --amount 100 --token USDG
+```
+
+## Known symbols
+
+| Chain | Symbols |
+|---|---|
+| Base | `ETH`, `WETH`, `USDC`, `HUNT`, `MT` |
+| Robinhood Chain | `ETH`, `WETH`, `USDG` |
+
+Addresses are accepted on both chains.
+
+## Safety
+
+- Before a write, state the chain, token, exact amount, and max/min limit.
+- Use `info` or `price` first when the token or reserve is unclear.
+- Never print or expose `PRIVATE_KEY`.
+- Do not invent a DEX route or use a `swap` command; none exists.
+- Token addresses are tracked per chain in `~/.mintclub/tokens.json`.

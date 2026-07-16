@@ -1,84 +1,82 @@
-<p align="center">
-  <img src="https://mint.club/logo.png" alt="Mint Club" width="80" />
-</p>
+# Mint Club V2 MCP Server
 
-<h1 align="center">Mint Club V2 — MCP Server</h1>
+An MCP server exposing protocol-native Mint Club V2 operations on **Base** and **Robinhood Chain**.
 
-<p align="center">
-  <a href="https://modelcontextprotocol.io">Model Context Protocol</a> server for <a href="https://mint.club">Mint Club V2</a> on Base — enables AI assistants to trade bonding curve tokens through standardized tool calls.
-</p>
+The server delegates to [`mint.club-cli`](../cli), so the CLI remains the single source of truth for contracts, token resolution, pricing, and transactions.
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/v/mintclub-mcp.svg?style=flat-square&label=npm" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/mintclub-mcp"><img src="https://img.shields.io/npm/dm/mintclub-mcp.svg?style=flat-square&label=downloads" alt="downloads" /></a>
-  <a href="https://packagephobia.com/result?p=mintclub-mcp"><img src="https://packagephobia.com/badge?p=mintclub-mcp" alt="install size" /></a>
-  <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://img.shields.io/github/stars/Steemhunt/mint.club-v2-ai?style=flat-square&logo=github" alt="GitHub" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT" /></a>
-</p>
+## Install
 
-<p align="center">
-  Part of the <a href="https://github.com/Steemhunt/mint.club-v2-ai">mint.club-v2-ai</a> monorepo.
-</p>
+```bash
+npm install -g mint.club-cli mintclub-mcp
+mc wallet --set-private-key 0xYOUR_PRIVATE_KEY
+```
 
----
-
-## Quick Start
+## Configure
 
 ```json
 {
   "mcpServers": {
     "mintclub": {
-      "command": "npx",
-      "args": ["-y", "mintclub-mcp"],
-      "env": { "PRIVATE_KEY": "0x..." }
+      "command": "mintclub-mcp",
+      "env": {
+        "PRIVATE_KEY": "0x..."
+      }
     }
   }
 }
 ```
 
-Add this to your Claude Desktop (`claude_desktop_config.json`) or Cursor MCP config.
-
-### Prerequisites
-
-The MCP server wraps the [`mc` CLI](../cli/), so it must be installed:
-
-```bash
-npm install -g mint.club-cli
-mc wallet --set-private-key 0x...
-```
+Write tools and `wallet_balance` require a configured key. Pass `PRIVATE_KEY`, or let the CLI load `~/.mintclub/.env`.
 
 ## Tools
 
 | Tool | Description |
-|------|-------------|
-| `token_info` | Token details — price, supply, reserve, bonding curve |
-| `token_price` | Current price in reserve token + USD |
-| `wallet_balance` | Wallet address and balances |
-| `buy_token` | Buy (mint) via bonding curve |
-| `sell_token` | Sell (burn) via bonding curve |
-| `swap` | Smart swap — auto-routes via bonding curve or Uniswap V3/V4 |
-| `zap_buy` | Buy bonding curve tokens with any token |
-| `zap_sell` | Sell bonding curve tokens for any token |
-| `send_token` | Transfer ETH or ERC-20 tokens |
-| `create_token` | Create a new bonding curve token |
+|---|---|
+| `token_info` | Token supply, reserve, curve, price, and USD values |
+| `token_price` | Price in reserve token and USD |
+| `wallet_balance` | Chain-local configured-wallet balances |
+| `buy_token` | `MCV2_Bond.mint` with reserve ERC-20 |
+| `sell_token` | `MCV2_Bond.burn` for reserve ERC-20 |
+| `zap_buy` | `MCV2_ZapV1.mintWithEth` for WETH-reserve tokens |
+| `zap_sell` | `MCV2_ZapV1.burnToEth` for WETH-reserve tokens |
+| `send_token` | Send native ETH or ERC-20 |
+| `create_token` | Create a bonding curve token |
 
-## Example Prompts
+`create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply.
 
-- *"What's the price of SIGNET?"* → `token_price`
-- *"Buy 100 SIGNET with ETH"* → `zap_buy`
-- *"Swap 0.01 ETH for HUNT"* → `swap`
-- *"Create a token called TEST with exponential curve"* → `create_token`
+Every tool accepts an optional `chain` property:
+
+```json
+{ "chain": "base" }
+```
+
+Supported values are `base` (default) and `robinhood`.
+
+Zap tools mint or burn an **exact Mint Club token amount**. They use native ETH and only work for WETH-reserve tokens; they do not perform a DEX swap.
+
+## Example requests
+
+- “Get token info for SIGNET on Base.” → `token_info`
+- “Mint 100 TOKEN on Robinhood with its USDG reserve.” → `buy_token`
+- “Buy 100 TOKEN with ETH on Robinhood.” → `zap_buy`
+- “Sell 50 TOKEN for ETH on Robinhood.” → `zap_sell`
+- “Create MYT backed by USDG on Robinhood.” → `create_token`
+
+## Safe CLI execution
+
+Tool arguments are passed to `mc` with `execFileSync` argv arrays. User values are not interpolated into a shell command.
+
+Set `MINTCLUB_CLI` to override the CLI executable path.
 
 ## Development
 
 ```bash
-cd mcp
 npm install
+npm run check
+npm test
 npm run build
-node dist/index.js  # Run locally
 ```
 
-## Registry Listings
+## License
 
-- [MCP Registry](https://registry.modelcontextprotocol.io) — `io.github.h1-hunt/mintclub`
-- [mcp.so](https://mcp.so/server/mint-club/H-1)
+MIT

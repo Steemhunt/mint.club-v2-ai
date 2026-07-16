@@ -1,103 +1,140 @@
-import { type Address, type PublicClient, encodePacked, keccak256, getCreate2Address, concat, toHex } from 'viem';
-import { BOND_ABI } from '../abi/bond';
+import {
+  type Address,
+  type PublicClient,
+  concat,
+  encodePacked,
+  getCreate2Address,
+  keccak256,
+} from 'viem';
+import { CHAIN_CONFIGS, type SupportedChain } from './chains';
 
-// Protocol contracts
-export const BOND: Address = '0xc5a076cad94176c2996B32d8466Be1cE757FAa27';
-export const ZAP_V2: Address = '0x7d999874eAe10f170C4813270173363468A559cD';
+export type KnownTokenConfig = {
+  symbol: string;
+  address: Address;
+  decimals: number;
+};
 
-// Well-known tokens on Base
-export const TOKENS: { symbol: string; address: Address; decimals: number }[] = [
-  { symbol: 'ETH',  address: '0x0000000000000000000000000000000000000000', decimals: 18 },
-  { symbol: 'WETH', address: '0x4200000000000000000000000000000000000006', decimals: 18 },
-  { symbol: 'USDC', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
-  { symbol: 'HUNT', address: '0x37f0c2915CeCC7e977183B8543Fc0864d03E064C', decimals: 18 },
-  { symbol: 'MT',   address: '0xFf45161474C39cB00699070Dd49582e417b57a7E', decimals: 18 },
-];
+export function getContracts(chain: SupportedChain = 'base') {
+  return CHAIN_CONFIGS[chain].contracts;
+}
 
-// Shorthand lookups
-export const WETH: Address = TOKENS.find(t => t.symbol === 'WETH')!.address;
+export function getTokens(chain: SupportedChain = 'base'): KnownTokenConfig[] {
+  return Object.entries(CHAIN_CONFIGS[chain].tokens).map(
+    ([symbol, token]) => ({ symbol, ...token }) as KnownTokenConfig,
+  );
+}
 
-/** Resolve a symbol (e.g. "USDC", "ETH", "HUNT") or address to an Address */
-export function resolveToken(input: string): Address {
+export function getBondAddress(chain: SupportedChain = 'base'): Address {
+  return getContracts(chain).bond;
+}
+
+export function getZapAddress(chain: SupportedChain = 'base'): Address {
+  return getContracts(chain).zap;
+}
+
+export function getTokenImplementation(chain: SupportedChain = 'base'): Address {
+  return getContracts(chain).tokenImplementation;
+}
+
+export function getWethAddress(chain: SupportedChain = 'base'): Address {
+  return getTokens(chain).find((token) => token.symbol === 'WETH')!.address;
+}
+
+/** Resolve a known symbol or pass through a token address on the selected chain. */
+export function resolveToken(
+  input: string,
+  chain: SupportedChain = 'base',
+): Address {
   if (input.startsWith('0x') && input.length === 42) return input as Address;
-  const token = TOKENS.find(t => t.symbol.toUpperCase() === input.toUpperCase());
+
+  const tokens = getTokens(chain);
+  const token = tokens.find(
+    (candidate) => candidate.symbol.toUpperCase() === input.toUpperCase(),
+  );
   if (token) return token.address;
-  throw new Error(`Unknown token "${input}". Use an address or one of: ${TOKENS.map(t => t.symbol).join(', ')}`);
+
+  const chainName = CHAIN_CONFIGS[chain].chain.name;
+  throw new Error(
+    `Unknown token "${input}" on ${chainName}. Use an address or one of: ${tokens
+      .map((candidate) => candidate.symbol)
+      .join(', ')}`,
+  );
 }
 
 /**
  * Predict the deterministic address for a Mint Club bonding curve token.
- * Uses CREATE2 with EIP-1167 minimal proxy pattern, matching MCV2_Bond.sol:
- *   salt = keccak256(abi.encodePacked(address(this), symbol))
- *   address = Clones.predictDeterministicAddress(implementation, salt)
+ * Uses CREATE2 with the EIP-1167 minimal proxy pattern used by MCV2_Bond.
  */
-export function predictTokenAddress(symbol: string, implementation: Address): Address {
-  const salt = keccak256(encodePacked(['address', 'string'], [BOND, symbol]));
-
-  // EIP-1167 minimal proxy init code: creation code + runtime code with implementation
+export function predictTokenAddress(
+  symbol: string,
+  implementation: Address = getTokenImplementation('base'),
+  bond: Address = getBondAddress('base'),
+): Address {
+  const salt = keccak256(encodePacked(['address', 'string'], [bond, symbol]));
   const initCode = concat([
     '0x3d602d80600a3d3981f3363d3d373d3d3d363d73',
     implementation,
     '0x5af43d82803e903d91602b57fd5bf3',
   ]);
-  const initCodeHash = keccak256(initCode);
 
-  return getCreate2Address({ from: BOND, salt, bytecodeHash: initCodeHash });
+  return getCreate2Address({
+    from: bond,
+    salt,
+    bytecodeHash: keccak256(initCode),
+  });
 }
 
-// ERC20 token implementation used by MCV2_Bond for EIP-1167 clones
-// This is a private immutable in the Bond contract, so we hardcode it here
-// Source: mintpad/src/configs/constants.ts → MCV2_ERC20_IMPLEMENTATION_ADDRESS
-export const TOKEN_IMPLEMENTATION: Address = '0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df';
-
-/**
- * Resolve a token symbol to an address, including Mint Club bonding curve tokens.
- * First checks hardcoded base tokens, then computes deterministic address and
- * verifies it's deployed on-chain.
- */
-export async function resolveTokenAsync(input: string, client: PublicClient): Promise<Address> {
-  // Direct address passthrough
+/** Resolve known and deterministic Mint Club token symbols on the selected chain. */
+export async function resolveTokenAsync(
+  input: string,
+  client: PublicClient,
+  chain: SupportedChain = 'base',
+): Promise<Address> {
   if (input.startsWith('0x') && input.length === 42) return input as Address;
 
-  // Check hardcoded tokens first (instant)
-  const token = TOKENS.find(t => t.symbol.toUpperCase() === input.toUpperCase());
-  if (token) return token.address;
+  const tokens = getTokens(chain);
+  const known = tokens.find(
+    (candidate) => candidate.symbol.toUpperCase() === input.toUpperCase(),
+  );
+  if (known) return known.address;
 
-  // Compute deterministic address from symbol
-  const implementation = TOKEN_IMPLEMENTATION;
-
-  // Try exact input first, then UPPERCASE (Mint Club symbols are typically uppercase)
   const candidates = [input];
   if (input !== input.toUpperCase()) candidates.push(input.toUpperCase());
 
   for (const symbol of candidates) {
-    const predicted = predictTokenAddress(symbol, implementation);
+    const predicted = predictTokenAddress(
+      symbol,
+      getTokenImplementation(chain),
+      getBondAddress(chain),
+    );
     const code = await client.getCode({ address: predicted });
-    if (code && code !== '0x') {
-      return predicted;
-    }
+    if (code && code !== '0x') return predicted;
   }
 
   throw new Error(
-    `Token "${input}" not found on Mint Club. ` +
-    `Use a contract address, or one of: ${TOKENS.map(t => t.symbol).join(', ')}`
+    `Token "${input}" not found on ${CHAIN_CONFIGS[chain].chain.name}. ` +
+      `Use a contract address, or one of: ${tokens
+        .map((candidate) => candidate.symbol)
+        .join(', ')}`,
   );
 }
 
-/** Get symbol for an address (returns short address if unknown) */
-export function tokenSymbol(address: string): string {
-  const t = TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase());
-  return t?.symbol ?? `${address.slice(0, 6)}...${address.slice(-4)}`;
+export function tokenSymbol(
+  address: string,
+  chain: SupportedChain = 'base',
+): string {
+  const token = getTokens(chain).find(
+    (candidate) => candidate.address.toLowerCase() === address.toLowerCase(),
+  );
+  return token?.symbol ?? `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-/** Get decimals for an address (defaults to 18) */
-export function tokenDecimals(address: string): number {
-  const t = TOKENS.find(t => t.address.toLowerCase() === address.toLowerCase());
-  return t?.decimals ?? 18;
+export function tokenDecimals(
+  address: string,
+  chain: SupportedChain = 'base',
+): number {
+  const token = getTokens(chain).find(
+    (candidate) => candidate.address.toLowerCase() === address.toLowerCase(),
+  );
+  return token?.decimals ?? 18;
 }
-
-// 1inch Spot Price Aggregator
-export const SPOT_PRICE_AGGREGATOR: Address = '0x00000000000D6FFc74A8feb35aF5827bf57f6786';
-
-// Router intermediaries (tokens to try 1-hop routes through)
-export const INTERMEDIARIES = TOKENS.filter(t => ['WETH', 'USDC'].includes(t.symbol));

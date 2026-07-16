@@ -1,11 +1,16 @@
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { BOND } from '../config/contracts';
+import { getBondAddress } from '../config/contracts';
+import type { SupportedChain } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
 import { parse } from '../utils/format';
 import { ensureApproval } from '../utils/approve';
 import { getSymbol } from '../utils/symbol';
-import { getBondInfo, getMintCost } from '../utils/bond';
+import {
+  getBondInfo,
+  getMintCost,
+  resolveMintLimit,
+} from '../utils/bond';
 import { executeTransaction, setupClients } from '../utils/transaction';
 
 export async function buy(
@@ -13,51 +18,64 @@ export async function buy(
   amount: string,
   maxCost: string | undefined,
   privateKey: `0x${string}`,
+  chain: SupportedChain = 'base',
 ) {
   const { publicClient, walletClient, account } = setupClients(
     getPublicClient,
     getWalletClient,
     privateKey,
+    chain,
   );
+  const bond = getBondAddress(chain);
 
   const tokensToMint = parse(amount);
-  const bondInfo = await getBondInfo(publicClient, token);
-  const tokenSymbol = await getSymbol(publicClient, token);
+  const bondInfo = await getBondInfo(publicClient, token, chain);
+  const tokenSymbol = await getSymbol(publicClient, token, chain);
 
   console.log(`🛒 Buying ${amount} ${tokenSymbol}...`);
 
-  // Get mint cost
-  const { reserveAmount, royalty, totalCost } = await getMintCost(
+  const { royalty, totalCost } = await getMintCost(
     publicClient,
     token,
     tokensToMint,
+    chain,
   );
+  const baseCost = totalCost - royalty;
 
   console.log(
-    `   Cost: ${bondInfo.formatReserve(reserveAmount)} + ${bondInfo.formatReserve(royalty)} royalty = ${bondInfo.formatReserve(totalCost)} ${bondInfo.reserveSymbol}`,
+    `   Cost: ${bondInfo.formatReserve(baseCost)} + ${bondInfo.formatReserve(royalty)} royalty = ${bondInfo.formatReserve(totalCost)} ${bondInfo.reserveSymbol}`,
   );
 
-  // Check max cost limit
-  if (maxCost && totalCost > parse(maxCost)) {
-    throw new Error(
-      `Cost ${bondInfo.formatReserve(totalCost)} ${bondInfo.reserveSymbol} exceeds max ${maxCost}`,
+  const maxReserveAmount = resolveMintLimit(
+    totalCost,
+    maxCost,
+    bondInfo.reserveDecimals,
+  );
+  if (maxReserveAmount > totalCost) {
+    console.log(
+      `   Max cost: ${bondInfo.formatReserve(maxReserveAmount)} ${bondInfo.reserveSymbol}`,
     );
   }
 
-  // Approve reserve token spending
-  await ensureApproval(publicClient, walletClient, bondInfo.reserveToken, BOND, totalCost);
+  await ensureApproval(
+    publicClient,
+    walletClient,
+    bondInfo.reserveToken,
+    bond,
+    maxReserveAmount,
+  );
 
-  // Execute mint transaction
   await executeTransaction(
     publicClient,
     walletClient,
     token,
     {
-      address: BOND,
+      address: bond,
       abi: BOND_ABI,
       functionName: 'mint',
-      args: [token, tokensToMint, totalCost, account],
+      args: [token, tokensToMint, maxReserveAmount, account],
     },
     `Bought ${amount} ${tokenSymbol} for ${bondInfo.formatReserve(totalCost)} ${bondInfo.reserveSymbol}`,
+    chain,
   );
 }

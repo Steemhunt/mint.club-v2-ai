@@ -21,7 +21,13 @@ export async function ensureApproval(
 
   console.log('🔓 Approving...');
   const hash = await wallet.writeContract({
-    address: token, abi: APPROVE_ABI, functionName: 'approve', args: [spender, maxUint256],
+    address: token,
+    abi: APPROVE_ABI,
+    functionName: 'approve',
+    args: [spender, maxUint256],
   });
-  await pub.waitForTransactionReceipt({ hash });
+  const receipt = await pub.waitForTransactionReceipt({ hash });
+  if (receipt.status !== 'success') {
+    throw new Error('Approval transaction failed');
+  }
 }

@@ -1,109 +1,84 @@
-import { type Address, formatUnits } from 'viem';
+import { type Address, formatEther, parseEther } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { ZAP_V2 } from '../config/contracts';
-import { ZAP_V2_ABI } from '../abi/zap-v2';
-import { fmt, parse } from '../utils/format';
+import { getWethAddress, getZapAddress } from '../config/contracts';
+import type { SupportedChain } from '../config/chains';
+import { parse } from '../utils/format';
 import { ensureApproval } from '../utils/approve';
 import { getSymbol } from '../utils/symbol';
 import { getBondInfo, getBurnRefund } from '../utils/bond';
 import { executeTransaction, setupClients } from '../utils/transaction';
-import { parseZapToken, resolveZapPath, getZapDeadline } from '../utils/zap';
-import {
-  encodeV3SwapInput,
-  V3_SWAP_COMMAND,
-  UNWRAP_WETH_COMMAND,
-  encodeUnwrapWethInput,
-} from '../utils/swap';
+import { buildZapBurnCall, subtractSlippage } from '../utils/zap-v1';
 
 export async function zapSell(
   token: Address,
   amount: string,
-  outputToken: Address,
-  minOutput: string | undefined,
-  pathStr: string | undefined,
+  minRefund: string | undefined,
+  slippage: number,
   privateKey: `0x${string}`,
+  chain: SupportedChain = 'base',
 ) {
   const { publicClient, walletClient, account } = setupClients(
     getPublicClient,
     getWalletClient,
     privateKey,
+    chain,
   );
 
   const tokensToBurn = parse(amount);
-  const minOut = minOutput ? parse(minOutput) : 0n;
-
-  // Parse output token info
-  const outputInfo = await parseZapToken(publicClient, outputToken, false);
-
-  // Get token and bond info
   const [tokenSymbol, bondInfo] = await Promise.all([
-    getSymbol(publicClient, token),
-    getBondInfo(publicClient, token),
+    getSymbol(publicClient, token, chain),
+    getBondInfo(publicClient, token, chain),
   ]);
 
-  console.log(`⚡ Zap selling ${amount} ${tokenSymbol} for ${outputInfo.symbol}...`);
+  if (
+    bondInfo.reserveToken.toLowerCase() !==
+    getWethAddress(chain).toLowerCase()
+  ) {
+    throw new Error(
+      `Zap requires a WETH-reserve token; ${tokenSymbol} uses ${bondInfo.reserveSymbol}`,
+    );
+  }
 
-  // Get expected refund from burning
-  const { refundAmount } = await getBurnRefund(publicClient, token, tokensToBurn);
-
-  // Resolve swap path
-  const zapPath = await resolveZapPath(
+  const { netRefund } = await getBurnRefund(
     publicClient,
-    bondInfo.reserveToken,
-    outputToken,
-    refundAmount,
-    pathStr,
+    token,
+    tokensToBurn,
+    chain,
   );
+  const minEthRefund = minRefund
+    ? parseEther(minRefund)
+    : subtractSlippage(netRefund, slippage);
 
-  if (zapPath.description && zapPath.amountOut) {
-    console.log(`   Route: ${zapPath.description}`);
-    console.log(`   Expected swap output: ${fmt(zapPath.amountOut)} ${outputInfo.symbol}`);
+  if (minEthRefund > netRefund) {
+    throw new Error(
+      `Refund ${formatEther(netRefund)} ETH is below minimum ${formatEther(minEthRefund)} ETH`,
+    );
   }
 
-  // Prepare swap commands
-  const ADDRESS_THIS = '0x0000000000000000000000000000000000000002' as `0x${string}`;
-  const swapRecipient = outputInfo.isETH ? ADDRESS_THIS : ZAP_V2;
-  const swapInput = encodeV3SwapInput(swapRecipient, refundAmount, 0n, zapPath.path);
-  const deadline = getZapDeadline();
+  console.log(`⚡ Zap selling ${amount} ${tokenSymbol} for native ETH...`);
+  console.log(`   Quote: ${formatEther(netRefund)} ETH`);
+  console.log(`   Min refund: ${formatEther(minEthRefund)} ETH`);
 
-  let commands: `0x${string}`;
-  let inputs: `0x${string}`[];
-
-  if (outputInfo.isETH) {
-    commands = ('0x' + V3_SWAP_COMMAND.slice(2) + UNWRAP_WETH_COMMAND.slice(2)) as `0x${string}`;
-    inputs = [swapInput, encodeUnwrapWethInput(ZAP_V2, minOut)];
-  } else {
-    commands = V3_SWAP_COMMAND;
-    inputs = [swapInput];
-  }
-
-  // Approve token burning
-  await ensureApproval(publicClient, walletClient, token, ZAP_V2, tokensToBurn);
-
-  // Simulate to get expected results
-  const { result } = await publicClient.simulateContract({
-    account: walletClient.account,
-    address: ZAP_V2,
-    abi: ZAP_V2_ABI,
-    functionName: 'zapBurn',
-    args: [token, tokensToBurn, outputInfo.actualToken, minOut, commands, inputs, deadline, account],
-  });
-
-  console.log(
-    `   Expected: ${formatUnits(result[0], outputInfo.decimals)} ${outputInfo.symbol} | Reserve burned: ${fmt(result[1])} ${bondInfo.reserveSymbol}`,
+  await ensureApproval(
+    publicClient,
+    walletClient,
+    token,
+    getZapAddress(chain),
+    tokensToBurn,
   );
 
-  // Execute zap burn transaction
   await executeTransaction(
     publicClient,
     walletClient,
     token,
-    {
-      address: ZAP_V2,
-      abi: ZAP_V2_ABI,
-      functionName: 'zapBurn',
-      args: [token, tokensToBurn, outputInfo.actualToken, minOut, commands, inputs, deadline, account],
-    },
-    `Zap sold ${amount} ${tokenSymbol} for ${formatUnits(result[0], outputInfo.decimals)} ${outputInfo.symbol}`,
+    buildZapBurnCall({
+      chain,
+      token,
+      tokensToBurn,
+      minEthRefund,
+      receiver: account,
+    }),
+    `Zap sold ${amount} ${tokenSymbol} for ${formatEther(netRefund)} ETH`,
+    chain,
   );
 }

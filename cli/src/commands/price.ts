@@ -1,18 +1,27 @@
 import { type Address, formatUnits } from 'viem';
 import { getPublicClient } from '../client';
-import { getBondInfo, getTokenPrice } from '../utils/bond';
+import type { SupportedChain } from '../config/chains';
+import { getBondInfo } from '../utils/bond';
 import { getTokenPricing, formatUsd } from '../utils/token-info';
 import { getSymbol } from '../utils/symbol';
 import { ERC20_ABI } from '../abi/erc20';
 
-export async function price(token: Address) {
-  const client = getPublicClient();
+export async function price(
+  token: Address,
+  chain: SupportedChain = 'base',
+) {
+  const client = getPublicClient(chain);
 
-  // Get basic token info
   const [symbol, supply, bondInfo] = await Promise.all([
-    getSymbol(client, token),
-    client.readContract({ address: token, abi: ERC20_ABI, functionName: 'totalSupply' }),
-    getBondInfo(client, token).catch(() => { throw new Error('Not a Mint Club token'); }),
+    getSymbol(client, token, chain),
+    client.readContract({
+      address: token,
+      abi: ERC20_ABI,
+      functionName: 'totalSupply',
+    }),
+    getBondInfo(client, token, chain).catch(() => {
+      throw new Error('Not a Mint Club token');
+    }),
   ]);
 
   console.log(`💱 ${symbol} (${token})\n`);
@@ -22,15 +31,17 @@ export async function price(token: Address) {
     return;
   }
 
-  // Get pricing information
-  const pricing = await getTokenPricing(client, token, supply);
+  const pricing = await getTokenPricing(client, token, supply, chain);
+  const reservePrice = formatUnits(
+    pricing.tokenPrice,
+    bondInfo.reserveDecimals,
+  );
+  console.log(`   Price: ${reservePrice} ${bondInfo.reserveSymbol}`);
 
-  // Format reserve price
-  const reservePriceStr = formatUnits(pricing.tokenPrice, bondInfo.reserveDecimals);
-  console.log(`   Price: ${reservePriceStr} ${bondInfo.reserveSymbol}`);
-
-  // Show USD pricing if available
-  if (pricing.tokenUsd !== undefined && pricing.reserveValue !== undefined) {
+  if (
+    pricing.tokenUsd !== undefined &&
+    pricing.reserveValue !== undefined
+  ) {
     console.log(`   Price (USD): $${formatUsd(pricing.tokenUsd)}`);
     console.log(
       `   Reserve: ${bondInfo.formatReserve(bondInfo.reserveBalance)} ${bondInfo.reserveSymbol} (~$${formatUsd(pricing.reserveValue)})`,
@@ -43,6 +54,6 @@ export async function price(token: Address) {
     console.log(
       `   Reserve: ${bondInfo.formatReserve(bondInfo.reserveBalance)} ${bondInfo.reserveSymbol}`,
     );
-    console.log(`   ⚠️  Could not fetch USD price for reserve token`);
+    console.log('   ⚠️  Could not fetch USD price for reserve token');
   }
 }

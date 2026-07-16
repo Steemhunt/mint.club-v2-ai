@@ -1,5 +1,6 @@
 import { type Address, type PublicClient, formatUnits } from 'viem';
-import { BOND } from '../config/contracts';
+import { getBondAddress } from '../config/contracts';
+import type { SupportedChain } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
 import { ERC20_ABI } from '../abi/erc20';
 import { getBondInfo, getTokenPrice } from './bond';
@@ -28,15 +29,20 @@ export interface TokenPricing {
 /**
  * Fetch comprehensive token details including bond info
  */
-export async function getTokenDetails(client: PublicClient, token: Address): Promise<TokenDetails> {
+export async function getTokenDetails(
+  client: PublicClient,
+  token: Address,
+  chain: SupportedChain = 'base',
+): Promise<TokenDetails> {
+  const bond = getBondAddress(chain);
   const [nameRes, symbolRes, supplyRes, bondRes, maxRes, stepsRes] = await client.multicall({
     contracts: [
       { address: token, abi: ERC20_ABI, functionName: 'name' },
       { address: token, abi: ERC20_ABI, functionName: 'symbol' },
       { address: token, abi: ERC20_ABI, functionName: 'totalSupply' },
-      { address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [token] },
-      { address: BOND, abi: BOND_ABI, functionName: 'maxSupply', args: [token] },
-      { address: BOND, abi: BOND_ABI, functionName: 'getSteps', args: [token] },
+      { address: bond, abi: BOND_ABI, functionName: 'tokenBond', args: [token] },
+      { address: bond, abi: BOND_ABI, functionName: 'maxSupply', args: [token] },
+      { address: bond, abi: BOND_ABI, functionName: 'getSteps', args: [token] },
     ],
   });
 
@@ -44,12 +50,12 @@ export async function getTokenDetails(client: PublicClient, token: Address): Pro
     throw new Error('Not a Mint Club token');
   }
 
-  const bondInfo = await getBondInfo(client, token);
+  const bondInfo = await getBondInfo(client, token, chain);
 
   let currentPrice: bigint | undefined;
   if (supplyRes.result && supplyRes.result > 0n) {
     try {
-      currentPrice = await getTokenPrice(client, token);
+      currentPrice = await getTokenPrice(client, token, chain);
     } catch {
       // Ignore price fetch errors
     }
@@ -74,12 +80,13 @@ export async function getTokenPricing(
   client: PublicClient,
   token: Address,
   supply: bigint,
+  chain: SupportedChain = 'base',
 ): Promise<TokenPricing> {
-  const tokenPrice = await getTokenPrice(client, token);
-  const bondInfo = await getBondInfo(client, token);
+  const tokenPrice = await getTokenPrice(client, token, chain);
+  const bondInfo = await getBondInfo(client, token, chain);
 
   // Get USD price of reserve token
-  const reserveUsd = await getUsdPrice(bondInfo.reserveToken);
+  const reserveUsd = await getUsdPrice(bondInfo.reserveToken, chain);
   let tokenUsd: number | undefined;
   let reserveValue: number | undefined;
   let marketCap: number | undefined;

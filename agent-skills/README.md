@@ -1,8 +1,6 @@
 # Mint Club V2 — Agent Skill
 
-AI agent skill for trading [Mint Club V2](https://mint.club) bonding curve tokens on Base.
-
-> Part of the [mint.club-v2-ai](https://github.com/Steemhunt/mint.club-v2-ai) monorepo.
+Agent instructions for protocol-native [Mint Club V2](https://mint.club) operations on Base and Robinhood Chain.
 
 ## Install
 
@@ -10,29 +8,34 @@ AI agent skill for trading [Mint Club V2](https://mint.club) bonding curve token
 clawhub install mintclub
 ```
 
-Or manually copy [`SKILL.md`](./SKILL.md) into your agent's skills directory.
+Or copy [`SKILL.md`](./SKILL.md) into your agent's skill directory.
 
 ## Prerequisites
 
 ```bash
-npm install -g mint.club-cli    # Install the CLI
-mc wallet --generate            # Create a wallet (or --set-private-key)
+npm install -g mint.club-cli
+mc wallet --generate
 ```
 
-Fund the wallet with ETH on Base for gas fees.
+Fund the wallet with native ETH on the selected chain for gas and transaction value.
 
-## What Agents Can Do
+## Capabilities
 
-- **Query** — token info, prices, wallet balances
-- **Trade** — buy/sell via bonding curves, zap with any token
-- **Swap** — any token pair via Uniswap V3/V4
-- **Create** — new bonding curve tokens with preset curves
-- **Transfer** — ETH and ERC-20 tokens
+- **Query** token info, prices, and wallet balances
+- **Mint/burn** with a token's reserve ERC-20 through `MCV2_Bond`
+- **Native ETH Zap** for WETH-reserve tokens through `MCV2_ZapV1`
+- **Create** bonding curve tokens
+- **Transfer** native ETH and ERC-20 tokens
 
-The agent reads `SKILL.md` to learn available `mc` CLI commands and executes them via shell.
+The skill deliberately excludes general-purpose DEX swaps.
+
+## Supported chains
+
+- Base (`--chain base`, default)
+- Robinhood Chain (`--chain robinhood`)
 
 ## Links
 
 - [ClawHub](https://clawhub.com/skills/mintclub)
-- [CLI docs](../cli/README.md)
-- [Full command reference](./SKILL.md)
+- [CLI documentation](../cli/README.md)
+- [Full agent instructions](./SKILL.md)

@@ -1,11 +1,16 @@
 import { type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { BOND } from '../config/contracts';
+import { getBondAddress } from '../config/contracts';
+import type { SupportedChain } from '../config/chains';
 import { BOND_ABI } from '../abi/bond';
 import { parse } from '../utils/format';
 import { ensureApproval } from '../utils/approve';
 import { getSymbol } from '../utils/symbol';
-import { getBondInfo, getBurnRefund } from '../utils/bond';
+import {
+  getBondInfo,
+  getBurnRefund,
+  resolveBurnLimit,
+} from '../utils/bond';
 import { executeTransaction, setupClients } from '../utils/transaction';
 
 export async function sell(
@@ -13,53 +18,58 @@ export async function sell(
   amount: string,
   minRefund: string | undefined,
   privateKey: `0x${string}`,
+  chain: SupportedChain = 'base',
 ) {
   const { publicClient, walletClient, account } = setupClients(
     getPublicClient,
     getWalletClient,
     privateKey,
+    chain,
   );
+  const bond = getBondAddress(chain);
 
   const tokensToBurn = parse(amount);
-  const bondInfo = await getBondInfo(publicClient, token);
-  const tokenSymbol = await getSymbol(publicClient, token);
+  const bondInfo = await getBondInfo(publicClient, token, chain);
+  const tokenSymbol = await getSymbol(publicClient, token, chain);
 
   console.log(`🔥 Selling ${amount} ${tokenSymbol}...`);
 
-  // Get burn refund
-  const { refundAmount, royalty, netRefund } = await getBurnRefund(
+  const { royalty, netRefund } = await getBurnRefund(
     publicClient,
     token,
     tokensToBurn,
+    chain,
   );
+  const grossRefund = netRefund + royalty;
 
   console.log(
-    `   Refund: ${bondInfo.formatReserve(refundAmount)} - ${bondInfo.formatReserve(royalty)} royalty = ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol}`,
+    `   Refund: ${bondInfo.formatReserve(grossRefund)} - ${bondInfo.formatReserve(royalty)} royalty = ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol}`,
   );
 
-  // Check minimum refund
-  if (minRefund && netRefund < parse(minRefund)) {
-    throw new Error(
-      `Refund ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol} below minimum ${minRefund}`,
+  const minRef = resolveBurnLimit(
+    netRefund,
+    minRefund,
+    bondInfo.reserveDecimals,
+  );
+  if (minRef < netRefund) {
+    console.log(
+      `   Min refund: ${bondInfo.formatReserve(minRef)} ${bondInfo.reserveSymbol}`,
     );
   }
 
-  const minRef = minRefund ? parse(minRefund) : 0n;
-  
-  // Approve token burning
-  await ensureApproval(publicClient, walletClient, token, BOND, tokensToBurn);
+  await ensureApproval(publicClient, walletClient, token, bond, tokensToBurn);
 
-  // Execute burn transaction
   await executeTransaction(
     publicClient,
     walletClient,
     token,
     {
-      address: BOND,
+      address: bond,
       abi: BOND_ABI,
       functionName: 'burn',
       args: [token, tokensToBurn, minRef, account],
     },
     `Sold ${amount} ${tokenSymbol} for ${bondInfo.formatReserve(netRefund)} ${bondInfo.reserveSymbol}`,
+    chain,
   );
 }

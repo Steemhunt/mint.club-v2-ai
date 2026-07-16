@@ -1,284 +1,153 @@
-<p align="center">
-  <img src="https://mint.club/logo.png" alt="Mint Club" width="80" />
-</p>
+# Mint Club V2 CLI
 
-<h1 align="center">Mint Club CLI (<code>mc</code>)</h1>
+A command-line client for protocol-native [Mint Club V2](https://mint.club) operations on **Base** and **Robinhood Chain**.
 
-<p align="center">
-  Trade <a href="https://mint.club">Mint Club V2</a> bonding curve tokens, zap through Uniswap, and create tokens — all from your terminal.
-</p>
+The CLI calls the official contracts directly:
 
-<p align="center">
-  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/v/mint.club-cli.svg?style=flat-square&label=npm" alt="npm" /></a>
-  <a href="https://www.npmjs.com/package/mint.club-cli"><img src="https://img.shields.io/npm/dm/mint.club-cli.svg?style=flat-square&label=downloads" alt="downloads" /></a>
-  <a href="https://packagephobia.com/result?p=mint.club-cli"><img src="https://packagephobia.com/badge?p=mint.club-cli" alt="install size" /></a>
-  <a href="https://github.com/Steemhunt/mint.club-v2-ai"><img src="https://img.shields.io/github/stars/Steemhunt/mint.club-v2-ai?style=flat-square&logo=github" alt="GitHub" /></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square" alt="MIT" /></a>
-</p>
+- `MCV2_Bond.mint` / `burn` for reserve-token trades
+- `MCV2_ZapV1.mintWithEth` / `burnToEth` for native ETH trades on WETH-reserve tokens
+- `MCV2_Bond.createToken` for token creation
 
-<p align="center">
-  Part of the <a href="https://github.com/Steemhunt/mint.club-v2-ai">mint.club-v2-ai</a> monorepo.
-</p>
-
----
-
-[Mint Club V2](https://mint.club) is a permissionless bonding curve protocol — launch a token backed by any reserve asset with automated pricing. No liquidity pool required.
-
-This CLI gives you full access from the command line: check prices, buy, sell, zap through Uniswap, create tokens, and manage your wallet.
+It does **not** provide a general-purpose DEX swap command.
 
 ## Install
 
 ```bash
 npm install -g mint.club-cli
+mc --help
 ```
 
-Requires Node.js 18+. After install, the `mc` command is available globally.
-
-## Setup
+## Wallet setup
 
 ```bash
-# Generate a new wallet
 mc wallet --generate
-
-# Or import an existing key
-mc wallet --set-private-key 0xYourPrivateKey
+# or
+mc wallet --set-private-key 0xYOUR_PRIVATE_KEY
 ```
 
-Your private key is stored at `~/.mintclub/.env`. **Back it up securely** — if lost, your funds are gone forever.
+The key is stored in `~/.mintclub/.env` with file mode `0600`; the directory is locked to `0700`. You can instead export `PRIVATE_KEY`.
 
-## Commands
+> Never commit or share a private key. Use a dedicated wallet with limited funds.
 
-### 💱 `mc price <token>`
+## Chain selection
 
-Get current token price in reserve and USD.
-
-```
-$ mc price 0xDF2B...79c9
-
-💱 SIGNET (0xDF2B...79c9)
-
-   Price: 1.170000 HUNT
-   Price (USD): $0.0061
-   Reserve: 126,819.23 HUNT (~$660.34)
-   Market Cap: ~$3,159.60
-```
-
-Uses the bonding curve for reserve pricing and [1inch Spot Price Aggregator](https://1inch.io) for USD conversion.
-
----
-
-### 🔍 `mc info <token>`
-
-Detailed token info — name, supply, reserve, royalties, bonding curve, and pricing.
-
-```
-$ mc info 0xDF2B...79c9
-
-🪙 Token: SIGNET (SIGNET)
-📍 Address: 0xDF2B...79c9
-👤 Creator: 0x980C...92E4
-💰 Reserve Token: 0x37f0...064C (HUNT)
-💎 Reserve Balance: 126,819.23
-📊 Supply: 517,963.04 / 1,000,000
-💸 Mint Royalty: 0.30%  |  🔥 Burn Royalty: 0.30%
-📈 Bonding Curve: 500 steps, 0.01 → 99.99 per token (+10000x)
-
-💱 Current Price: 1.17 reserve per 1 SIGNET (~$0.0061)
-💵 Reserve Value: ~$660.34
-📊 Market Cap: ~$3,159.60
-```
-
----
-
-### 🛒 `mc buy <token>`
-
-Buy (mint) tokens with the reserve token along the bonding curve.
+Base is the default. Select Robinhood Chain with the global option:
 
 ```bash
-mc buy 0xTokenAddress -a 100          # Buy 100 tokens
-mc buy 0xTokenAddress -a 100 -m 500   # Max cost 500 reserve
+mc --chain base info SIGNET
+mc --chain robinhood info 0xTOKEN
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-a, --amount <n>` | Tokens to buy **(required)** |
-| `-m, --max-cost <n>` | Max reserve to spend |
+| Chain | CLI value | Chain ID | Known symbols |
+|---|---|---:|---|
+| Base | `base` | 8453 | `ETH`, `WETH`, `USDC`, `HUNT`, `MT` |
+| Robinhood Chain | `robinhood` | 4663 | `ETH`, `WETH`, `USDG` |
 
----
+Any ERC-20 or Mint Club token can also be supplied by contract address. Created and used Mint Club token addresses are tracked per chain in `~/.mintclub/tokens.json`.
 
-### 🔥 `mc sell <token>`
-
-Sell (burn) tokens back to the bonding curve.
+## Read operations
 
 ```bash
-mc sell 0xTokenAddress -a 50           # Sell 50 tokens
-mc sell 0xTokenAddress -a 50 -m 10     # Min refund 10 reserve
+mc --chain base info SIGNET
+mc --chain base price SIGNET
+mc --chain robinhood wallet
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-a, --amount <n>` | Tokens to sell **(required)** |
-| `-m, --min-refund <n>` | Min reserve to receive |
+USD pricing uses chain-specific DefiLlama price feeds with fixed $1 handling for USDC and USDG.
 
----
+## Bond mint and burn
 
-### ⚡ `mc zap-buy <token>`
-
-Buy tokens with **any token** — auto-routes through Uniswap V3 into the reserve, then mints.
+Use these commands when paying or receiving the token's configured reserve ERC-20.
 
 ```bash
-# Buy with ETH (auto-finds best route)
-mc zap-buy 0xTokenAddress -i ETH -a 0.01
+# Mint an exact token amount
+mc --chain base buy SIGNET --amount 100
+mc --chain robinhood buy 0xTOKEN --amount 100 --max-cost 25
 
-# Buy with USDC (manual path)
-mc zap-buy 0xTokenAddress -i 0xUSDC -a 50 -p "0xUSDC,3000,0xHUNT"
+# Burn an exact token amount
+mc --chain base sell SIGNET --amount 100
+mc --chain robinhood sell 0xTOKEN --amount 100 --min-refund 20
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-i, --input-token <addr>` | Token to pay with — use `ETH` for native ETH **(required)** |
-| `-a, --amount <n>` | Amount of input token to spend **(required)** |
-| `-p, --path <p>` | Manual swap path: `token,fee,token,...` (optional — auto-routes if omitted) |
-| `-m, --min-tokens <n>` | Min tokens to receive |
+`--max-cost` and `--min-refund` are denominated in the reserve token and respect its decimals. If omitted, the current quote is used as the exact on-chain limit; provide an explicit limit to tolerate price movement before inclusion.
 
----
+## Native ETH ZapV1 mint and burn
 
-### ⚡ `mc zap-sell <token>`
-
-Sell tokens and receive **any token** — burns for reserve, then swaps to your desired output.
+ZapV1 applies only to Mint Club tokens whose reserve token is WETH.
 
 ```bash
-# Sell to ETH
-mc zap-sell 0xTokenAddress -a 100 -o ETH
+# MCV2_ZapV1.mintWithEth
+mc --chain base zap-buy 0xWETH_RESERVE_TOKEN --amount 100
+mc --chain robinhood zap-buy 0xTOKEN --amount 100 --slippage 0.5
+mc --chain robinhood zap-buy 0xTOKEN --amount 100 --max-cost 0.02
 
-# Sell to USDC
-mc zap-sell 0xTokenAddress -a 100 -o 0xUSDC
+# MCV2_ZapV1.burnToEth
+mc --chain base zap-sell 0xWETH_RESERVE_TOKEN --amount 100
+mc --chain robinhood zap-sell 0xTOKEN --amount 100 --slippage 0.5
+mc --chain robinhood zap-sell 0xTOKEN --amount 100 --min-refund 0.01
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-a, --amount <n>` | Tokens to sell **(required)** |
-| `-o, --output-token <addr>` | Token to receive — use `ETH` for native ETH **(required)** |
-| `-p, --path <p>` | Manual swap path (optional — auto-routes if omitted) |
-| `-m, --min-output <n>` | Min output to receive |
+The amount is always the exact Mint Club token amount to mint or burn. `max-cost` and `min-refund` are native ETH amounts. Default slippage is 1%.
 
----
-
-### 🪙 `mc create`
-
-Create a new bonding curve token with presets or custom steps.
+## Create a token
 
 ```bash
-# Exponential curve from 0.01 to 100
-mc create -n "My Token" -s MTK \
-  -r 0xReserveToken -x 1000000 \
-  --curve exponential --initial-price 0.01 --final-price 100
-
-# Custom steps
-mc create -n "My Token" -s MTK \
-  -r 0xReserveToken -x 1000000 \
-  -t "500000:0.01,1000000:1.0"
+mc --chain robinhood create \
+  --name "My Token" \
+  --symbol MYT \
+  --reserve USDG \
+  --max-supply 1000000 \
+  --curve exponential \
+  --initial-price 0.01 \
+  --final-price 10
 ```
 
-**Curve presets:** `linear` · `exponential` · `logarithmic` · `flat`
+Curve presets: `linear`, `exponential`, `logarithmic`, and `flat`.
 
-| Option | Description |
-|--------|-------------|
-| `-n, --name <name>` | Token name **(required)** |
-| `-s, --symbol <sym>` | Token symbol **(required)** |
-| `-r, --reserve <addr>` | Reserve token address **(required)** |
-| `-x, --max-supply <n>` | Max supply **(required)** |
-| `--curve <type>` | Curve preset |
-| `--initial-price <n>` | Start price (with `--curve`) |
-| `--final-price <n>` | End price (with `--curve`) |
-| `-t, --steps <s>` | Custom steps as `range:price,...` |
-| `--mint-royalty <bp>` | Mint royalty in bps (default: `100` = 1%) |
-| `--burn-royalty <bp>` | Burn royalty in bps (default: `100` = 1%) |
-| `-y, --yes` | Skip confirmation |
-
----
-
-### 👛 `mc wallet`
-
-View balances with USD values, or manage keys.
-
-```
-$ mc wallet
-
-👛 Wallet: 0x5831...E316
-
-💰 Balances on Base:
-
-   ETH: 0.008749 (~$17.13)
-   HUNT: 1,000.00 (~$5.20)
-
-🪙 Mint Club Tokens:
-
-   SIGNET: 500.00 (~$2.93)
-   ONCHAT: 1,200.00 (~$8.40)
-
-💵 Total: ~$33.66
-```
-
-Tokens you've traded via `buy`/`sell`/`zap-buy`/`zap-sell` are automatically tracked in `~/.mintclub/tokens.json` and shown here.
-
-| Option | Description |
-|--------|-------------|
-| `-g, --generate` | Generate a new wallet |
-| `-s, --set-private-key <key>` | Import a private key |
-
----
-
-### 📤 `mc send <to>`
-
-Send ETH, ERC-20, or ERC-1155 tokens.
+For a custom curve:
 
 ```bash
-mc send 0xRecipient -a 0.1                          # Send ETH
-mc send 0xRecipient -a 100 -t 0xToken               # Send ERC-20
-mc send 0xRecipient -a 1 -t 0xNFT --token-id 42     # Send ERC-1155
+mc --chain base create \
+  --name "My Token" \
+  --symbol MYT \
+  --reserve USDC \
+  --max-supply 1000000 \
+  --steps "100000:0.01,500000:0.05,1000000:0.1"
 ```
 
-| Option | Description |
-|--------|-------------|
-| `-a, --amount <n>` | Amount **(required)** |
-| `-t, --token <addr>` | Token address (omit for ETH) |
-| `--token-id <id>` | ERC-1155 token ID |
+Prices are encoded using the reserve token's actual decimals, including 6-decimal USDC and USDG.
 
----
-
-### ⬆️ `mc upgrade`
-
-Update to the latest version.
+## Transfer and balances
 
 ```bash
-mc upgrade
+mc --chain robinhood send 0xRECIPIENT --amount 0.01
+mc --chain robinhood send 0xRECIPIENT --amount 100 --token USDG
+mc --chain robinhood wallet
 ```
 
-## Swap Routing
+## Official contract addresses
 
-Zap commands auto-find the best Uniswap V3 route through WETH, USDC, and USDbC. You can also specify a manual path:
+| Chain | MCV2 Bond | MCV2 ZapV1 | ERC-20 implementation |
+|---|---|---|---|
+| Base | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` |
+| Robinhood Chain | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xA3dCf3Ca587D9929d540868c924f208726DC9aB6` | `0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387` |
 
+Robinhood canonical tokens:
+
+- WETH: `0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73`
+- USDG: `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`
+
+## Development
+
+```bash
+npm install
+npm run check
+npm test
+npm run build
 ```
-tokenAddress,fee,tokenAddress[,fee,tokenAddress]
-```
 
-**Fee tiers:** `100` (0.01%) · `500` (0.05%) · `3000` (0.3%) · `10000` (1%)
-
-**Example:** `0xUSDC,500,0xWETH,3000,0xHUNT` (USDC → WETH → HUNT)
-
-## Links
-
-| | |
-|---|---|
-| 🌐 **App** | [mint.club](https://mint.club) |
-| 📖 **Docs** | [docs.mint.club](https://docs.mint.club) |
-| 📦 **SDK** | [mint.club-v2-sdk](https://www.npmjs.com/package/mint.club-v2-sdk) |
-| 🔗 **Contracts** | [github.com/Steemhunt/mint.club-v2-contract](https://github.com/Steemhunt/mint.club-v2-contract) |
-| 💬 **Chat** | [OnChat](https://onchat.sebayaki.com/mintclub) |
-| 🐦 **Twitter** | [@MintClubPro](https://twitter.com/MintClubPro) |
-| 🏗️ **Hunt Town** | [hunt.town](https://hunt.town) |
+The default test suite includes unit tests and read-only Base/Robinhood mainnet integration checks. Anvil write tests run automatically when `~/.foundry/bin/anvil` is installed.
 
 ## License
 
-MIT — built with 🏗️ by [Hunt Town](https://hunt.town)
+MIT

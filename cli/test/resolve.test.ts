@@ -9,8 +9,19 @@ vi.setConfig({ testTimeout: 30_000 });
 
 import { createPublicClient, http, fallback, type Address } from 'viem';
 import { base } from 'viem/chains';
-import { resolveToken, resolveTokenAsync, predictTokenAddress, TOKENS, TOKEN_IMPLEMENTATION, BOND } from '../src/config/contracts';
+import {
+  getBondAddress,
+  getTokenImplementation,
+  getTokens,
+  predictTokenAddress,
+  resolveToken,
+  resolveTokenAsync,
+} from '../src/config/contracts';
 import { SIGNET, HUNT, USDC, MT } from './helpers';
+
+const TOKEN_IMPLEMENTATION = getTokenImplementation('base');
+const BOND = getBondAddress('base');
+const TOKENS = getTokens('base');
 
 const RPCS = [
   'https://base-rpc.publicnode.com',

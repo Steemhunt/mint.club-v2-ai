@@ -1,9 +1,15 @@
 import { type Address, type PublicClient, formatUnits } from 'viem';
 import { ERC20_ABI } from '../abi/erc20';
 import { BOND_ABI } from '../abi/bond';
-import { TOKENS, WETH, BOND } from '../config/contracts';
+import {
+  getBondAddress,
+  getTokens,
+  getWethAddress,
+} from '../config/contracts';
+import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
 import { getUsdPrice } from './price';
 import { getTokenPrice } from './bond';
+import { getDecimals } from './symbol';
 import { loadTokens } from './tokens';
 
 export interface WalletBalance {
@@ -40,12 +46,15 @@ function formatUsd(value: number): string {
 export async function getWalletBalances(
   client: PublicClient,
   address: Address,
+  chain: SupportedChain = 'base',
 ): Promise<BalanceSummary> {
   let totalUsd = 0;
+  const knownTokens = getTokens(chain);
+  const bond = getBondAddress(chain);
 
   // Get ETH balance
   const ethBalance = await client.getBalance({ address });
-  const ethUsd = await getUsdPrice(WETH);
+  const ethUsd = await getUsdPrice(getWethAddress(chain), chain);
   const ethVal = Number(formatUnits(ethBalance, 18));
   const ethUsdVal = ethUsd !== null ? ethVal * ethUsd : undefined;
   if (ethUsdVal !== undefined) totalUsd += ethUsdVal;
@@ -59,7 +68,7 @@ export async function getWalletBalances(
   };
 
   // Get ERC20 token balances
-  const erc20Tokens = TOKENS.filter(t => t.symbol !== 'ETH');
+  const erc20Tokens = knownTokens.filter((token) => token.symbol !== 'ETH');
   const erc20Results = await client.multicall({
     contracts: erc20Tokens.map(t => ({
       address: t.address,
@@ -75,7 +84,7 @@ export async function getWalletBalances(
     if (balance > 0n) {
       const token = erc20Tokens[i];
       const amount = Number(formatUnits(balance, token.decimals));
-      const tokenUsd = await getUsdPrice(token.address);
+      const tokenUsd = await getUsdPrice(token.address, chain);
       const usdVal = tokenUsd !== null ? amount * tokenUsd : undefined;
       if (usdVal !== undefined) totalUsd += usdVal;
 
@@ -90,8 +99,10 @@ export async function getWalletBalances(
   }
 
   // Get Mint Club token balances
-  const savedTokens = loadTokens();
-  const knownAddrs = new Set(TOKENS.map(t => t.address.toLowerCase()));
+  const savedTokens = loadTokens(chain);
+  const knownAddrs = new Set(
+    knownTokens.map((token) => token.address.toLowerCase()),
+  );
   const mcTokenAddrs = savedTokens.filter(t => !knownAddrs.has(t.toLowerCase()));
 
   const mcTokenBalances: WalletBalance[] = [];
@@ -101,7 +112,7 @@ export async function getWalletBalances(
       contracts: mcTokenAddrs.flatMap(t => [
         { address: t, abi: ERC20_ABI, functionName: 'balanceOf', args: [address] },
         { address: t, abi: ERC20_ABI, functionName: 'symbol' },
-        { address: BOND, abi: BOND_ABI, functionName: 'tokenBond', args: [t] },
+        { address: bond, abi: BOND_ABI, functionName: 'tokenBond', args: [t] },
       ]),
     });
 
@@ -115,17 +126,23 @@ export async function getWalletBalances(
 
       let usdValue: number | undefined;
 
-      // Try to get USD price via bond + 1inch
+      // Try to get USD price via bond + chain-specific DefiLlama feed
       if (mcResults[i * 3 + 2].status === 'success') {
         try {
           const [, , , , reserveToken] = mcResults[i * 3 + 2].result as any;
-          const tokenPrice = await getTokenPrice(client, mcTokenAddrs[i] as Address);
-          const reserveUsd = await getUsdPrice(reserveToken);
+          const tokenPrice = await getTokenPrice(
+            client,
+            mcTokenAddrs[i] as Address,
+            chain,
+          );
+          const reserveUsd = await getUsdPrice(reserveToken, chain);
           
           if (reserveUsd !== null) {
-            const reserveDecimals = TOKENS.find(t => 
-              t.address.toLowerCase() === reserveToken.toLowerCase()
-            )?.decimals ?? 18;
+            const reserveDecimals = await getDecimals(
+              client,
+              reserveToken,
+              chain,
+            );
             const tokenUsd = (Number(tokenPrice) / 10 ** reserveDecimals) * reserveUsd;
             const val = (Number(balance) / 1e18) * tokenUsd;
             totalUsd += val;
@@ -157,10 +174,13 @@ export async function getWalletBalances(
 /**
  * Display wallet balances in a formatted way
  */
-export function displayWalletBalances(balances: BalanceSummary): void {
+export function displayWalletBalances(
+  balances: BalanceSummary,
+  chain: SupportedChain = 'base',
+): void {
   const { ethBalance, erc20Balances, mcTokenBalances, totalUsd } = balances;
 
-  console.log(`💰 Balances on Base:\n`);
+  console.log(`💰 Balances on ${CHAIN_CONFIGS[chain].chain.name}:\n`);
 
   // ETH balance
   const ethDisplay = formatUnits(ethBalance.balance, ethBalance.decimals);

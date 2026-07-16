@@ -1,5 +1,6 @@
 import { type PublicClient, type Address, type Abi } from 'viem';
 import type { CliWalletClient } from '../client';
+import type { SupportedChain } from '../config/chains';
 import { shortHash, txUrl } from './format';
 import { saveToken } from './tokens';
 
@@ -20,6 +21,7 @@ export async function executeTransaction(
   token: Address | undefined,
   options: TransactionOptions,
   successMessage: string,
+  chain: SupportedChain = 'base',
 ): Promise<void> {
   const account = wallet.account;
 
@@ -35,13 +37,13 @@ export async function executeTransaction(
   const hash = await wallet.writeContract(options);
 
   console.log(`   TX: ${shortHash(hash)}`);
-  console.log(`   ${txUrl(hash)}`);
+  console.log(`   ${txUrl(hash, chain)}`);
 
   // Wait for confirmation
   const receipt = await client.waitForTransactionReceipt({ hash });
 
   if (receipt.status === 'success') {
-    if (token) saveToken(token);
+    if (token) saveToken(token, chain);
     console.log(`✅ ${successMessage}`);
   } else {
     throw new Error('Transaction failed');
@@ -58,12 +60,16 @@ export interface ClientSetup {
 }
 
 export function setupClients(
-  getPublicClient: () => PublicClient,
-  getWalletClient: (pk: `0x${string}`) => CliWalletClient,
+  getPublicClient: (chain: SupportedChain) => PublicClient,
+  getWalletClient: (
+    pk: `0x${string}`,
+    chain: SupportedChain,
+  ) => CliWalletClient,
   privateKey: `0x${string}`,
+  chain: SupportedChain = 'base',
 ): ClientSetup {
-  const publicClient = getPublicClient();
-  const walletClient = getWalletClient(privateKey);
+  const publicClient = getPublicClient(chain);
+  const walletClient = getWalletClient(privateKey, chain);
   const account = walletClient.account.address;
 
   return {
