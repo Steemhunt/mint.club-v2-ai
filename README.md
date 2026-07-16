@@ -5,7 +5,7 @@
 <h1 align="center">Mint Club V2 — AI Tools</h1>
 
 <p align="center">
-  Trade, create, and manage <a href="https://mint.club">bonding curve tokens</a> on Base — from the terminal, AI assistants, or autonomous agents.
+  Trade, create, and manage <a href="https://github.com/Steemhunt/mint.club-v2-contract#design-choices-">bonding curve tokens</a> on Base — from the terminal, AI assistants, or autonomous agents.
 </p>
 
 <p align="center">
