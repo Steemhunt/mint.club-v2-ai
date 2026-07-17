@@ -22,7 +22,7 @@ CI blocks on:
 
 1. `npm audit --omit=dev` with zero findings,
 2. `scripts/check-full-audit.mjs`, which rejects every critical finding and every untriaged high finding,
-3. clean install, script-policy tests, typecheck, unit tests, build, complete Bun-metafile-to-notice coverage, deterministic generated-notice drift checks, and packed-artifact verification.
+3. clean install, script-policy tests, typecheck, unit tests, build, complete CLI/MCP Bun-metafile-to-notice coverage, deterministic generated-notice drift checks, and packed-artifact verification.
 
 The full development audit is also run on a weekly schedule. As triaged on 2026-07-16, the remaining high package entries are:
 

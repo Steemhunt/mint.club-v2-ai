@@ -6,10 +6,11 @@ import {
   packagesFromMetafile,
 } from './third-party-packages.mjs';
 
-const [metafilePath, outputPath] = process.argv.slice(2);
+const [metafilePath, outputPath, bundleName = 'Mint Club CLI'] =
+  process.argv.slice(2);
 if (!metafilePath || !outputPath) {
   throw new Error(
-    'Usage: node generate-third-party-notices.mjs <metafile.json> <output.md>',
+    'Usage: node generate-third-party-notices.mjs <metafile.json> <output.md> [bundle-name]',
   );
 }
 
@@ -124,7 +125,7 @@ const lines = [
   '> Generated from the Bun bundle metafile by `scripts/generate-third-party-notices.mjs`.',
   '> Do not edit manually; run `npm run build` from the repository root.',
   '',
-  'The Mint Club CLI bundle includes the following third-party packages:',
+  `The ${bundleName} bundle includes the following third-party packages:`,
   '',
   '| Package | Version | Declared license |',
   '| --- | --- | --- |',

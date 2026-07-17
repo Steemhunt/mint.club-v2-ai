@@ -25,34 +25,49 @@ for (const workspace of workspaces) {
   }
 }
 
-const notices = read('cli/THIRD_PARTY_NOTICES.md');
-const cliRoot = resolve(root, 'cli');
-const cliManifest = JSON.parse(read('cli/package.json'));
-const temporaryBuild = mkdtempSync(resolve(tmpdir(), 'mintclub-release-check-'));
-let metafile;
-try {
-  const metafilePath = resolve(temporaryBuild, 'metafile.json');
-  const bundledBun = resolve(root, 'node_modules/.bin/bun');
-  const bun = process.env.BUN_BIN || (existsSync(bundledBun) ? bundledBun : 'bun');
-  execFileSync(
-    bun,
-    [
-      'build',
-      'src/index.ts',
-      `--outdir=${resolve(temporaryBuild, 'dist')}`,
-      '--target=node',
-      '--packages=bundle',
-      `--metafile=${metafilePath}`,
-      '--define',
-      `__VERSION__="${cliManifest.version}"`,
-    ],
-    { cwd: cliRoot, encoding: 'utf8', stdio: 'pipe' },
+const bundledWorkspaces = [
+  {
+    workspace: 'cli',
+    buildArgs: (manifest) => ['--define', `__VERSION__="${manifest.version}"`],
+  },
+  { workspace: 'mcp', buildArgs: () => ['--format=esm'] },
+];
+const bundledBun = resolve(root, 'node_modules/.bin/bun');
+const bun = process.env.BUN_BIN || (existsSync(bundledBun) ? bundledBun : 'bun');
+const noticeCoverage = new Map();
+
+for (const { workspace, buildArgs } of bundledWorkspaces) {
+  const workspaceRoot = resolve(root, workspace);
+  const manifest = JSON.parse(read(`${workspace}/package.json`));
+  const notices = read(`${workspace}/THIRD_PARTY_NOTICES.md`);
+  const temporaryBuild = mkdtempSync(
+    resolve(tmpdir(), `mintclub-${workspace}-release-check-`),
   );
-  metafile = JSON.parse(readFileSync(metafilePath, 'utf8'));
-} finally {
-  rmSync(temporaryBuild, { recursive: true, force: true });
+  let metafile;
+  try {
+    const metafilePath = resolve(temporaryBuild, 'metafile.json');
+    execFileSync(
+      bun,
+      [
+        'build',
+        'src/index.ts',
+        `--outdir=${resolve(temporaryBuild, 'dist')}`,
+        '--target=node',
+        '--packages=bundle',
+        `--metafile=${metafilePath}`,
+        ...buildArgs(manifest),
+      ],
+      { cwd: workspaceRoot, encoding: 'utf8', stdio: 'pipe' },
+    );
+    metafile = JSON.parse(readFileSync(metafilePath, 'utf8'));
+  } finally {
+    rmSync(temporaryBuild, { recursive: true, force: true });
+  }
+  noticeCoverage.set(
+    workspace,
+    assertNoticeCoversMetafile(notices, metafile, workspaceRoot),
+  );
 }
-const noticeCoverage = assertNoticeCoversMetafile(notices, metafile, cliRoot);
 
 for (const workspace of workspaces) {
   const output = execFileSync(
@@ -76,11 +91,13 @@ for (const workspace of workspaces) {
   if (!paths.has('dist/index.js')) {
     throw new Error(`${workspace} tarball is missing dist/index.js`);
   }
-  if (workspace === 'cli' && !paths.has('THIRD_PARTY_NOTICES.md')) {
-    throw new Error('CLI tarball is missing THIRD_PARTY_NOTICES.md');
+  if (noticeCoverage.has(workspace) && !paths.has('THIRD_PARTY_NOTICES.md')) {
+    throw new Error(`${workspace} tarball is missing THIRD_PARTY_NOTICES.md`);
   }
 }
 
 console.log(
-  `Release files verified for CLI, MCP, and Eliza packages; notices cover ${noticeCoverage.bundled.length} bundled package identities.`,
+  `Release files verified for CLI, MCP, and Eliza packages; notices cover ${[...noticeCoverage.entries()]
+    .map(([workspace, coverage]) => `${workspace}=${coverage.bundled.length}`)
+    .join(', ')} bundled package identities.`,
 );

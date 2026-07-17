@@ -23,11 +23,17 @@ function fixture() {
   };
 }
 
-function runGenerator(directory, metafile, output, locale = 'C') {
+function runGenerator(
+  directory,
+  metafile,
+  output,
+  locale = 'C',
+  bundleName,
+) {
   writeFileSync(resolve(directory, 'meta.json'), JSON.stringify(metafile));
   return spawnSync(
     process.execPath,
-    [generator, 'meta.json', output],
+    [generator, 'meta.json', output, ...(bundleName ? [bundleName] : [])],
     {
       cwd: directory,
       encoding: 'utf8',
@@ -117,13 +123,29 @@ test('generates byte-identical notices across host locales', () => {
       inputs: { 'node_modules/example-package/index.js': {} },
     };
 
-    const english = runGenerator(directory, metafile, 'notices-en.md', 'en_US.UTF-8');
-    const swedish = runGenerator(directory, metafile, 'notices-sv.md', 'sv_SE.UTF-8');
+    const english = runGenerator(
+      directory,
+      metafile,
+      'notices-en.md',
+      'en_US.UTF-8',
+      'Mint Club MCP server',
+    );
+    const swedish = runGenerator(
+      directory,
+      metafile,
+      'notices-sv.md',
+      'sv_SE.UTF-8',
+      'Mint Club MCP server',
+    );
     assert.equal(english.status, 0, english.stderr);
     assert.equal(swedish.status, 0, swedish.stderr);
     assert.equal(
       readFileSync(resolve(directory, 'notices-en.md'), 'utf8'),
       readFileSync(resolve(directory, 'notices-sv.md'), 'utf8'),
+    );
+    assert.match(
+      readFileSync(resolve(directory, 'notices-en.md'), 'utf8'),
+      /The Mint Club MCP server bundle includes/,
     );
   } finally {
     cleanup();

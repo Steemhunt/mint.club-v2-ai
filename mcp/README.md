@@ -118,4 +118,4 @@ npm --prefix mcp run build
 
 ## License
 
-MIT
+MIT. Published tarballs include the project `LICENSE` and generated `THIRD_PARTY_NOTICES.md` covering every package bundled into the MCP server.

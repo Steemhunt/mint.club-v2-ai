@@ -31,7 +31,7 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
-      - run: git diff --exit-code -- cli/THIRD_PARTY_NOTICES.md
+      - run: git diff --exit-code -- cli/THIRD_PARTY_NOTICES.md mcp/THIRD_PARTY_NOTICES.md
       - run: npm run audit:production
       - run: npm run audit:full
       - run: npm run test:release

@@ -191,4 +191,4 @@ npm publish --workspace eliza-plugin
 
 ## License
 
-MIT. Published packages include the project `LICENSE`; the bundled CLI also includes generated `THIRD_PARTY_NOTICES.md`. See [SECURITY.md](./SECURITY.md) for the dependency audit policy.
+MIT. Published packages include the project `LICENSE`; the bundled CLI and MCP server also include generated `THIRD_PARTY_NOTICES.md` files with exact Bun-metafile coverage. See [SECURITY.md](./SECURITY.md) for the dependency audit policy.
