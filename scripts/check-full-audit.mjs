@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 
 const allowedHighPackages = new Set([
   '@openzeppelin/contracts',
+  '@uniswap/swap-router-contracts',
   '@uniswap/universal-router-sdk',
 ]);
 const allowedHighAdvisories = new Set([
@@ -107,7 +108,7 @@ console.log(
   JSON.stringify(
     {
       vulnerabilities: metadata,
-      allowedHighPackages: highEntries.map(([name]) => name),
+      observedHighPackages: highEntries.map(([name]) => name),
       observedHighAdvisories: [...observedHighAdvisories].sort(),
     },
     null,

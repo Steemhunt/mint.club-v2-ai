@@ -30,6 +30,7 @@
     "@ethersproject/providers": {
       "ws": "8.21.0"
     },
+    "adm-zip": "0.6.0",
     "serialize-javascript": "7.0.5",
     "tmp": "0.2.7",
     "undici": "6.27.0",
