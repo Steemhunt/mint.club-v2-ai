@@ -136,7 +136,7 @@ test('rejects an allowlisted package with an unallowlisted advisory URL', () => 
   );
 });
 
-test('locks only patched archive and HTTP clients for transitive tooling', () => {
+test('pins patched transitive tooling without duplicate root dependencies', () => {
   const manifest = JSON.parse(
     readFileSync(resolve(root, 'package.json'), 'utf8'),
   );
@@ -150,9 +150,13 @@ test('locks only patched archive and HTTP clients for transitive tooling', () =>
           path.endsWith(`node_modules/${packageName}`),
         )
         .map(([, manifest]) => manifest.version),
-    ),
+      ),
   ];
+  const duplicatePins = Object.keys(manifest.devDependencies ?? {}).filter(
+    (dependency) => Object.hasOwn(manifest.overrides, dependency),
+  );
 
+  assert.deepEqual(duplicatePins, []);
   const admZip = lock.packages['node_modules/adm-zip'];
   assert.equal(manifest.overrides['adm-zip'], '0.6.0');
   assert.deepEqual(versionsFor('adm-zip'), ['0.6.0']);
