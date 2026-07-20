@@ -181,13 +181,13 @@ npm run test:release
 
 Repository development requires Node.js 22.13 or later. CI separately verifies the published CLI and MCP runtime paths on Node.js 18. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
-For registry releases, publish the CLI first so the other packages can resolve their `^2.0.1` runtime dependency and registry subpath:
+For releases, update all three package versions, the CLI dependency ranges, and `mcp/server.json`, then commit and push the changes to `main`. After the main CI run passes, use the repository release command:
 
 ```bash
-npm publish --workspace cli
-npm publish --workspace mcp
-npm publish --workspace eliza-plugin
+npm run release
 ```
+
+The command requires authenticated `npm` and `git` sessions. It runs the release gates, publishes the CLI first, waits for npm availability, publishes MCP and ElizaOS, verifies that every package records the current commit as its `gitHead`, and pushes the matching `vX.Y.Z` tag. The tag-triggered GitHub workflow then creates the GitHub Release automatically. Already-published packages from the same commit are skipped safely, so a partially completed npm release can be resumed. If npm publishing and the tag push succeed but the GitHub workflow fails, rerun that workflow from GitHub Actions.
 
 ## License
 

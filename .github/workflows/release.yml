@@ -1,0 +1,41 @@
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify npm packages and create release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.1
+      - name: Verify published packages
+        run: node scripts/publish-release.mjs --verify-tag "$GITHUB_REF_NAME" "$(git rev-parse HEAD)"
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub Release $GITHUB_REF_NAME already exists"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+            NOTES="$(printf '## Packages\n\n- @mint.club/v2-cli@%s\n- @mint.club/v2-mcp@%s\n- @mint.club/v2-eliza-plugin@%s' "$VERSION" "$VERSION" "$VERSION")"
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "Mint Club V2 AI Tools $GITHUB_REF_NAME" \
+              --notes "$NOTES" \
+              --generate-notes
+          fi

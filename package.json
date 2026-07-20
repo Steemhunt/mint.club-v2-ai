@@ -15,7 +15,8 @@
     "test:release": "node scripts/verify-release-files.mjs",
     "audit:production": "npm audit --omit=dev",
     "audit:full": "node scripts/check-full-audit.mjs",
-    "build": "npm --prefix cli run build && npm --prefix mcp run build && npm --prefix eliza-plugin run build"
+    "build": "npm --prefix cli run build && npm --prefix mcp run build && npm --prefix eliza-plugin run build",
+    "release": "node scripts/publish-release.mjs"
   },
   "engines": {
     "node": ">=22.13.0"
