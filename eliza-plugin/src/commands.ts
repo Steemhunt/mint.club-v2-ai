@@ -173,10 +173,13 @@ function chainSelection(text: string, strictWrite = false): {
     `\\b(?:not|without|except)\\s+(?:on\\s+)?(?:the\\s+)?(${CHAIN_ALIAS_PATTERN})(?:\\s+chain)?\\b`,
     'gi',
   );
-  const positiveText = text.replace(negation, (_match, alias: string) => {
+  const positiveText = text.replace(negation, (match, alias: string) => {
     negated.add(resolveChainAlias(alias));
-    return ' ';
+    return ' '.repeat(match.length);
   });
+  if (positiveText.length !== text.length) {
+    throw new Error('Chain parser span alignment failed');
+  }
 
   const mentioned = new Set<SupportedChain>();
   const spans: TextSpan[] = [];

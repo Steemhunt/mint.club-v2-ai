@@ -285,6 +285,12 @@ describe('Eliza action CLI mapping', () => {
     expect(() =>
       buildActionArgs('TOKEN_PRICE', 'What is SIGNET worth not on Base?'),
     ).toThrow('Specify exactly one chain');
+    expect(
+      buildActionArgs(
+        'TOKEN_PRICE',
+        'Price of SIGNET not on Base but on Polygon',
+      ),
+    ).toEqual(['--chain', 'polygon', 'price', 'SIGNET']);
   });
 
   it('requires an explicit asset for sends', () => {

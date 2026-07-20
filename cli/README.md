@@ -81,8 +81,9 @@ The CLI writes generated keys with file mode `0600`. Never commit `~/.mintclub/.
 The argv-based import option was removed because shells and process inspectors can retain its value. For automation, inject `PRIVATE_KEY` from your secret manager into the `mc` process environment. To migrate an existing key into the CLI wallet file without putting it in argv or shell history, use a hidden Bash prompt:
 
 ```bash
-mkdir -p ~/.mintclub
 umask 077
+mkdir -p ~/.mintclub
+chmod 700 ~/.mintclub
 read -rsp 'Private key: ' PRIVATE_KEY; printf '\n'
 printf 'PRIVATE_KEY=%s\n' "$PRIVATE_KEY" > ~/.mintclub/.env
 unset PRIVATE_KEY
