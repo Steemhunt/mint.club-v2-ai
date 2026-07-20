@@ -16,8 +16,9 @@ rm -rf dist
 METAFILE="$(mktemp)"
 trap 'rm -f "$METAFILE"' EXIT
 
-"$BUN_BIN" ../scripts/build-package.mjs cli dist "$METAFILE"
+"$BUN_BIN" ../scripts/build-package.mjs mcp dist "$METAFILE"
 
 node ../scripts/generate-third-party-notices.mjs \
   "$METAFILE" \
-  THIRD_PARTY_NOTICES.md
+  THIRD_PARTY_NOTICES.md \
+  "Mint Club MCP server"

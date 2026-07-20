@@ -11,6 +11,9 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 const require = createRequire(import.meta.url);
+declare const __VERSION__: string;
+
+const version = typeof __VERSION__ === 'string' ? __VERSION__ : '0.0.0-dev';
 
 interface ChainRegistryData {
   chains: readonly { key: string }[];
@@ -29,8 +32,12 @@ type SupportedChain = string;
 const CHAIN_PROPERTY = {
   type: 'string',
   enum: SUPPORTED_CHAINS,
-  default: 'base',
   description: 'Chain to use',
+} as const;
+
+const READ_CHAIN_PROPERTY = {
+  ...CHAIN_PROPERTY,
+  default: 'base',
 } as const;
 
 const tokenProperty = {
@@ -52,6 +59,12 @@ const WRITE_ANNOTATIONS = {
   openWorldHint: true,
 } as const;
 
+const CONFIRM_PROPERTY = {
+  type: 'boolean',
+  const: true,
+  description: 'Set to true only after the user explicitly confirms broadcast',
+} as const;
+
 export const TOOL_DEFINITIONS = [
   {
     name: 'token_info',
@@ -60,7 +73,7 @@ export const TOOL_DEFINITIONS = [
     annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
-      properties: { chain: CHAIN_PROPERTY, token: tokenProperty },
+      properties: { chain: READ_CHAIN_PROPERTY, token: tokenProperty },
       required: ['token'],
     },
   },
@@ -70,7 +83,7 @@ export const TOOL_DEFINITIONS = [
     annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
-      properties: { chain: CHAIN_PROPERTY, token: tokenProperty },
+      properties: { chain: READ_CHAIN_PROPERTY, token: tokenProperty },
       required: ['token'],
     },
   },
@@ -80,7 +93,7 @@ export const TOOL_DEFINITIONS = [
     annotations: READ_ONLY_ANNOTATIONS,
     inputSchema: {
       type: 'object' as const,
-      properties: { chain: CHAIN_PROPERTY },
+      properties: { chain: READ_CHAIN_PROPERTY },
     },
   },
   {
@@ -97,8 +110,9 @@ export const TOOL_DEFINITIONS = [
           type: 'string',
           description: 'Maximum reserve-token cost (optional)',
         },
+        confirm: CONFIRM_PROPERTY,
       },
-      required: ['token', 'amount'],
+      required: ['chain', 'token', 'amount', 'confirm'],
     },
   },
   {
@@ -115,8 +129,9 @@ export const TOOL_DEFINITIONS = [
           type: 'string',
           description: 'Minimum reserve-token refund (optional)',
         },
+        confirm: CONFIRM_PROPERTY,
       },
-      required: ['token', 'amount'],
+      required: ['chain', 'token', 'amount', 'confirm'],
     },
   },
   {
@@ -146,8 +161,9 @@ export const TOOL_DEFINITIONS = [
           description: 'Route and token-output slippage percent',
           default: '1',
         },
+        confirm: CONFIRM_PROPERTY,
       },
-      required: ['token', 'inputToken', 'inputAmount'],
+      required: ['chain', 'token', 'inputToken', 'inputAmount', 'confirm'],
     },
   },
   {
@@ -174,8 +190,9 @@ export const TOOL_DEFINITIONS = [
           description: 'Route slippage percent',
           default: '1',
         },
+        confirm: CONFIRM_PROPERTY,
       },
-      required: ['token', 'amount', 'outputToken'],
+      required: ['chain', 'token', 'amount', 'outputToken', 'confirm'],
     },
   },
   {
@@ -190,10 +207,12 @@ export const TOOL_DEFINITIONS = [
         amount: { type: 'string', description: 'Amount to send' },
         token: {
           type: 'string',
-          description: 'ERC-20 symbol/address; omit for native currency',
+          description:
+            'ERC-20 symbol/address, or the literal NATIVE for native currency',
         },
+        confirm: CONFIRM_PROPERTY,
       },
-      required: ['to', 'amount'],
+      required: ['chain', 'to', 'amount', 'token', 'confirm'],
     },
   },
   {
@@ -218,8 +237,10 @@ export const TOOL_DEFINITIONS = [
         },
         initialPrice: { type: 'string', description: 'Starting price' },
         finalPrice: { type: 'string', description: 'Final price' },
+        confirm: CONFIRM_PROPERTY,
       },
       required: [
+        'chain',
         'name',
         'symbol',
         'reserve',
@@ -227,6 +248,7 @@ export const TOOL_DEFINITIONS = [
         'curve',
         'initialPrice',
         'finalPrice',
+        'confirm',
       ],
     },
   },
@@ -234,6 +256,12 @@ export const TOOL_DEFINITIONS = [
 
 type ToolName = (typeof TOOL_DEFINITIONS)[number]['name'];
 type ToolArguments = Record<string, unknown> | undefined;
+
+const READ_TOOLS = new Set<ToolName>([
+  'token_info',
+  'token_price',
+  'wallet_balance',
+]);
 
 function requiredString(args: ToolArguments, key: string): string {
   const value = args?.[key];
@@ -250,8 +278,21 @@ function optionalString(args: ToolArguments, key: string): string | undefined {
   return value;
 }
 
-function selectedChain(args: ToolArguments): SupportedChain {
-  const chain = args?.chain ?? 'base';
+function requireConfirmation(args: ToolArguments): void {
+  if (args?.confirm !== true) {
+    throw new Error('confirm must be true before a transaction can be broadcast');
+  }
+}
+
+function selectedChain(
+  args: ToolArguments,
+  requireExplicit: boolean,
+): SupportedChain {
+  const chain = args?.chain;
+  if (chain === undefined) {
+    if (requireExplicit) throw new Error('Missing required argument: chain');
+    return 'base';
+  }
   if (
     typeof chain !== 'string' ||
     !SUPPORTED_CHAINS.includes(chain as SupportedChain)
@@ -273,7 +314,7 @@ export function buildCliArgs(
   tool: ToolName,
   args: ToolArguments,
 ): string[] {
-  const argv = ['--chain', selectedChain(args)];
+  const argv = ['--chain', selectedChain(args, !READ_TOOLS.has(tool))];
 
   switch (tool) {
     case 'token_info':
@@ -283,6 +324,7 @@ export function buildCliArgs(
     case 'wallet_balance':
       return [...argv, 'wallet'];
     case 'buy_token': {
+      requireConfirmation(args);
       argv.push(
         'buy',
         requiredString(args, 'token'),
@@ -290,9 +332,11 @@ export function buildCliArgs(
         requiredString(args, 'amount'),
       );
       appendOption(argv, '--max-cost', optionalString(args, 'maxCost'));
+      argv.push('--yes');
       return argv;
     }
     case 'sell_token': {
+      requireConfirmation(args);
       argv.push(
         'sell',
         requiredString(args, 'token'),
@@ -300,9 +344,11 @@ export function buildCliArgs(
         requiredString(args, 'amount'),
       );
       appendOption(argv, '--min-refund', optionalString(args, 'minRefund'));
+      argv.push('--yes');
       return argv;
     }
     case 'zap_buy': {
+      requireConfirmation(args);
       argv.push(
         'zap-buy',
         requiredString(args, 'token'),
@@ -313,9 +359,11 @@ export function buildCliArgs(
       );
       appendOption(argv, '--min-tokens', optionalString(args, 'minTokens'));
       appendOption(argv, '--slippage', optionalString(args, 'slippage'));
+      argv.push('--yes');
       return argv;
     }
     case 'zap_sell': {
+      requireConfirmation(args);
       argv.push(
         'zap-sell',
         requiredString(args, 'token'),
@@ -326,19 +374,24 @@ export function buildCliArgs(
       );
       appendOption(argv, '--min-output', optionalString(args, 'minOutput'));
       appendOption(argv, '--slippage', optionalString(args, 'slippage'));
+      argv.push('--yes');
       return argv;
     }
     case 'send_token': {
+      requireConfirmation(args);
       argv.push(
         'send',
         requiredString(args, 'to'),
         '--amount',
         requiredString(args, 'amount'),
+        '--token',
+        requiredString(args, 'token'),
       );
-      appendOption(argv, '--token', optionalString(args, 'token'));
+      argv.push('--yes');
       return argv;
     }
     case 'create_token': {
+      requireConfirmation(args);
       argv.push(
         'create',
         '--name',
@@ -396,7 +449,7 @@ export function runCli(argv: string[]): string {
 
 export function createServer(execute = runCli): Server {
   const server = new Server(
-    { name: 'mintclub', version: '2.0.0' },
+    { name: 'mintclub', version },
     { capabilities: { tools: {} } },
   );
 

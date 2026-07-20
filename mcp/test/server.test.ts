@@ -67,20 +67,108 @@ describe('MCP tool surface', () => {
     expect(names).not.toContain('swap');
 
     for (const tool of TOOL_DEFINITIONS) {
-      expect(tool.inputSchema.properties.chain).toMatchObject({
-        enum: expectedChains,
-        default: 'base',
-      });
       const isReadOnly = [
         'token_info',
         'token_price',
         'wallet_balance',
       ].includes(tool.name);
+      expect(tool.inputSchema.properties.chain).toMatchObject({
+        enum: expectedChains,
+        ...(isReadOnly ? { default: 'base' } : {}),
+      });
+      if (isReadOnly) {
+        expect(tool.inputSchema.required ?? []).not.toContain('chain');
+      } else {
+        expect(tool.inputSchema.required).toContain('chain');
+        expect(tool.inputSchema.properties.chain).not.toHaveProperty('default');
+      }
       expect(tool.annotations).toMatchObject({
         readOnlyHint: isReadOnly,
         destructiveHint: !isReadOnly,
       });
     }
+  });
+
+  it('requires explicit confirmation for every destructive tool', () => {
+    const writeTools = TOOL_DEFINITIONS.filter(
+      (tool) => !tool.annotations.readOnlyHint,
+    );
+
+    for (const tool of writeTools) {
+      expect(tool.inputSchema.properties.confirm).toEqual({
+        type: 'boolean',
+        const: true,
+        description: expect.stringContaining('broadcast'),
+      });
+      expect(tool.inputSchema.required).toContain('confirm');
+    }
+
+    const cases = [
+      ['buy_token', { chain: 'base', token: 'SIGNET', amount: '1' }],
+      ['sell_token', { chain: 'base', token: 'SIGNET', amount: '1' }],
+      [
+        'zap_buy',
+        {
+          chain: 'base',
+          token: 'SIGNET',
+          inputToken: 'USDC',
+          inputAmount: '1',
+        },
+      ],
+      [
+        'zap_sell',
+        {
+          chain: 'base',
+          token: 'SIGNET',
+          amount: '1',
+          outputToken: 'USDC',
+        },
+      ],
+      [
+        'send_token',
+        {
+          chain: 'base',
+          to: '0x1111111111111111111111111111111111111111',
+          amount: '1',
+          token: 'NATIVE',
+        },
+      ],
+      [
+        'create_token',
+        {
+          chain: 'base',
+          name: 'Token',
+          symbol: 'TKN',
+          reserve: 'USDC',
+          maxSupply: '1000',
+          curve: 'linear',
+          initialPrice: '0.01',
+          finalPrice: '1',
+        },
+      ],
+    ] as const;
+
+    for (const [tool, args] of cases) {
+      expect(() => buildCliArgs(tool, args)).toThrow('confirm must be true');
+      expect(buildCliArgs(tool, { ...args, confirm: true })).toContain('--yes');
+    }
+
+    expect(
+      buildCliArgs('buy_token', {
+        chain: 'base',
+        token: 'SIGNET',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toEqual([
+      '--chain',
+      'base',
+      'buy',
+      'SIGNET',
+      '--amount',
+      '1',
+      '--yes',
+    ]);
   });
 
   it('requires a complete curve definition for create_token', () => {
@@ -89,6 +177,7 @@ describe('MCP tool surface', () => {
     );
 
     expect(tool?.inputSchema.required).toEqual([
+      'chain',
       'name',
       'symbol',
       'reserve',
@@ -96,13 +185,16 @@ describe('MCP tool surface', () => {
       'curve',
       'initialPrice',
       'finalPrice',
+      'confirm',
     ]);
     expect(() =>
       buildCliArgs('create_token', {
+        chain: 'base',
         name: 'Token',
         symbol: 'TKN',
         reserve: 'USDC',
         maxSupply: '1000',
+        confirm: true,
       }),
     ).toThrow('Missing required argument: curve');
   });
@@ -113,9 +205,11 @@ describe('MCP tool surface', () => {
 
     expect(buy.description).toContain('MCV2_ZapV2');
     expect(buy.inputSchema.required).toEqual([
+      'chain',
       'token',
       'inputToken',
       'inputAmount',
+      'confirm',
     ]);
     expect(Object.keys(buy.inputSchema.properties)).toEqual([
       'chain',
@@ -124,13 +218,55 @@ describe('MCP tool surface', () => {
       'inputAmount',
       'minTokens',
       'slippage',
+      'confirm',
     ]);
     expect(sell.inputSchema.required).toEqual([
+      'chain',
       'token',
       'amount',
       'outputToken',
+      'confirm',
     ]);
     expect(Object.keys(sell.inputSchema.properties)).not.toContain('minRefund');
+  });
+
+  it('requires explicit chains and send assets for write invocations', () => {
+    expect(() =>
+      buildCliArgs('buy_token', {
+        token: 'SIGNET',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toThrow('Missing required argument: chain');
+
+    expect(() =>
+      buildCliArgs('send_token', {
+        chain: 'base',
+        to: '0x1111111111111111111111111111111111111111',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toThrow('Missing required argument: token');
+
+    expect(
+      buildCliArgs('send_token', {
+        chain: 'ethereum',
+        to: '0x1111111111111111111111111111111111111111',
+        amount: '1',
+        token: 'NATIVE',
+        confirm: true,
+      }),
+    ).toEqual([
+      '--chain',
+      'ethereum',
+      'send',
+      '0x1111111111111111111111111111111111111111',
+      '--amount',
+      '1',
+      '--token',
+      'NATIVE',
+      '--yes',
+    ]);
   });
 
   it('builds multichain ZapV2 buy argv without shell interpolation', () => {
@@ -144,6 +280,7 @@ describe('MCP tool surface', () => {
         inputAmount: '10',
         minTokens: '2',
         slippage: '0.5',
+        confirm: true,
       }),
     ).toEqual([
       '--chain',
@@ -158,6 +295,7 @@ describe('MCP tool surface', () => {
       '2',
       '--slippage',
       '0.5',
+      '--yes',
     ]);
   });
 
@@ -169,6 +307,7 @@ describe('MCP tool surface', () => {
         amount: '5',
         outputToken: 'USDC',
         minOutput: '4.5',
+        confirm: true,
       }),
     ).toEqual([
       '--chain',
@@ -181,6 +320,7 @@ describe('MCP tool surface', () => {
       'USDC',
       '--min-output',
       '4.5',
+      '--yes',
     ]);
     expect(() => buildCliArgs('wallet_balance', { chain: 'degen' })).toThrow(
       'Unsupported chain: degen',

@@ -12,9 +12,31 @@ const HASH = `0x${'4'.repeat(64)}` as `0x${string}`;
 const RESET_HASH = `0x${'5'.repeat(64)}` as `0x${string}`;
 
 describe('ERC-20 approval', () => {
+  it('does not broadcast when approval simulation returns false', async () => {
+    const pub = {
+      readContract: vi.fn().mockResolvedValue(0n),
+      call: vi.fn().mockResolvedValue({
+        data: `0x${'00'.repeat(32)}`,
+      }),
+      waitForTransactionReceipt: vi.fn(),
+    };
+    const wallet = {
+      account: { address: OWNER },
+      writeContract: vi.fn().mockResolvedValue(HASH),
+    };
+
+    await expect(
+      ensureApproval(pub as any, wallet as any, TOKEN, SPENDER, 1n),
+    ).rejects.toThrow('ERC-20 approval returned false');
+
+    expect(wallet.writeContract).not.toHaveBeenCalled();
+    expect(pub.waitForTransactionReceipt).not.toHaveBeenCalled();
+  });
+
   it('rejects a reverted approval receipt', async () => {
     const pub = {
       readContract: vi.fn().mockResolvedValue(0n),
+      call: vi.fn().mockResolvedValue({ data: '0x' }),
       waitForTransactionReceipt: vi
         .fn()
         .mockResolvedValue({ status: 'reverted' }),
@@ -32,6 +54,7 @@ describe('ERC-20 approval', () => {
   it('writes and confirms a maximum approval when allowance is insufficient', async () => {
     const pub = {
       readContract: vi.fn().mockResolvedValue(0n),
+      call: vi.fn().mockResolvedValue({ data: '0x' }),
       waitForTransactionReceipt: vi
         .fn()
         .mockResolvedValue({ status: 'success' }),
@@ -52,6 +75,7 @@ describe('ERC-20 approval', () => {
   it('resets a nonzero insufficient allowance before approving the maximum', async () => {
     const pub = {
       readContract: vi.fn().mockResolvedValue(1n),
+      call: vi.fn().mockResolvedValue({ data: '0x' }),
       waitForTransactionReceipt: vi
         .fn()
         .mockResolvedValue({ status: 'success' }),

@@ -8,17 +8,32 @@
   ],
   "scripts": {
     "check": "npm --prefix cli run check && npm --prefix mcp run check && npm --prefix eliza-plugin run check",
-    "test": "npm --prefix cli test && npm --prefix mcp test && npm --prefix eliza-plugin test",
+    "test": "npm --prefix cli test && npm --prefix mcp test && npm --prefix eliza-plugin test && npm run test:scripts",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "test:integration": "npm --prefix cli run test:integration",
     "test:fork": "npm --prefix cli run test:fork",
+    "test:release": "node scripts/verify-release-files.mjs",
+    "audit:production": "npm audit --omit=dev",
+    "audit:full": "node scripts/check-full-audit.mjs",
     "build": "npm --prefix cli run build && npm --prefix mcp run build && npm --prefix eliza-plugin run build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
+  },
+  "devDependencies": {
+    "serialize-javascript": "7.0.5",
+    "tmp": "0.2.7",
+    "undici": "6.27.0",
+    "vite": "6.4.3"
   },
   "overrides": {
     "@ethersproject/providers": {
       "ws": "8.21.0"
-    }
+    },
+    "adm-zip": "0.6.0",
+    "serialize-javascript": "7.0.5",
+    "tmp": "0.2.7",
+    "undici": "6.27.0",
+    "vite": "6.4.3"
   }
 }

@@ -152,7 +152,8 @@ const buyTokenAction = createAction({
   validateText: (text) =>
     canBuildActionArgs('BUY_TOKEN', text) &&
     !canBuildActionArgs('ZAP_BUY', text),
-  examplePrompt: 'Buy 10 SIGNET',
+  examplePrompt:
+    'Confirm: Buy 10 SIGNET on Base with maximum cost 12 reserve units',
   exampleResult: 'Minted 10 SIGNET through MCV2_Bond.',
 });
 
@@ -163,7 +164,8 @@ const sellTokenAction = createAction({
   validateText: (text) =>
     canBuildActionArgs('SELL_TOKEN', text) &&
     !canBuildActionArgs('ZAP_SELL', text),
-  examplePrompt: 'Sell 5 SIGNET',
+  examplePrompt:
+    'Confirm: Sell 5 SIGNET on Base with minimum refund 4 reserve units',
   exampleResult: 'Burned 5 SIGNET through MCV2_Bond.',
 });
 
@@ -173,7 +175,8 @@ const zapBuyAction = createAction({
   description:
     'Mint a Mint Club token from an exact amount of a routed native/ERC-20 asset via MCV2_ZapV2',
   validateText: (text) => canBuildActionArgs('ZAP_BUY', text),
-  examplePrompt: 'Buy TOKEN with 10 USDC on Arbitrum',
+  examplePrompt:
+    'Confirm: Buy TOKEN with 10 USDC on Arbitrum with 1% slippage',
   exampleResult: 'Minted TOKEN from 10 USDC through MCV2_ZapV2.',
 });
 
@@ -183,7 +186,8 @@ const zapSellAction = createAction({
   description:
     'Burn a Mint Club token into a routed native/ERC-20 output asset via MCV2_ZapV2',
   validateText: (text) => canBuildActionArgs('ZAP_SELL', text),
-  examplePrompt: 'Sell 5 TOKEN for USDC on Unichain',
+  examplePrompt:
+    'Confirm: Sell 5 TOKEN for USDC on Unichain with 1% slippage',
   exampleResult: 'Burned 5 TOKEN into USDC through MCV2_ZapV2.',
 });
 
@@ -202,7 +206,7 @@ const sendTokenAction = createAction({
   description: 'Send native currency or an ERC-20 token to an address',
   validateText: (text) => canBuildActionArgs('SEND_TOKEN', text),
   examplePrompt:
-    'Send 10 USDG to 0x1111111111111111111111111111111111111111 on Robinhood',
+    'Confirm: Send 10 USDG to 0x1111111111111111111111111111111111111111 on Robinhood',
   exampleResult: 'Sent 10 USDG on Robinhood Chain.',
 });
 
@@ -212,7 +216,7 @@ const createTokenAction = createAction({
   description: 'Create an ERC-20 Mint Club V2 bonding curve token',
   validateText: (text) => canBuildActionArgs('CREATE_TOKEN', text),
   examplePrompt:
-    'Create token "My Token" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood',
+    'Confirm: Create token "My Token" (MYT) backed by USDG with max supply 1000000 using a linear curve from 0.01 to 1 on Robinhood with 100 bps mint royalty and 100 bps burn royalty',
   exampleResult: 'Created the MYT bonding curve token on Robinhood Chain.',
 });
 
@@ -234,9 +238,10 @@ const mintclubProvider: Provider = {
       '- SEND_TOKEN: send native currency or ERC-20 tokens',
       '- CREATE_TOKEN: create an ERC-20 bonding curve token',
       '',
-      `Supported chains: ${SUPPORTED_CHAINS.join(', ')}. Base is the default.`,
+      `Supported chains: ${SUPPORTED_CHAINS.join(', ')}. Base is the default for reads; writes require exactly one explicit chain.`,
       'Zap routing enumerates direct and one-intermediary V2/V3/V4 candidates and uses the configured per-chain ZapV2 deployment.',
-      'The compatible mc CLI is installed as a plugin dependency; write actions require PRIVATE_KEY or the CLI wallet file.',
+      `Write actions run only when the original user message is one affirmative "Confirm:" statement that repeats the full transaction details; never add this prefix on the user's behalf. Direct trades require max-cost/min-refund reserve units, routed trades require slippage, sends require an asset, and creation requires a printable ASCII name without transaction instructions plus mint/burn royalty basis points.`,
+      'The compatible mc CLI is installed as a plugin dependency; writes also require PRIVATE_KEY or the CLI wallet file.',
     ].join('\n'),
     values: {
       platform: 'Mint Club V2',

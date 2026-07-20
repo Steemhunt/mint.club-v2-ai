@@ -6,6 +6,7 @@ const PRIVATE_KEY = `0x${'11'.repeat(32)}`;
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
   process.exitCode = undefined;
 });
 
@@ -35,12 +36,14 @@ describe('CLI program', () => {
       '--input-amount',
       '--min-tokens',
       '--slippage',
+      '--yes',
     ]);
     expect(zapSell.options.map((option) => option.long)).toEqual([
       '--amount',
       '--output-token',
       '--min-output',
       '--slippage',
+      '--yes',
     ]);
     expect(zapBuy.description()).toContain('MCV2_ZapV2');
     expect(zapSell.description()).toContain('MCV2_ZapV2');
@@ -97,6 +100,7 @@ describe('CLI program', () => {
       '2',
       '--slippage',
       '0.5',
+      '--yes',
     ]);
 
     expect(calls).toEqual([
@@ -135,6 +139,7 @@ describe('CLI program', () => {
       'USDC',
       '--min-output',
       '4.5',
+      '--yes',
     ]);
 
     expect(calls).toEqual([
@@ -148,6 +153,76 @@ describe('CLI program', () => {
         chain: 'unichain',
       },
     ]);
+  });
+
+  it('requires explicit --yes before non-interactive write handlers run', async () => {
+    vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
+    const calls: string[] = [];
+    const overrides = {
+      buy: async () => {
+        calls.push('buy');
+      },
+      sell: async () => {
+        calls.push('sell');
+      },
+      zapBuy: async () => {
+        calls.push('zap-buy');
+      },
+      zapSell: async () => {
+        calls.push('zap-sell');
+      },
+      send: async () => {
+        calls.push('send');
+      },
+    };
+    const commands = [
+      ['buy', MC_TOKEN, '--amount', '1'],
+      ['sell', MC_TOKEN, '--amount', '1'],
+      [
+        'zap-buy',
+        MC_TOKEN,
+        '--input-token',
+        MC_TOKEN,
+        '--input-amount',
+        '1',
+      ],
+      [
+        'zap-sell',
+        MC_TOKEN,
+        '--amount',
+        '1',
+        '--output-token',
+        MC_TOKEN,
+      ],
+      ['send', MC_TOKEN, '--amount', '1'],
+    ];
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    for (const argv of commands) {
+      const program = createProgram('test', overrides);
+      const command = program.commands.find(
+        (candidate) => candidate.name() === argv[0],
+      )!;
+      expect(command.options.map((option) => option.long)).toContain('--yes');
+      await program.parseAsync(['node', 'mc', ...argv]);
+    }
+
+    expect(calls).toEqual([]);
+    expect(console.error).toHaveBeenCalledTimes(commands.length);
+    expect(console.error).toHaveBeenCalledWith(
+      '❌',
+      expect.stringContaining('rerun with --yes'),
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('does not accept private keys through command-line arguments', async () => {
+    const program = createProgram('test');
+    const wallet = program.commands.find((command) => command.name() === 'wallet')!;
+
+    expect(wallet.options.map((option) => option.long)).not.toContain(
+      '--set-private-key',
+    );
   });
 
   it('normalizes --token NATIVE to a native-currency send', async () => {
@@ -170,6 +245,7 @@ describe('CLI program', () => {
       '0.1',
       '--token',
       'NATIVE',
+      '--yes',
     ]);
 
     expect(calls).toEqual([
@@ -181,5 +257,35 @@ describe('CLI program', () => {
         'avalanche',
       ],
     ]);
+  });
+
+  it.each([
+    ['without --token', []],
+    ['with --token NATIVE', ['--token', 'NATIVE']],
+  ])('rejects --token-id %s', async (_label, tokenArgs) => {
+    vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
+    const sendHandler = vi.fn();
+    const program = createProgram('test', { send: sendHandler });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await program.parseAsync([
+      'node',
+      'mc',
+      'send',
+      MC_TOKEN,
+      '--amount',
+      '1',
+      ...tokenArgs,
+      '--token-id',
+      '7',
+      '--yes',
+    ]);
+
+    expect(sendHandler).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      '❌',
+      '--token-id requires an ERC-1155 contract address',
+    );
+    expect(process.exitCode).toBe(1);
   });
 });

@@ -52,20 +52,9 @@ export function savePrivateKey(
 }
 
 export async function wallet(
-  opts: { generate?: boolean; setPrivateKey?: string },
+  opts: { generate?: boolean },
   chain: SupportedChain = 'base',
 ) {
-  // Handle private key import
-  if (opts.setPrivateKey) {
-    const key = (opts.setPrivateKey.startsWith('0x') ? opts.setPrivateKey : `0x${opts.setPrivateKey}`) as `0x${string}`;
-    const account = privateKeyToAccount(key);
-    
-    savePrivateKey(key);
-    console.log(`✅ Private key saved!\n\n   Address: ${account.address}\n   Saved to: ~/.mintclub/.env\n`);
-    printKeyWarning();
-    return;
-  }
-
   // Handle new wallet generation
   if (opts.generate) {
     if (
