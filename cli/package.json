@@ -1,6 +1,6 @@
 {
   "name": "@mint.club/v2-cli",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Mint Club V2 CLI for Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "type": "module",
   "main": "dist/index.js",
@@ -11,7 +11,6 @@
   "files": [
     "dist",
     "README.md",
-    "build.sh",
     "chain-registry.json",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"

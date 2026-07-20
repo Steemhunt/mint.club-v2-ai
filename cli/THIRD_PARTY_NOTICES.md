@@ -78,7 +78,7 @@ The Mint Club CLI bundle includes the following third-party packages:
 
 ## License and notice texts
 
-### @ethersproject/abi@5.8.0 (LICENSE.md), @ethersproject/abstract-provider@5.8.0 (LICENSE.md), @ethersproject/abstract-signer@5.8.0 (LICENSE.md), @ethersproject/address@5.8.0 (LICENSE.md), @ethersproject/base64@5.8.0 (LICENSE.md), @ethersproject/bignumber@5.8.0 (LICENSE.md), @ethersproject/bytes@5.8.0 (LICENSE.md), @ethersproject/constants@5.8.0 (LICENSE.md), @ethersproject/contracts@5.8.0 (LICENSE.md), @ethersproject/hash@5.8.0 (LICENSE.md), @ethersproject/hdnode@5.8.0 (LICENSE.md), @ethersproject/json-wallets@5.8.0 (LICENSE.md), @ethersproject/keccak256@5.7.0 (LICENSE.md), @ethersproject/keccak256@5.8.0 (LICENSE.md), @ethersproject/logger@5.8.0 (DECLARED-MIT.txt), @ethersproject/networks@5.8.0 (LICENSE.md), @ethersproject/pbkdf2@5.8.0 (LICENSE.md), @ethersproject/properties@5.8.0 (LICENSE.md), @ethersproject/providers@5.8.0 (LICENSE.md), @ethersproject/random@5.8.0 (LICENSE.md), @ethersproject/rlp@5.8.0 (LICENSE.md), @ethersproject/sha2@5.8.0 (LICENSE.md), @ethersproject/signing-key@5.8.0 (LICENSE.md), @ethersproject/solidity@5.8.0 (LICENSE.md), @ethersproject/strings@5.7.0 (LICENSE.md), @ethersproject/strings@5.8.0 (LICENSE.md), @ethersproject/transactions@5.8.0 (LICENSE.md), @ethersproject/units@5.8.0 (LICENSE.md), @ethersproject/wallet@5.8.0 (LICENSE.md), @ethersproject/web@5.8.0 (LICENSE.md), @ethersproject/wordlists@5.8.0 (LICENSE.md), ethers@5.8.0 (LICENSE.md)
+### @ethersproject/abi@5.8.0 (LICENSE.md), @ethersproject/abstract-provider@5.8.0 (LICENSE.md), @ethersproject/abstract-signer@5.8.0 (LICENSE.md), @ethersproject/address@5.8.0 (LICENSE.md), @ethersproject/base64@5.8.0 (LICENSE.md), @ethersproject/bignumber@5.8.0 (LICENSE.md), @ethersproject/bytes@5.8.0 (LICENSE.md), @ethersproject/constants@5.8.0 (LICENSE.md), @ethersproject/contracts@5.8.0 (LICENSE.md), @ethersproject/hash@5.8.0 (LICENSE.md), @ethersproject/hdnode@5.8.0 (LICENSE.md), @ethersproject/json-wallets@5.8.0 (LICENSE.md), @ethersproject/keccak256@5.7.0 (LICENSE.md), @ethersproject/keccak256@5.8.0 (LICENSE.md), @ethersproject/logger@5.8.0 (UPSTREAM-LICENSE.md), @ethersproject/networks@5.8.0 (LICENSE.md), @ethersproject/pbkdf2@5.8.0 (LICENSE.md), @ethersproject/properties@5.8.0 (LICENSE.md), @ethersproject/providers@5.8.0 (LICENSE.md), @ethersproject/random@5.8.0 (LICENSE.md), @ethersproject/rlp@5.8.0 (LICENSE.md), @ethersproject/sha2@5.8.0 (LICENSE.md), @ethersproject/signing-key@5.8.0 (LICENSE.md), @ethersproject/solidity@5.8.0 (LICENSE.md), @ethersproject/strings@5.7.0 (LICENSE.md), @ethersproject/strings@5.8.0 (LICENSE.md), @ethersproject/transactions@5.8.0 (LICENSE.md), @ethersproject/units@5.8.0 (LICENSE.md), @ethersproject/wallet@5.8.0 (LICENSE.md), @ethersproject/web@5.8.0 (LICENSE.md), @ethersproject/wordlists@5.8.0 (LICENSE.md), ethers@5.8.0 (LICENSE.md)
 
 <!-- sha256:a766c1b9abce045b77c73aac36f9311a2b94f5d2a7353cda15822718818062bb -->
 
@@ -192,13 +192,13 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### @uniswap/universal-router-sdk@5.9.0 (DECLARED-MIT.txt)
+### @uniswap/universal-router-sdk@5.9.0 (PACKAGE-MANIFEST-MIT.txt)
 
-<!-- sha256:1c38decb8a3ca7f89376477d6a2241053aa2a7ce412112fe8df1f491b0ea9e6d -->
+<!-- sha256:1585acddf25df26d2b24562a3de930b55635617d42c73709d0c5cd208603716f -->
 
     MIT License
 
-    Copyright (c) @uniswap/universal-router-sdk contributors
+    The published package manifest declares the MIT license but contains no separate LICENSE, NOTICE, or COPYING file. This generated notice does not infer a copyright holder.
 
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -1427,31 +1427,30 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### brorand@1.1.0 (DECLARED-MIT.txt), elliptic@6.6.1 (DECLARED-MIT.txt), hash.js@1.1.7 (DECLARED-MIT.txt), hmac-drbg@1.0.1 (DECLARED-MIT.txt), minimalistic-crypto-utils@1.0.1 (DECLARED-MIT.txt)
+### brorand@1.1.0 (README.md (embedded license)), elliptic@6.6.1 (README.md (embedded license)), hash.js@1.1.7 (README.md (embedded license))
 
-<!-- sha256:25f51c62d99c9128e9b2d3437f6549187e6211e008be19b29fda129e86aeb9b5 -->
+<!-- sha256:d95a66303ad5c1406990b2fb3d79e349ef1a16f5b04428afa625fbd8b6862867 -->
 
-    MIT License
+    Copyright Fedor Indutny, 2014.
 
-    Copyright (c) Fedor Indutny
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to permit
+    persons to whom the Software is furnished to do so, subject to the
+    following conditions:
 
-    Permission is hereby granted, free of charge, to any person obtaining a copy
-    of this software and associated documentation files (the "Software"), to deal
-    in the Software without restriction, including without limitation the rights
-    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-    copies of the Software, and to permit persons to whom the Software is
-    furnished to do so, subject to the following conditions:
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
 
-    The above copyright notice and this permission notice shall be included in all
-    copies or substantial portions of the Software.
-
-    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-    SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+    NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### commander@12.1.0 (LICENSE)
 
@@ -1534,6 +1533,31 @@ The Mint Club CLI bundle includes the following third-party packages:
     CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+### hmac-drbg@1.0.1 (README.md (embedded license)), minimalistic-crypto-utils@1.0.1 (README.md (embedded license))
+
+<!-- sha256:7ac24e968508d01cc6238fde5d25c631d0810a18dea4e2b41313c6d9e0dbebe5 -->
+
+    Copyright Fedor Indutny, 2017.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to permit
+    persons to whom the Software is furnished to do so, subject to the
+    following conditions:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN
+    NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+    DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+    USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### inherits@2.0.4 (LICENSE)
 

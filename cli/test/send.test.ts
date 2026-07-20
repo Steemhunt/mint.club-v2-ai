@@ -22,6 +22,7 @@ vi.mock('../src/client', () => ({
 }));
 
 import { send } from '../src/commands/send';
+import { ZERO_ADDRESS } from '../src/config/chains';
 
 const TOKEN = '0x2222222222222222222222222222222222222222' as Address;
 const RECIPIENT = '0x3333333333333333333333333333333333333333' as Address;
@@ -45,6 +46,37 @@ afterEach(() => {
 });
 
 describe('send ERC-20 return semantics', () => {
+  it.each([
+    ['without a token', { tokenId: '7' }],
+    ['with the native-token sentinel', { token: ZERO_ADDRESS, tokenId: '7' }],
+  ])('rejects tokenId %s', async (_label, options) => {
+    await expect(
+      send(RECIPIENT, '1', PRIVATE_KEY, options, 'base'),
+    ).rejects.toThrow('tokenId requires an ERC-1155 contract address');
+
+    expect(mocks.walletClient.writeContract).not.toHaveBeenCalled();
+    expect(mocks.walletClient.sendTransaction).not.toHaveBeenCalled();
+  });
+
+  it('treats token ID zero as an ERC-1155 transfer', async () => {
+    await send(
+      RECIPIENT,
+      '1',
+      PRIVATE_KEY,
+      { token: TOKEN, tokenId: '0' },
+      'base',
+    );
+
+    expect(mocks.walletClient.writeContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: TOKEN,
+        functionName: 'safeTransferFrom',
+        args: [mocks.walletClient.account.address, RECIPIENT, 0n, 1n, '0x'],
+      }),
+    );
+    expect(mocks.walletClient.sendTransaction).not.toHaveBeenCalled();
+  });
+
   it('does not broadcast when transfer simulation returns false', async () => {
     mocks.publicClient.call.mockResolvedValue({
       data: encodeAbiParameters([{ type: 'bool' }], [false]),

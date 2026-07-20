@@ -93,6 +93,23 @@ describe('Eliza action CLI mapping', () => {
     ).toThrow();
   });
 
+  it('rejects question-form confirmations', () => {
+    const recipient = '0x1111111111111111111111111111111111111111';
+
+    expect(() =>
+      buildActionArgs(
+        'BUY_TOKEN',
+        'Confirm: Buy 25 SIGNET on Base with maximum cost 30 reserve units?',
+      ),
+    ).toThrow('affirmative statements, not questions');
+    expect(() =>
+      buildActionArgs(
+        'SEND_TOKEN',
+        `Confirm: Send 10 USDC to ${recipient} on Polygon?`,
+      ),
+    ).toThrow('affirmative statements, not questions');
+  });
+
   it('rejects unmatched text and multiple write clauses', () => {
     expect(() =>
       buildActionArgs(

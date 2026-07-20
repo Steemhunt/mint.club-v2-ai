@@ -1,6 +1,6 @@
 {
   "name": "@mint.club/v2-mcp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "mcpName": "io.github.h1-hunt/mintclub",
   "description": "MCP server for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "type": "module",
@@ -51,7 +51,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@mint.club/v2-cli": "^2.0.0"
+    "@mint.club/v2-cli": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -62,5 +62,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

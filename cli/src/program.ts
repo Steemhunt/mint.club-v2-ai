@@ -366,7 +366,10 @@ export function createProgram(
             : undefined;
           const nativeToken =
             resolvedToken?.toLowerCase() === ZERO_ADDRESS.toLowerCase();
-          if (nativeToken && options.tokenId !== undefined) {
+          if (
+            options.tokenId !== undefined &&
+            (!resolvedToken || nativeToken)
+          ) {
             throw new Error('--token-id requires an ERC-1155 contract address');
           }
           await handlers.send(

@@ -27,7 +27,7 @@ Read-only tools work without a wallet. Write tools and `wallet_balance` require 
 
 > Never store a key in a committed MCP configuration or paste it into a model conversation. Use a dedicated wallet with limited funds.
 
-Every write tool requires the literal structured argument `"confirm": true`. A client must show the complete chain, assets, amounts, and limits to the user before setting it; the server never infers confirmation.
+Every write tool requires an explicit `chain` and the literal structured argument `"confirm": true`. This field prevents accidental omission but is not proof of user authorization: configure the MCP host to require interactive approval for tools marked destructive. The client must show the complete chain, assets, amounts, and limits before setting it; the server never infers confirmation.
 
 ## Tools
 
@@ -47,11 +47,13 @@ The server exposes nine protocol-specific tools:
 
 `create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply. It uses the CLI defaults of 100 basis points (1%) for both mint and burn royalties; use the CLI directly when different royalties are required.
 
-Every tool accepts an optional canonical `chain` property. Base is the default. Supported values are:
+Read tools accept an optional canonical `chain` property and default to Base. Every write tool requires `chain` explicitly. Supported values are:
 
 `ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `zora` · `unichain` · `robinhood` · `sepolia` · `base-sepolia`
 
 Blast is unsupported by this integration.
+
+`send_token` also requires an explicit `token` asset. Use the literal `"NATIVE"` for the selected chain's native currency; otherwise provide an ERC-20 symbol or address.
 
 ## ZapV2 inputs
 

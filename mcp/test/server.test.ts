@@ -67,15 +67,21 @@ describe('MCP tool surface', () => {
     expect(names).not.toContain('swap');
 
     for (const tool of TOOL_DEFINITIONS) {
-      expect(tool.inputSchema.properties.chain).toMatchObject({
-        enum: expectedChains,
-        default: 'base',
-      });
       const isReadOnly = [
         'token_info',
         'token_price',
         'wallet_balance',
       ].includes(tool.name);
+      expect(tool.inputSchema.properties.chain).toMatchObject({
+        enum: expectedChains,
+        ...(isReadOnly ? { default: 'base' } : {}),
+      });
+      if (isReadOnly) {
+        expect(tool.inputSchema.required ?? []).not.toContain('chain');
+      } else {
+        expect(tool.inputSchema.required).toContain('chain');
+        expect(tool.inputSchema.properties.chain).not.toHaveProperty('default');
+      }
       expect(tool.annotations).toMatchObject({
         readOnlyHint: isReadOnly,
         destructiveHint: !isReadOnly,
@@ -98,23 +104,39 @@ describe('MCP tool surface', () => {
     }
 
     const cases = [
-      ['buy_token', { token: 'SIGNET', amount: '1' }],
-      ['sell_token', { token: 'SIGNET', amount: '1' }],
+      ['buy_token', { chain: 'base', token: 'SIGNET', amount: '1' }],
+      ['sell_token', { chain: 'base', token: 'SIGNET', amount: '1' }],
       [
         'zap_buy',
-        { token: 'SIGNET', inputToken: 'USDC', inputAmount: '1' },
+        {
+          chain: 'base',
+          token: 'SIGNET',
+          inputToken: 'USDC',
+          inputAmount: '1',
+        },
       ],
       [
         'zap_sell',
-        { token: 'SIGNET', amount: '1', outputToken: 'USDC' },
+        {
+          chain: 'base',
+          token: 'SIGNET',
+          amount: '1',
+          outputToken: 'USDC',
+        },
       ],
       [
         'send_token',
-        { to: '0x1111111111111111111111111111111111111111', amount: '1' },
+        {
+          chain: 'base',
+          to: '0x1111111111111111111111111111111111111111',
+          amount: '1',
+          token: 'NATIVE',
+        },
       ],
       [
         'create_token',
         {
+          chain: 'base',
           name: 'Token',
           symbol: 'TKN',
           reserve: 'USDC',
@@ -133,6 +155,7 @@ describe('MCP tool surface', () => {
 
     expect(
       buildCliArgs('buy_token', {
+        chain: 'base',
         token: 'SIGNET',
         amount: '1',
         confirm: true,
@@ -154,6 +177,7 @@ describe('MCP tool surface', () => {
     );
 
     expect(tool?.inputSchema.required).toEqual([
+      'chain',
       'name',
       'symbol',
       'reserve',
@@ -165,6 +189,7 @@ describe('MCP tool surface', () => {
     ]);
     expect(() =>
       buildCliArgs('create_token', {
+        chain: 'base',
         name: 'Token',
         symbol: 'TKN',
         reserve: 'USDC',
@@ -180,6 +205,7 @@ describe('MCP tool surface', () => {
 
     expect(buy.description).toContain('MCV2_ZapV2');
     expect(buy.inputSchema.required).toEqual([
+      'chain',
       'token',
       'inputToken',
       'inputAmount',
@@ -195,12 +221,52 @@ describe('MCP tool surface', () => {
       'confirm',
     ]);
     expect(sell.inputSchema.required).toEqual([
+      'chain',
       'token',
       'amount',
       'outputToken',
       'confirm',
     ]);
     expect(Object.keys(sell.inputSchema.properties)).not.toContain('minRefund');
+  });
+
+  it('requires explicit chains and send assets for write invocations', () => {
+    expect(() =>
+      buildCliArgs('buy_token', {
+        token: 'SIGNET',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toThrow('Missing required argument: chain');
+
+    expect(() =>
+      buildCliArgs('send_token', {
+        chain: 'base',
+        to: '0x1111111111111111111111111111111111111111',
+        amount: '1',
+        confirm: true,
+      }),
+    ).toThrow('Missing required argument: token');
+
+    expect(
+      buildCliArgs('send_token', {
+        chain: 'ethereum',
+        to: '0x1111111111111111111111111111111111111111',
+        amount: '1',
+        token: 'NATIVE',
+        confirm: true,
+      }),
+    ).toEqual([
+      '--chain',
+      'ethereum',
+      'send',
+      '0x1111111111111111111111111111111111111111',
+      '--amount',
+      '1',
+      '--token',
+      'NATIVE',
+      '--yes',
+    ]);
   });
 
   it('builds multichain ZapV2 buy argv without shell interpolation', () => {

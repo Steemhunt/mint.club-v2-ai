@@ -258,4 +258,34 @@ describe('CLI program', () => {
       ],
     ]);
   });
+
+  it.each([
+    ['without --token', []],
+    ['with --token NATIVE', ['--token', 'NATIVE']],
+  ])('rejects --token-id %s', async (_label, tokenArgs) => {
+    vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
+    const sendHandler = vi.fn();
+    const program = createProgram('test', { send: sendHandler });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await program.parseAsync([
+      'node',
+      'mc',
+      'send',
+      MC_TOKEN,
+      '--amount',
+      '1',
+      ...tokenArgs,
+      '--token-id',
+      '7',
+      '--yes',
+    ]);
+
+    expect(sendHandler).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      '❌',
+      '--token-id requires an ERC-1155 contract address',
+    );
+    expect(process.exitCode).toBe(1);
+  });
 });

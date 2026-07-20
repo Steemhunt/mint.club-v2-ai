@@ -18,7 +18,7 @@
     "build": "npm --prefix cli run build && npm --prefix mcp run build && npm --prefix eliza-plugin run build"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
   },
   "devDependencies": {
     "serialize-javascript": "7.0.5",

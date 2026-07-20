@@ -35,23 +35,71 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.`;
 
-function declaredMitFallback(manifest) {
+const curatedLegalFiles = new Map([
+  [
+    '@ethersproject/logger@5.8.0',
+    {
+      name: 'UPSTREAM-LICENSE.md',
+      text: `MIT License
+
+Copyright (c) 2019 Richard Moore
+
+${MIT_TERMS}`,
+    },
+  ],
+]);
+
+function normalizedWhitespace(value) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function embeddedReadmeLicense(directory) {
+  const readme = readdirSync(directory).find((name) =>
+    /^readme(?:\..*)?$/i.test(name),
+  );
+  if (!readme) return undefined;
+
+  const text = readFileSync(resolve(directory, readme), 'utf8')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n');
+  const permissionStart = text.indexOf('Permission is hereby granted');
+  const copyrightStart = text.lastIndexOf('Copyright ', permissionStart);
+  const ending = /USE\s+OR\s+OTHER\s+DEALINGS\s+IN\s+THE\s+SOFTWARE\./i.exec(
+    text.slice(permissionStart),
+  );
+  if (permissionStart < 0 || copyrightStart < 0 || !ending) {
+    return undefined;
+  }
+  const licenseEnd = permissionStart + ending.index + ending[0].length;
+  const terms = text.slice(permissionStart, licenseEnd);
+  if (normalizedWhitespace(terms) !== normalizedWhitespace(MIT_TERMS)) {
+    return undefined;
+  }
+  return {
+    name: `${readme} (embedded license)`,
+    text: text.slice(copyrightStart, licenseEnd).trim(),
+  };
+}
+
+function requireDeclaredMit(manifest) {
   if (manifest.license !== 'MIT') {
     throw new Error(
       `Bundled package ${manifest.name}@${manifest.version} declares ${String(manifest.license ?? 'no license')} but ships no LICENSE/NOTICE/COPYING file`,
     );
   }
-  const author =
-    typeof manifest.author === 'string'
-      ? manifest.author.replace(/\s*<[^>]+>.*$/, '').trim()
-      : `${manifest.name} contributors`;
-  const copyright =
-    manifest.name === '@ethersproject/logger'
-      ? 'Copyright (c) 2019 Richard Moore'
-      : `Copyright (c) ${author}`;
+}
+
+function declaredMitFallback(manifest) {
+  requireDeclaredMit(manifest);
   return {
-    name: 'DECLARED-MIT.txt',
-    text: `MIT License\n\n${copyright}\n\n${MIT_TERMS}`,
+    name: 'PACKAGE-MANIFEST-MIT.txt',
+    text: `MIT License
+
+The published package manifest declares the MIT license but contains no separate LICENSE, NOTICE, or COPYING file. This generated notice does not infer a copyright holder.
+
+${MIT_TERMS}`,
   };
 }
 
@@ -72,7 +120,13 @@ const packageCopies = packagesFromMetafile(metafile, cwd).map(
       .filter(({ text }) => text.length > 0);
 
     if (legalFiles.length === 0) {
-      legalFiles = [declaredMitFallback(manifest)];
+      requireDeclaredMit(manifest);
+      const identity = `${manifest.name}@${manifest.version}`;
+      legalFiles = [
+        embeddedReadmeLicense(directory) ??
+          curatedLegalFiles.get(identity) ??
+          declaredMitFallback(manifest),
+      ];
     }
 
     return {

@@ -64,9 +64,9 @@ mc --chain arbitrum price 0xTOKEN
 mc --chain robinhood wallet
 ```
 
-Requires Node.js 18 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
+The CLI and MCP server require Node.js 18 or later. The ElizaOS plugin and repository development require Node.js 22.13 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
 
-Financial writes are fail-closed: CLI writes require `--yes` (while `create` keeps its interactive prompt), MCP write tools require `confirm: true`, and Eliza writes require one affirmative original-user `Confirm:` statement with exactly one explicit chain and all effective limits, slippage, assets, and royalties.
+Financial writes are fail-closed: CLI writes require `--yes` (while `create` keeps its interactive prompt), MCP write tools require explicit chain/assets plus `confirm: true` and must remain behind the host's destructive-tool approval, and Eliza writes require one affirmative original-user `Confirm:` statement with exactly one explicit chain and all effective limits, slippage, assets, and royalties.
 
 ## Protocol operations
 
@@ -116,7 +116,7 @@ The MCP server exposes nine tools:
 
 `token_info` · `token_price` · `wallet_balance` · `buy_token` · `sell_token` · `zap_buy` · `zap_sell` · `send_token` · `create_token`
 
-Every tool accepts an optional canonical `chain` key from the table below. Base is the default. See the [MCP reference](./mcp/README.md) for schemas and safe client configuration.
+Read tools accept an optional canonical `chain` key and default to Base. Write tools require an explicit chain. See the [MCP reference](./mcp/README.md) for schemas and safe client configuration.
 
 ## Architecture
 
@@ -179,9 +179,9 @@ npm run audit:full
 npm run test:release
 ```
 
-The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
+Repository development requires Node.js 22.13 or later. CI separately verifies the published CLI and MCP runtime paths on Node.js 18. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
-For registry releases, publish the CLI first so the other packages can resolve their `^2.0.0` runtime dependency and registry subpath:
+For registry releases, publish the CLI first so the other packages can resolve their `^2.0.1` runtime dependency and registry subpath:
 
 ```bash
 npm publish --workspace cli
@@ -191,4 +191,4 @@ npm publish --workspace eliza-plugin
 
 ## License
 
-MIT. Published packages include the project `LICENSE`; the bundled CLI and MCP server also include generated `THIRD_PARTY_NOTICES.md` files with exact Bun-metafile coverage. See [SECURITY.md](./SECURITY.md) for the dependency audit policy.
+MIT. Published packages include the project `LICENSE`; bundled CLI and MCP dependencies are covered by generated `THIRD_PARTY_NOTICES.md` files. The CLI build keeps only the ABIs from imported Uniswap contract artifacts and excludes their bytecode. See [SECURITY.md](./SECURITY.md) for the dependency audit policy.

@@ -5,9 +5,8 @@ import {
   readFileSync,
   rmSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { assertNoticeCoversMetafile } from './third-party-packages.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -15,6 +14,40 @@ const workspaces = ['cli', 'mcp', 'eliza-plugin'];
 
 function read(path) {
   return readFileSync(resolve(root, path), 'utf8');
+}
+
+function manifestFor(workspace) {
+  return JSON.parse(read(`${workspace}/package.json`));
+}
+
+const manifests = new Map(
+  workspaces.map((workspace) => [workspace, manifestFor(workspace)]),
+);
+const cliVersion = manifests.get('cli').version;
+for (const [workspace, manifest] of manifests) {
+  if (manifest.version !== cliVersion) {
+    throw new Error(
+      `${workspace} version ${manifest.version} does not match CLI ${cliVersion}`,
+    );
+  }
+}
+for (const workspace of ['mcp', 'eliza-plugin']) {
+  const cliRange = manifests.get(workspace).dependencies?.['@mint.club/v2-cli'];
+  if (cliRange !== `^${cliVersion}`) {
+    throw new Error(
+      `${workspace} must require @mint.club/v2-cli@^${cliVersion}`,
+    );
+  }
+}
+const mcpRegistry = JSON.parse(read('mcp/server.json'));
+const mcpRegistryPackage = mcpRegistry.packages?.find(
+  ({ identifier }) => identifier === '@mint.club/v2-mcp',
+);
+if (
+  mcpRegistry.version !== cliVersion ||
+  mcpRegistryPackage?.version !== cliVersion
+) {
+  throw new Error(`mcp/server.json must reference version ${cliVersion}`);
 }
 
 const rootLicense = read('LICENSE');
@@ -25,48 +58,101 @@ for (const workspace of workspaces) {
   }
 }
 
-const bundledWorkspaces = [
-  {
-    workspace: 'cli',
-    buildArgs: (manifest) => ['--define', `__VERSION__="${manifest.version}"`],
-  },
-  { workspace: 'mcp', buildArgs: () => ['--format=esm'] },
-];
+function artifactBytecode(value) {
+  if (typeof value === 'string') return value.replace(/^0x/, '');
+  if (value && typeof value.object === 'string') {
+    return value.object.replace(/^0x/, '');
+  }
+  return '';
+}
+
+function assertArtifactBytecodeExcluded(metafile, workspaceRoot, bundle) {
+  const artifactInputs = Object.keys(metafile.inputs ?? {}).filter((input) =>
+    /[\\/]node_modules[\\/]@uniswap[\\/][^\\/]+[\\/]artifacts[\\/].+\.json$/.test(
+      input,
+    ),
+  );
+  if (artifactInputs.length === 0) {
+    throw new Error('CLI build contains no transformed Uniswap artifacts');
+  }
+
+  let checkedBytecodes = 0;
+  for (const input of artifactInputs) {
+    const artifact = JSON.parse(
+      readFileSync(resolve(workspaceRoot, input), 'utf8'),
+    );
+    for (const field of ['bytecode', 'deployedBytecode']) {
+      const bytecode = artifactBytecode(artifact[field]);
+      if (bytecode.length < 256) continue;
+      checkedBytecodes += 1;
+      if (bundle.includes(bytecode.slice(0, 256))) {
+        throw new Error(`CLI bundle copied ${field} from ${input}`);
+      }
+    }
+  }
+  if (checkedBytecodes === 0) {
+    throw new Error('Transformed Uniswap artifacts contain no bytecode fixtures');
+  }
+  return { artifacts: artifactInputs.length, bytecodes: checkedBytecodes };
+}
+
+const bundledWorkspaces = ['cli', 'mcp'];
 const bundledBun = resolve(root, 'node_modules/.bin/bun');
 const bun = process.env.BUN_BIN || (existsSync(bundledBun) ? bundledBun : 'bun');
+const buildScript = resolve(root, 'scripts/build-package.mjs');
 const noticeCoverage = new Map();
+let artifactCoverage;
 
-for (const { workspace, buildArgs } of bundledWorkspaces) {
+for (const workspace of bundledWorkspaces) {
   const workspaceRoot = resolve(root, workspace);
-  const manifest = JSON.parse(read(`${workspace}/package.json`));
+  const manifest = manifests.get(workspace);
   const notices = read(`${workspace}/THIRD_PARTY_NOTICES.md`);
   const temporaryBuild = mkdtempSync(
-    resolve(tmpdir(), `mintclub-${workspace}-release-check-`),
+    resolve(root, 'node_modules/.mintclub-release-check-'),
   );
-  let metafile;
   try {
     const metafilePath = resolve(temporaryBuild, 'metafile.json');
+    const distPath = resolve(temporaryBuild, 'dist');
     execFileSync(
       bun,
-      [
-        'build',
-        'src/index.ts',
-        `--outdir=${resolve(temporaryBuild, 'dist')}`,
-        '--target=node',
-        '--packages=bundle',
-        `--metafile=${metafilePath}`,
-        ...buildArgs(manifest),
-      ],
+      [buildScript, workspace, distPath, metafilePath],
       { cwd: workspaceRoot, encoding: 'utf8', stdio: 'pipe' },
     );
-    metafile = JSON.parse(readFileSync(metafilePath, 'utf8'));
+    const metafile = JSON.parse(readFileSync(metafilePath, 'utf8'));
+    noticeCoverage.set(
+      workspace,
+      assertNoticeCoversMetafile(notices, metafile, workspaceRoot),
+    );
+
+    const entrypoint = resolve(distPath, 'index.js');
+    if (workspace === 'cli') {
+      const bundle = readFileSync(entrypoint, 'utf8');
+      artifactCoverage = assertArtifactBytecodeExcluded(
+        metafile,
+        workspaceRoot,
+        bundle,
+      );
+      const output = execFileSync(process.execPath, [entrypoint, '--version'], {
+        cwd: workspaceRoot,
+        encoding: 'utf8',
+      }).trim();
+      if (output !== manifest.version) {
+        throw new Error(`CLI reports ${output}; expected ${manifest.version}`);
+      }
+    } else {
+      execFileSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '--eval',
+          `process.env.SMITHERY_SCAN = '1'; await import(${JSON.stringify(pathToFileURL(entrypoint).href)});`,
+        ],
+        { cwd: workspaceRoot, encoding: 'utf8', stdio: 'pipe' },
+      );
+    }
   } finally {
     rmSync(temporaryBuild, { recursive: true, force: true });
   }
-  noticeCoverage.set(
-    workspace,
-    assertNoticeCoversMetafile(notices, metafile, workspaceRoot),
-  );
 }
 
 for (const workspace of workspaces) {
@@ -97,7 +183,7 @@ for (const workspace of workspaces) {
 }
 
 console.log(
-  `Release files verified for CLI, MCP, and Eliza packages; notices cover ${[...noticeCoverage.entries()]
+  `Release files verified for CLI, MCP, and Eliza packages at ${cliVersion}; notices cover ${[...noticeCoverage.entries()]
     .map(([workspace, coverage]) => `${workspace}=${coverage.bundled.length}`)
-    .join(', ')} bundled package identities.`,
+    .join(', ')} bundled package identities; ${artifactCoverage.bytecodes} bytecode fields from ${artifactCoverage.artifacts} Uniswap artifacts are excluded.`,
 );

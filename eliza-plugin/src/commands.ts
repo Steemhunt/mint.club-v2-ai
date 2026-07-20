@@ -86,6 +86,11 @@ function confirmationEnvelopeSpan(text: string): TextSpan {
       'Confirmed writes must use printable text with ASCII spaces; control, formatting, and bidirectional characters are not allowed',
     );
   }
+  if (text.includes('?')) {
+    throw new Error(
+      'Confirmed writes must be affirmative statements, not questions',
+    );
+  }
   if (
     /\b(?:do\s+not|don['’]?t|not|never|cancel|abort|stop|without|except|no\s+longer)\b/i.test(
       text,

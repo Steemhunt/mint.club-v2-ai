@@ -30,7 +30,7 @@ There is no general-purpose DEX swap action. Zap routing checks only direct and 
 npm install @mint.club/v2-eliza-plugin
 ```
 
-Requires Node.js 18 or later and an ElizaOS project compatible with `@elizaos/core ^1.7.2`. The plugin installs a compatible `@mint.club/v2-cli` 2.x runtime dependency automatically.
+Requires Node.js 22.13 or later and an ElizaOS project compatible with `@elizaos/core ^1.7.2`. The plugin installs a compatible `@mint.club/v2-cli` 2.x runtime dependency automatically.
 
 Add the plugin to an ElizaOS character configuration:
 
@@ -46,7 +46,7 @@ Read-only actions work without a wallet. Write actions and wallet balances requi
 
 > Never store a key in a character file, commit it, or paste it into an agent conversation. Use a dedicated wallet with limited funds.
 
-A write action runs only when the **original user message** is one affirmative `Confirm:` statement. The parser rejects non-ASCII whitespace, control/format/bidirectional characters, negation, cancellation, multiple write clauses, and any unmatched text. The model and plugin must never add this prefix on the user’s behalf; a bare follow-up such as “yes” is insufficient.
+A write action runs only when the **original user message** is one affirmative `Confirm:` statement. The parser rejects question-form confirmations, non-ASCII whitespace, control/format/bidirectional characters, negation, cancellation, multiple write clauses, and any unmatched text. The model and plugin must never add this prefix on the user’s behalf; a bare follow-up such as “yes” is insufficient.
 
 Every confirmation must name exactly one chain and bind every effective financial parameter:
 

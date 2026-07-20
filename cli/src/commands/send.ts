@@ -1,6 +1,10 @@
 import { encodeFunctionData, type Address, parseEther } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
-import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
+import {
+  CHAIN_CONFIGS,
+  ZERO_ADDRESS,
+  type SupportedChain,
+} from '../config/chains';
 import { ERC20_ABI } from '../abi/erc20';
 import { assertErc20CallSucceeds } from '../utils/erc20-return';
 import { parse, shortHash, shortAddr, txUrl } from '../utils/format';
@@ -28,12 +32,19 @@ export async function send(
   opts: { token?: Address; tokenId?: string },
   chain: SupportedChain = 'base',
 ) {
+  if (
+    opts.tokenId !== undefined &&
+    (!opts.token || opts.token.toLowerCase() === ZERO_ADDRESS.toLowerCase())
+  ) {
+    throw new Error('tokenId requires an ERC-1155 contract address');
+  }
+
   const publicClient = getPublicClient(chain);
   const walletClient = getWalletClient(privateKey, chain);
   const account = walletClient.account;
   const chainName = CHAIN_CONFIGS[chain].chain.name;
 
-  if (opts.token && opts.tokenId) {
+  if (opts.token && opts.tokenId !== undefined) {
     const tokenId = BigInt(opts.tokenId);
     const quantity = BigInt(amount);
     console.log(
