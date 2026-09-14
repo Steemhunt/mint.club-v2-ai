@@ -223,6 +223,8 @@ Prices are encoded using the reserve token's actual decimals. Non-flat presets r
 
 `create` deploys the configured ERC-20 implementation. Mint and burn royalties default to 100 basis points (1%) each; set them explicitly with `--mint-royalty` and `--burn-royalty` when different values are intended.
 
+Logos, website links, and other offchain metadata are configured separately. After the creation transaction succeeds, open the token on [Mint Club](https://mint.club), connect its creator wallet, and use **Edit information** to save them with a signature. The CLI does not call the metadata API or upload a placeholder before deployment. A failed metadata save does not require another token creation transaction.
+
 ## Transfer and balances
 
 ```bash
