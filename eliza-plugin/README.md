@@ -22,6 +22,8 @@ The plugin exposes nine protocol-specific actions:
 | `SEND_TOKEN` | Send native currency or an ERC-20 token |
 | `CREATE_TOKEN` | Create an ERC-20 bonding curve token |
 
+`CREATE_TOKEN` performs onchain creation through the CLI. Configure logos and website links afterward using the creator wallet on Mint Club; see the [CLI metadata guidance](../cli/README.md#create-a-token). The plugin does not call the metadata API.
+
 There is no general-purpose DEX swap action. Zap routing checks only direct and one-intermediary homogeneous V2/V3/V4 paths by RPC.
 
 ## Setup

@@ -47,6 +47,8 @@ The server exposes nine protocol-specific tools:
 
 `create_token` requires `curve`, `initialPrice`, and `finalPrice` in addition to its name, symbol, reserve, and maximum supply. It uses the CLI defaults of 100 basis points (1%) for both mint and burn royalties; use the CLI directly when different royalties are required.
 
+This tool performs onchain creation through the CLI. Configure logos and website links afterward using the creator wallet on Mint Club; see the [CLI metadata guidance](../cli/README.md#create-a-token). No anonymous metadata API call is required.
+
 Read tools accept an optional canonical `chain` property and default to Base. Every write tool requires `chain` explicitly. Supported values are:
 
 `ethereum` · `optimism` · `arbitrum` · `avalanche` · `base` · `polygon` · `bsc` · `zora` · `unichain` · `robinhood` · `sepolia` · `base-sepolia`
