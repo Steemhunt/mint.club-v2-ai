@@ -33,8 +33,9 @@ export function parseSteps(
   const prices: bigint[] = [];
 
   for (const step of input.split(',')) {
-    const [r, p] = step.trim().split(':');
-    if (!r || !p) {
+    const parts = step.trim().split(':');
+    const [r, p] = parts;
+    if (parts.length !== 2 || !r || !p) {
       throw new Error(`Invalid step: "${step}". Expected "range:price"`);
     }
     ranges.push(parse(r));

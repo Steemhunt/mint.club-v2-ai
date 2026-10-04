@@ -136,6 +136,15 @@ function requireBroadcastConfirmation(yes: boolean | undefined): void {
   }
 }
 
+function parseRoyalty(value: string): number {
+  const normalized = value.trim();
+  const royalty = Number(normalized);
+  if (!/^\d+$/.test(normalized) || !Number.isSafeInteger(royalty) || royalty > 10_000) {
+    throw new Error('Royalty must be an integer from 0 to 10000 basis points');
+  }
+  return royalty;
+}
+
 export function createProgram(
   version: string,
   overrides: Partial<ProgramHandlers> = {},
@@ -245,6 +254,8 @@ export function createProgram(
     .option('-y, --yes', 'Skip confirmation prompt')
     .action((options) =>
       action(async () => {
+        const mintRoyalty = parseRoyalty(options.mintRoyalty);
+        const burnRoyalty = parseRoyalty(options.burnRoyalty);
         const chain = selectedChain();
         await handlers.create(
           options.name,
@@ -257,8 +268,8 @@ export function createProgram(
             curve: options.curve,
             initialPrice: options.initialPrice,
             finalPrice: options.finalPrice,
-            mintRoyalty: Number.parseInt(options.mintRoyalty, 10),
-            burnRoyalty: Number.parseInt(options.burnRoyalty, 10),
+            mintRoyalty,
+            burnRoyalty,
             yes: options.yes,
           },
           chain,

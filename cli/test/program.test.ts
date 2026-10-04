@@ -225,6 +225,45 @@ describe('CLI program', () => {
     );
   });
 
+  it.each(['100.5', '100junk', '1e2', '0x64', '-1', '10001'])(
+    'rejects an inexact creation royalty: %s',
+    async (royalty) => {
+      vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
+      const createHandler = vi.fn();
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      for (const flag of ['--mint-royalty', '--burn-royalty']) {
+        await createProgram('test', { create: createHandler }).parseAsync([
+          'node', 'mc', 'create', '--name', 'Token', '--symbol', 'TKN',
+          '--reserve', 'USDC', '--max-supply', '100', '--curve', 'flat',
+          '--initial-price', '1', '--final-price', '1', flag, royalty, '--yes',
+        ]);
+      }
+
+      expect(createHandler).not.toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalledTimes(2);
+      expect(console.error).toHaveBeenCalledWith(
+        '❌', 'Royalty must be an integer from 0 to 10000 basis points',
+      );
+      expect(process.exitCode).toBe(1);
+    },
+  );
+
+  it('preserves explicit integer creation royalties and the default', async () => {
+    vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
+    const createHandler = vi.fn();
+    await createProgram('test', { create: createHandler }).parseAsync([
+      'node', 'mc', 'create', '--name', 'Token', '--symbol', 'TKN',
+      '--reserve', 'USDC', '--max-supply', '100', '--curve', 'flat',
+      '--initial-price', '1', '--final-price', '1', '--mint-royalty', '0', '--yes',
+    ]);
+
+    expect(createHandler).toHaveBeenCalledWith(
+      'Token', 'TKN', expect.any(String), '100', PRIVATE_KEY,
+      expect.objectContaining({ mintRoyalty: 0, burnRoyalty: 100 }), 'base',
+    );
+  });
+
   it('normalizes --token NATIVE to a native-currency send', async () => {
     vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
     const calls: unknown[] = [];

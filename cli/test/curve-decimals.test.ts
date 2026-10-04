@@ -1,9 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { parseUnits } from 'viem';
 import { parseSteps } from '../src/utils/format';
-import { compactNum, generateCurve } from '../src/utils/curves';
+import { calculateMilestones, compactNum, generateCurve } from '../src/utils/curves';
+import { create } from '../src/commands/create';
 
 describe('reserve token decimals', () => {
+  it('rejects unrecognized custom-step fields instead of discarding them', () => {
+    expect(() => parseSteps('100:1:2')).toThrow('Expected "range:price"');
+  });
+
+  it('rejects simultaneous custom steps and a curve preset before RPC access', async () => {
+    await expect(create(
+      'Token', 'TKN', '0x2222222222222222222222222222222222222222', '100',
+      `0x${'11'.repeat(32)}`, { curve: 'flat', steps: '100:1', yes: true },
+    )).rejects.toThrow('Provide either --steps or --curve, not both');
+  });
+
+  it('rounds each milestone step up to reserve units like the Bond contract', () => {
+    expect(calculateMilestones([1n, 2n], [1n, 2n], [50, 100])).toEqual([
+      { milestone: 50, supply: 1n, cost: 1n },
+      { milestone: 100, supply: 2n, cost: 2n },
+    ]);
+  });
+
   it('encodes and formats curve prices using reserve decimals', () => {
     const custom = parseSteps('100:0.01', 6);
     expect(custom.ranges).toEqual([parseUnits('100', 18)]);
