@@ -29,7 +29,7 @@ describe('wallet key persistence', () => {
     dirs.push(dir);
     const file = join(dir, '.env');
     chmodSync(dir, 0o777);
-    writeFileSync(file, 'OTHER=value\nPRIVATE_KEY=old\n');
+    writeFileSync(file, 'OTHER=value\n');
     chmodSync(file, 0o666);
 
     savePrivateKey(
@@ -42,6 +42,26 @@ describe('wallet key persistence', () => {
     expect(readFileSync(file, 'utf8')).toBe(
       'OTHER=value\nPRIVATE_KEY=0x1111111111111111111111111111111111111111111111111111111111111111\n',
     );
+  });
+
+  it.each([
+    'PRIVATE_KEY=existing',
+    ' PRIVATE_KEY = "existing"',
+    'export PRIVATE_KEY=existing',
+    'PRIVATE_KEY: existing',
+    'PRIVATE_KEY=',
+    'PRIVATE_KEY="first\nsecond"',
+  ])('preserves an existing dotenv wallet declaration: %s', (declaration) => {
+    const dir = mkdtempSync(join(tmpdir(), 'mintclub-wallet-'));
+    dirs.push(dir);
+    const file = join(dir, '.env');
+    const content = `OTHER=value\n${declaration}\n`;
+    writeFileSync(file, content);
+
+    expect(() => savePrivateKey(`0x${'11'.repeat(32)}`, dir)).toThrow(
+      'PRIVATE_KEY already exists',
+    );
+    expect(readFileSync(file, 'utf8')).toBe(content);
   });
 
   it('does not overwrite similarly named or commented settings', () => {
