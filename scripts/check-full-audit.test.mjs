@@ -171,4 +171,7 @@ test('pins patched transitive tooling without duplicate root dependencies', () =
   assert.equal(admZip.dev, true);
   assert.equal(admZip.peer, true);
   assert.deepEqual(versionsFor('undici'), ['6.29.0']);
+  assert.equal(manifest.overrides['hardhat-watcher'].chokidar, '4.0.3');
+  assert.deepEqual(versionsFor('chokidar'), ['4.0.3']);
+  assert.deepEqual(versionsFor('braces'), []);
 });

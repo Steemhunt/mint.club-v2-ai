@@ -34,13 +34,15 @@ These findings come from Solidity source packages pinned inside `@uniswap/univer
 
 Fixable toolchain paths are pinned to patched versions through exact root overrides (`adm-zip`, `vite`, `serialize-javascript`, `tmp`, `undici`, and `ws`). Hardhat 2's stale `adm-zip` range uses patched `0.6.1`, and its Undici path uses patched `6.29.0`. The lock-policy regression test verifies these pins. A scoped `@elizaos/core` override updates its unused PDF.js dependency to `6.4.299`; the core's published JavaScript has no PDF.js import, and the override preserves its Node 22.13 minimum. Hardhat, its watcher, PDF.js, and Undici are absent from the CLI/MCP bundles and are not published as direct package runtime dependencies.
 
-### Current upstream release blocker
+### Unused contract watcher dependency
 
-The dependency refresh checked on 2026-10-04 has zero production audit findings. The full audit still fails, intentionally, on `braces`, `chokidar`, and `hardhat-watcher` because of [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). The affected path is:
+Uniswap's contract artifact package installs an unused Hardhat watcher with this vulnerable dependency path ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)):
 
 `@uniswap/universal-router-sdk` → `@uniswap/router-sdk` / `@uniswap/v3-sdk` → `@uniswap/swap-router-contracts@1.3.1` → `hardhat-watcher@2.5.0` → `chokidar@3.6.0` → `braces@3.0.3`.
 
-Both the watcher and Braces are already at their latest stable releases. This repository never invokes the watcher or passes untrusted patterns to it. Forcing Chokidar 4 or 5 would remove the glob-pattern behavior that the upstream watcher supports, so that incompatible override is not applied. These JavaScript findings are not part of the Solidity-source exception above. CI and release publishing remain blocked until the upstream path is repaired or a separate compatible remediation is approved; no audit rule has been relaxed.
+The root override scopes Chokidar `4.0.3` to `hardhat-watcher`, removing Braces from the installed dependency graph. This reuses the Chokidar version already required by Hardhat; it adds no direct dependency and leaves Uniswap SDK versions and contract artifacts unchanged. This repository does not import or run Hardhat/watcher tasks. Chokidar 4 preserves directory watching but removes glob-pattern support, so this override is not a claim of full compatibility with the unused upstream watcher's optional glob configuration. If contract watcher tasks are introduced, reassess the override before using them.
+
+The lock-policy test rejects any reintroduced Braces dependency, and release verification rejects Hardhat, its watcher, Chokidar, or Braces in CLI/MCP bundles. Production audit and the unchanged full-audit gate must both pass. No JavaScript advisory exception has been added; the Solidity-source exceptions above remain the only high-severity exceptions.
 
 ### Supported-version limits
 
