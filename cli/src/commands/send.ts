@@ -1,4 +1,4 @@
-import { encodeFunctionData, type Address, parseEther } from 'viem';
+import { encodeFunctionData, type Address } from 'viem';
 import { getPublicClient, getWalletClient } from '../client';
 import {
   CHAIN_CONFIGS,
@@ -105,7 +105,7 @@ export async function send(
     return;
   }
 
-  const value = parseEther(amount);
+  const value = parse(amount, CHAIN_CONFIGS[chain].chain.nativeCurrency.decimals);
   const nativeSymbol = CHAIN_CONFIGS[chain].chain.nativeCurrency.symbol;
   console.log(
     `💸 Sending ${amount} ${nativeSymbol} to ${shortAddr(to)} on ${chainName}...`,
