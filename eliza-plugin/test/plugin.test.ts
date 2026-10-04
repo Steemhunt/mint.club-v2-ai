@@ -19,6 +19,33 @@ afterEach(() => {
 });
 
 describe('Eliza action execution', () => {
+  it('preserves broadcast transaction output when receipt lookup fails', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mintclub-eliza-'));
+    dirs.push(dir);
+    const executable = join(dir, 'fake-mc');
+    const hash = `0x${'44'.repeat(32)}`;
+    writeFileSync(executable,
+      '#!/usr/bin/env node\n' +
+      `process.stdout.write('TX: ${hash}\\n');\n` +
+      "process.stderr.write('Receipt lookup timed out\\n');\n" +
+      'process.exitCode = 1;\n',
+    );
+    chmodSync(executable, 0o755);
+    process.env.MINTCLUB_CLI = executable;
+    const action = mintclubPlugin.actions?.find(({ name }) => name === 'BUY_TOKEN')!;
+
+    const result = await action.handler({} as never, {
+      content: { text: 'Confirm: Buy 1 TOKEN on Base with maximum cost 1 reserve units' },
+    } as never);
+
+    expect(result).toMatchObject({
+      success: false,
+      error: expect.objectContaining({
+        message: `mc command failed: TX: ${hash}\nReceipt lookup timed out`,
+      }),
+    });
+  });
+
   it('registers the complete protocol, wallet, send, and create surface', () => {
     expect(mintclubPlugin.actions?.map((action) => action.name)).toEqual([
       'TOKEN_INFO',
