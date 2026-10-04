@@ -119,10 +119,15 @@ for (const workspace of bundledWorkspaces) {
       { cwd: workspaceRoot, encoding: 'utf8', stdio: 'pipe' },
     );
     const metafile = JSON.parse(readFileSync(metafilePath, 'utf8'));
-    noticeCoverage.set(
-      workspace,
-      assertNoticeCoversMetafile(notices, metafile, workspaceRoot),
-    );
+    const coverage = assertNoticeCoversMetafile(notices, metafile, workspaceRoot);
+    if (coverage.bundled.some((identity) =>
+      /^(hardhat|hardhat-watcher|chokidar|braces)@/.test(identity),
+    )) {
+      throw new Error(
+        `${workspace} bundle includes unused contract development tooling`,
+      );
+    }
+    noticeCoverage.set(workspace, coverage);
 
     const entrypoint = resolve(distPath, 'index.js');
     if (workspace === 'cli') {
