@@ -112,7 +112,7 @@ export function isCurveType(s: string): s is CurveType {
 
 /**
  * Calculate accumulated reserve cost to reach each milestone.
- * Uses trapezoidal integration over the step prices.
+ * Uses the Bond contract's ceiling rounding for each step.
  */
 export function calculateMilestones(
   ranges: bigint[],
@@ -136,8 +136,8 @@ export function calculateMilestones(
 
       const effectiveEnd = targetSupply < rangeEnd ? targetSupply : rangeEnd;
       const width = effectiveEnd - rangeStart;
-      // cost = width * price / 1e18 (both are in wei)
-      totalCost += (width * price) / (10n ** 18n);
+      const factor = 10n ** 18n;
+      totalCost += (width * price + factor - 1n) / factor;
 
       prevRange = rangeEnd;
       if (targetSupply <= rangeEnd) break;

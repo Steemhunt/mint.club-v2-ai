@@ -44,6 +44,9 @@ export async function create(
   opts: CreateOptions,
   chain: SupportedChain = 'base',
 ) {
+  if (opts.curve && opts.steps) {
+    throw new Error('Provide either --steps or --curve, not both');
+  }
   const pub = getPublicClient(chain);
   const wallet = getWalletClient(privateKey, chain);
   const account = wallet.account;
