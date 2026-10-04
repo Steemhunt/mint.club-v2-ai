@@ -42,7 +42,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mintclub-node18"
           cd "$RUNNER_TEMP/mintclub-node18"
           npm init -y
-          npm install "$RUNNER_TEMP"/mintclub-packs/mint.club-v2-cli-*.tgz "$RUNNER_TEMP"/mintclub-packs/mint.club-v2-mcp-*.tgz
+          npm install --engine-strict "$RUNNER_TEMP"/mintclub-packs/mint.club-v2-cli-*.tgz "$RUNNER_TEMP"/mintclub-packs/mint.club-v2-mcp-*.tgz
           ./node_modules/.bin/mc --version
           SMITHERY_SCAN=1 node --input-type=module --eval "await import('@mint.club/v2-mcp')"
 

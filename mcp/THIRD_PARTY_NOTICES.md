@@ -11,10 +11,10 @@ The Mint Club MCP server bundle includes the following third-party packages:
 | `ajv-formats@3.0.1` | 3.0.1 | MIT |
 | `ajv@8.20.0` | 8.20.0 | MIT |
 | `fast-deep-equal@3.1.3` | 3.1.3 | MIT |
-| `fast-uri@3.1.3` | 3.1.3 | BSD-3-Clause |
+| `fast-uri@3.1.8` | 3.1.8 | BSD-3-Clause |
 | `json-schema-traverse@1.0.0` | 1.0.0 | MIT |
 | `zod-to-json-schema@3.25.2` | 3.25.2 | ISC |
-| `zod@4.4.3` | 4.4.3 | MIT |
+| `zod@4.6.5` | 4.6.5 | MIT |
 
 ## License and notice texts
 
@@ -122,7 +122,7 @@ The Mint Club MCP server bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### fast-uri@3.1.3 (LICENSE)
+### fast-uri@3.1.8 (LICENSE)
 
 <!-- sha256:b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786 -->
 
@@ -177,7 +177,7 @@ The Mint Club MCP server bundle includes the following third-party packages:
     ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-### zod@4.4.3 (LICENSE)
+### zod@4.6.5 (LICENSE)
 
 <!-- sha256:f61cacc2acb8b71aa79a128b3e732bf25e02aab40747bbbd5bf00c97c9cda28d -->
 

@@ -41,14 +41,14 @@ The Mint Club CLI bundle includes the following third-party packages:
 | `@ethersproject/wordlists@5.8.0` | 5.8.0 | MIT |
 | `@noble/curves@1.9.1` | 1.9.1 | MIT |
 | `@noble/hashes@1.8.0` | 1.8.0 | MIT |
-| `@uniswap/router-sdk@2.11.0` | 2.11.0 | MIT |
-| `@uniswap/sdk-core@7.18.0` | 7.18.0 | MIT |
-| `@uniswap/universal-router-sdk@5.9.0` | 5.9.0 | MIT |
+| `@uniswap/router-sdk@2.11.6` | 2.11.6 | MIT |
+| `@uniswap/sdk-core@7.19.4` | 7.19.4 | MIT |
+| `@uniswap/universal-router-sdk@5.15.0` | 5.15.0 | MIT |
 | `@uniswap/universal-router@2.1.0` | 2.1.0 | GPL-2.0-or-later |
-| `@uniswap/v2-sdk@4.21.0` | 4.21.0 | MIT |
+| `@uniswap/v2-sdk@4.21.5` | 4.21.5 | MIT |
 | `@uniswap/v3-periphery@1.4.4` | 1.4.4 | GPL-2.0-or-later |
-| `@uniswap/v3-sdk@3.31.0` | 3.31.0 | MIT |
-| `@uniswap/v4-sdk@2.3.0` | 2.3.0 | MIT |
+| `@uniswap/v3-sdk@3.31.5` | 3.31.5 | MIT |
+| `@uniswap/v4-sdk@2.4.1` | 2.4.1 | MIT |
 | `abitype@1.2.3` | 1.2.3 | MIT |
 | `aes-js@3.0.0` | 3.0.0 | MIT |
 | `bech32@1.1.4` | 1.1.4 | MIT |
@@ -57,9 +57,9 @@ The Mint Club CLI bundle includes the following third-party packages:
 | `bn.js@4.12.5` | 4.12.5 | MIT |
 | `bn.js@5.2.5` | 5.2.5 | MIT |
 | `brorand@1.1.0` | 1.1.0 | MIT |
-| `commander@12.1.0` | 12.1.0 | MIT |
+| `commander@13.1.0` | 13.1.0 | MIT |
 | `decimal.js-light@2.5.1` | 2.5.1 | MIT |
-| `dotenv@16.6.1` | 16.6.1 | BSD-2-Clause |
+| `dotenv@18.0.5` | 18.0.5 | BSD-2-Clause |
 | `elliptic@6.6.1` | 6.6.1 | MIT |
 | `ethers@5.8.0` | 5.8.0 | MIT |
 | `hash.js@1.1.7` | 1.1.7 | MIT |
@@ -69,12 +69,12 @@ The Mint Club CLI bundle includes the following third-party packages:
 | `jsbi@3.2.5` | 3.2.5 | Apache-2.0 |
 | `minimalistic-assert@1.0.1` | 1.0.1 | ISC |
 | `minimalistic-crypto-utils@1.0.1` | 1.0.1 | MIT |
-| `ox@0.14.30` | 0.14.30 | MIT |
+| `ox@0.14.45` | 0.14.45 | MIT |
 | `scrypt-js@3.0.1` | 3.0.1 | MIT |
 | `tiny-invariant@1.3.3` | 1.3.3 | MIT |
 | `toformat@2.0.0` | 2.0.0 | MIT |
-| `viem@2.55.2` | 2.55.2 | MIT |
-| `ws@8.21.0` | 8.21.0 | MIT |
+| `viem@2.57.2` | 2.57.2 | MIT |
+| `ws@8.22.0` | 8.22.0 | MIT |
 
 ## License and notice texts
 
@@ -166,7 +166,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
     THE SOFTWARE.
 
-### @uniswap/router-sdk@2.11.0 (LICENSE), @uniswap/sdk-core@7.18.0 (LICENSE), @uniswap/v2-sdk@4.21.0 (LICENSE), @uniswap/v3-sdk@3.31.0 (LICENSE)
+### @uniswap/router-sdk@2.11.6 (LICENSE), @uniswap/sdk-core@7.19.4 (LICENSE), @uniswap/v2-sdk@4.21.5 (LICENSE), @uniswap/v3-sdk@3.31.5 (LICENSE)
 
 <!-- sha256:e89988c656bb1a9cb6fd13d95afa571350497cbc868d5adf8ebc5447003b74cd -->
 
@@ -192,7 +192,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### @uniswap/universal-router-sdk@5.9.0 (PACKAGE-MANIFEST-MIT.txt)
+### @uniswap/universal-router-sdk@5.15.0 (PACKAGE-MANIFEST-MIT.txt)
 
 <!-- sha256:1585acddf25df26d2b24562a3de930b55635617d42c73709d0c5cd208603716f -->
 
@@ -1241,7 +1241,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     library.  If this is what you want to do, use the GNU Lesser General
     Public License instead of this License.
 
-### @uniswap/v4-sdk@2.3.0 (LICENSE)
+### @uniswap/v4-sdk@2.4.1 (LICENSE)
 
 <!-- sha256:7f755c0348f3830c8f6566288eb78837292619147301d42749ac8b143941e981 -->
 
@@ -1452,7 +1452,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
     USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### commander@12.1.0 (LICENSE)
+### commander@13.1.0 (LICENSE)
 
 <!-- sha256:4cc9c2af4eb0056cd4d2297b7404819e3816b4c44b7f8012c42d5fd671d783d3 -->
 
@@ -1506,7 +1506,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-### dotenv@16.6.1 (LICENSE)
+### dotenv@18.0.5 (LICENSE)
 
 <!-- sha256:f02e65819ea320eb92759a609b6397ae3025a05ae4226c6f554026c7c0bf64b8 -->
 
@@ -1803,7 +1803,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
     PERFORMANCE OF THIS SOFTWARE.
 
-### ox@0.14.30 (LICENSE)
+### ox@0.14.45 (LICENSE)
 
 <!-- sha256:84ecb61c470de66e88a79c7d0ee8ce068e743693a4c249017545b4c8d4f9984d -->
 
@@ -1907,7 +1907,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### viem@2.55.2 (LICENSE)
+### viem@2.57.2 (LICENSE)
 
 <!-- sha256:f204031ddb112b8f9dacd841a8dd20e787b9ac607a468be64a68a81e542067da -->
 
@@ -1933,7 +1933,7 @@ The Mint Club CLI bundle includes the following third-party packages:
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE.
 
-### ws@8.21.0 (LICENSE)
+### ws@8.22.0 (LICENSE)
 
 <!-- sha256:7adebaeee45b60d995843745060fe5486b76eb6c9e8fc7bca6fbc67b8680d96d -->
 
