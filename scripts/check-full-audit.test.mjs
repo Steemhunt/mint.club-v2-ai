@@ -158,17 +158,17 @@ test('pins patched transitive tooling without duplicate root dependencies', () =
 
   assert.deepEqual(duplicatePins, []);
   const admZip = lock.packages['node_modules/adm-zip'];
-  assert.equal(manifest.overrides['adm-zip'], '0.6.0');
-  assert.deepEqual(versionsFor('adm-zip'), ['0.6.0']);
+  assert.equal(manifest.overrides['adm-zip'], '0.6.1');
+  assert.deepEqual(versionsFor('adm-zip'), ['0.6.1']);
   assert.equal(
     admZip.resolved,
-    'https://registry.npmjs.org/adm-zip/-/adm-zip-0.6.0.tgz',
+    'https://registry.npmjs.org/adm-zip/-/adm-zip-0.6.1.tgz',
   );
   assert.equal(
     admZip.integrity,
-    'sha512-XleryMhbuksdKtofnWZ9Sk+4CUTbms4Mb/EU32SZwToAyZ5RgVos/ki8n+yr0LWHOGKuakbXTuuYNHLQjhddgg==',
+    'sha512-Xwrja8nx9e5o2N1my4DsKCeKpdrnACyr1wtbPxBDgGzKzKyE9kRtBFA8mWldI+RVlD7CBZNWY/wQ2+ydwOR6kQ==',
   );
   assert.equal(admZip.dev, true);
   assert.equal(admZip.peer, true);
-  assert.deepEqual(versionsFor('undici'), ['6.27.0']);
+  assert.deepEqual(versionsFor('undici'), ['6.29.0']);
 });
