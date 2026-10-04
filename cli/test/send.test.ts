@@ -38,6 +38,7 @@ beforeEach(() => {
     blockNumber: 1n,
   });
   mocks.walletClient.writeContract.mockResolvedValue(`0x${'44'.repeat(32)}`);
+  mocks.walletClient.sendTransaction.mockResolvedValue(`0x${'44'.repeat(32)}`);
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
 });
 
@@ -46,6 +47,24 @@ afterEach(() => {
 });
 
 describe('send ERC-20 return semantics', () => {
+  it('rejects native transfer amounts that would be rounded before broadcast', async () => {
+    await expect(
+      send(RECIPIENT, '0.0000000000000000005', PRIVATE_KEY, {}, 'base'),
+    ).rejects.toThrow('Amount has more than 18 decimal places');
+
+    expect(mocks.walletClient.sendTransaction).not.toHaveBeenCalled();
+    expect(mocks.publicClient.waitForTransactionReceipt).not.toHaveBeenCalled();
+  });
+
+  it('preserves exact native amounts and permits insignificant trailing zeros', async () => {
+    await send(RECIPIENT, '0.0000000000000000010', PRIVATE_KEY, {}, 'base');
+
+    expect(mocks.walletClient.sendTransaction).toHaveBeenCalledWith({
+      to: RECIPIENT,
+      value: 1n,
+    });
+  });
+
   it.each([
     ['without a token', { tokenId: '7' }],
     ['with the native-token sentinel', { token: ZERO_ADDRESS, tokenId: '7' }],
