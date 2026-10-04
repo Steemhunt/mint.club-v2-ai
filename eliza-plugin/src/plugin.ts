@@ -51,9 +51,17 @@ function runMcCommand(argv: string[]): string {
       stdio: ['ignore', 'pipe', 'pipe'],
     }).trim();
   } catch (error) {
-    const failure = error as { message?: string; stderr?: Buffer | string };
+    const failure = error as {
+      message?: string;
+      stdout?: Buffer | string;
+      stderr?: Buffer | string;
+    };
+    const stdout = failure.stdout?.toString().trim();
     const stderr = failure.stderr?.toString().trim();
-    throw new Error(`mc command failed: ${stderr || failure.message || 'unknown error'}`);
+    const detail = [stdout, stderr || failure.message || 'unknown error']
+      .filter(Boolean)
+      .join('\n');
+    throw new Error(`mc command failed: ${detail}`);
   }
 }
 

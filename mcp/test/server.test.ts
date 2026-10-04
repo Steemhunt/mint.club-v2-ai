@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -7,9 +8,11 @@ import {
   TOOL_DEFINITIONS,
   buildCliArgs,
   resolveCliInvocation,
+  runCli,
 } from '../src/index';
 
 const originalCli = process.env.MINTCLUB_CLI;
+const dirs: string[] = [];
 const require = createRequire(import.meta.url);
 const expectedChains = [
   'ethereum',
@@ -27,11 +30,31 @@ const expectedChains = [
 ];
 
 afterEach(() => {
+  for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
   if (originalCli === undefined) delete process.env.MINTCLUB_CLI;
   else process.env.MINTCLUB_CLI = originalCli;
 });
 
 describe('MCP tool surface', () => {
+  it('preserves broadcast transaction output when receipt lookup fails', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mintclub-mcp-'));
+    dirs.push(dir);
+    const executable = join(dir, 'fake-mc');
+    const hash = `0x${'44'.repeat(32)}`;
+    writeFileSync(executable,
+      '#!/usr/bin/env node\n' +
+      `process.stdout.write('TX: ${hash}\\n');\n` +
+      "process.stderr.write('Receipt lookup timed out\\n');\n" +
+      'process.exitCode = 1;\n',
+    );
+    chmodSync(executable, 0o755);
+    process.env.MINTCLUB_CLI = executable;
+
+    expect(() => runCli(['buy', 'TOKEN', '--amount', '1', '--yes'])).toThrow(
+      `TX: ${hash}\nReceipt lookup timed out`,
+    );
+  });
+
   it('publishes resolvable CLI and MCP module entrypoints', () => {
     const registryPath = require.resolve(
       '@mint.club/v2-cli/chain-registry.json',
