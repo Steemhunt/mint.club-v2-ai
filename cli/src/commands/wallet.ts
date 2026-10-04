@@ -1,4 +1,5 @@
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
+import { parse } from 'dotenv';
 import { resolve } from 'path';
 import { homedir } from 'os';
 import {
@@ -13,7 +14,6 @@ import type { SupportedChain } from '../config/chains';
 import { getWalletBalances, displayWalletBalances } from '../utils/wallet';
 
 const ENV_DIR = resolve(homedir(), '.mintclub');
-const ENV_PATH = resolve(ENV_DIR, '.env');
 
 function printKeyWarning() {
   console.log('⚠️  WARNING: Back up your private key in a secure, encrypted location!');
@@ -27,27 +27,20 @@ export function savePrivateKey(
   envDir: string = ENV_DIR,
 ): void {
   const envPath = resolve(envDir, '.env');
+  const content = existsSync(envPath) ? readFileSync(envPath, 'utf-8') : '';
+  if (Object.hasOwn(parse(content), 'PRIVATE_KEY')) {
+    throw new Error(
+      'PRIVATE_KEY already exists in ~/.mintclub/.env. Delete it manually if you want to generate a new one.',
+    );
+  }
+
   mkdirSync(envDir, { recursive: true, mode: 0o700 });
   chmodSync(envDir, 0o700);
-
-  if (existsSync(envPath)) {
-    const content = readFileSync(envPath, 'utf-8');
-    if (/^PRIVATE_KEY=.*$/m.test(content)) {
-      writeFileSync(
-        envPath,
-        content.replace(/^PRIVATE_KEY=.*$/gm, `PRIVATE_KEY=${key}`),
-        { mode: 0o600 },
-      );
-    } else {
-      writeFileSync(
-        envPath,
-        `${content}${content.endsWith('\n') || !content ? '' : '\n'}PRIVATE_KEY=${key}\n`,
-        { mode: 0o600 },
-      );
-    }
-  } else {
-    writeFileSync(envPath, `PRIVATE_KEY=${key}\n`, { mode: 0o600 });
-  }
+  writeFileSync(
+    envPath,
+    `${content}${content.endsWith('\n') || !content ? '' : '\n'}PRIVATE_KEY=${key}\n`,
+    { mode: 0o600 },
+  );
   chmodSync(envPath, 0o600);
 }
 
@@ -57,15 +50,6 @@ export async function wallet(
 ) {
   // Handle new wallet generation
   if (opts.generate) {
-    if (
-      existsSync(ENV_PATH) &&
-      /^PRIVATE_KEY=.*$/m.test(readFileSync(ENV_PATH, 'utf-8'))
-    ) {
-      throw new Error(
-        'PRIVATE_KEY already exists in ~/.mintclub/.env. Delete it manually if you want to generate a new one.',
-      );
-    }
-    
     const key = generatePrivateKey();
     const account = privateKeyToAccount(key);
     
