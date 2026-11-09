@@ -64,7 +64,7 @@ mc --chain arbitrum price 0xTOKEN
 mc --chain robinhood wallet
 ```
 
-The CLI and MCP server require Node.js 18 or later. The ElizaOS plugin and repository development require Node.js 22.13 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
+The CLI, MCP server, ElizaOS plugin, and repository development all require Node.js 22.13 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
 
 Financial writes are fail-closed: CLI writes require `--yes` (while `create` keeps its interactive prompt), MCP write tools require explicit chain/assets plus `confirm: true` and must remain behind the host's destructive-tool approval, and Eliza writes require one affirmative original-user `Confirm:` statement with exactly one explicit chain and all effective limits, slippage, assets, and royalties.
 
@@ -94,7 +94,7 @@ mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --yes
 ```
 
-Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
+Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below except Elysium: Uniswap has not finalised its Elysium Universal Router deployment, so `zap-buy` and `zap-sell` fail closed there with a not-configured error while direct Bond operations work. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
 ## Local routing model
 
@@ -158,6 +158,7 @@ MCP and Eliza invoke the CLI with argument arrays rather than shell-interpolated
 | Zora | `zora` | 7777777 |
 | Unichain | `unichain` | 130 |
 | Robinhood Chain | `robinhood` | 4663 |
+| Elysium | `elysium` | 99901 |
 | Sepolia | `sepolia` | 11155111 |
 | Base Sepolia | `base-sepolia` | 84532 |
 
@@ -179,7 +180,7 @@ npm run audit:full
 npm run test:release
 ```
 
-Repository development requires Node.js 22.13 or later. CI separately verifies the published CLI and MCP runtime paths on Node.js 18. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
+Repository development requires Node.js 22.13 or later. CI separately verifies the packed CLI and MCP tarballs with an `engine-strict` install on the same Node.js line. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
 For releases, update all three package versions, the CLI dependency ranges, and `mcp/server.json`, then commit and push the changes to `main`. After the main CI run passes, use the repository release command:
 

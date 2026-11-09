@@ -25,6 +25,7 @@ const expectedChains = [
   'zora',
   'unichain',
   'robinhood',
+  'elysium',
   'sepolia',
   'base-sepolia',
 ];

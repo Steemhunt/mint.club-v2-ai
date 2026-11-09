@@ -6,6 +6,7 @@ import { ERC20_ABI } from '../src/abi/erc20';
 import {
   getChainConfig,
   SUPPORTED_CHAIN_KEYS,
+  ZERO_ADDRESS,
   type SupportedChain,
 } from '../src/config/chains';
 import {
@@ -18,13 +19,16 @@ import {
 } from '../src/config/contracts';
 import { getBurnRefund, getMintCost } from '../src/utils/bond';
 import { generateCurve } from '../src/utils/curves';
+import { defillamaUsdRate } from '../src/utils/price';
 import { findBestRoute } from '../src/utils/uniswap/quote';
 import { HUNT, SIGNET } from './helpers';
 
 const ROBINHOOD_WETH_RESERVE_TOKEN =
   '0x06797F32891DD210bA085A2aB39d204Df4f11488' as Address;
+const ELYSIUM_USDC_RESERVE_TOKEN =
+  '0x5d32C26FF3866621Fd41289BE3bf384b938b3d03' as Address;
 
-const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address> = {
+const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address | null> = {
   ethereum: '0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af',
   optimism: '0x851116D9223fabED8E56C0E6b8Ad0c31d98B3507',
   arbitrum: '0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3',
@@ -35,6 +39,7 @@ const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address> = {
   zora: '0x3315ef7cA28dB74aBADC6c44570efDF06b04B020',
   unichain: '0xEf740bf23aCaE26f6492B10de645D6B98dC8Eaf3',
   robinhood: '0x8876789976dEcBfCbBbe364623C63652db8C0904',
+  elysium: null,
   sepolia: '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b',
   'base-sepolia': '0x492E6456D9528771018DeB9E87ef7750EF184104',
 };
@@ -90,10 +95,10 @@ integration('Supported-chain deployment integration', () => {
       const addresses = [
         config.contracts.bond,
         config.contracts.tokenImplementation,
-        getZapV2Address(chain),
+        config.contracts.zapV2,
         UNIVERSAL_ROUTER_ADDRESSES[chain],
         config.uniswap.v2Factory,
-        config.uniswap.v3Quoter.address,
+        config.uniswap.v3Quoter?.address ?? null,
         config.uniswap.v4Quoter,
         getWrappedNativeAddress(chain),
       ].filter((address): address is Address => address !== null);
@@ -101,32 +106,41 @@ integration('Supported-chain deployment integration', () => {
       await expectContractCode(chain, addresses);
 
       const client = getPublicClient(chain);
-      const [chainId, bond, weth, universalRouter] = await Promise.all([
-        client.getChainId(),
+      expect(await client.getChainId()).toBe(config.chain.id);
+
+      const zapV2 = config.contracts.zapV2;
+      if (!zapV2) {
+        expect(UNIVERSAL_ROUTER_ADDRESSES[chain]).toBeNull();
+        expect(() => getZapV2Address(chain)).toThrow(
+          `MCV2_ZapV2 is not configured on ${config.chain.name}`,
+        );
+        return;
+      }
+
+      const [bond, weth, universalRouter] = await Promise.all([
         client.readContract({
-          address: getZapV2Address(chain),
+          address: zapV2,
           abi: ZAP_DEPENDENCY_ABI,
           functionName: 'BOND',
         }),
         client.readContract({
-          address: getZapV2Address(chain),
+          address: zapV2,
           abi: ZAP_DEPENDENCY_ABI,
           functionName: 'WETH',
         }),
         client.readContract({
-          address: getZapV2Address(chain),
+          address: zapV2,
           abi: ZAP_DEPENDENCY_ABI,
           functionName: 'UNIVERSAL_ROUTER',
         }),
       ]);
 
-      expect(chainId).toBe(config.chain.id);
       expect(bond.toLowerCase()).toBe(config.contracts.bond.toLowerCase());
       expect(weth.toLowerCase()).toBe(
         getWrappedNativeAddress(chain).toLowerCase(),
       );
       expect(universalRouter.toLowerCase()).toBe(
-        UNIVERSAL_ROUTER_ADDRESSES[chain].toLowerCase(),
+        UNIVERSAL_ROUTER_ADDRESSES[chain]!.toLowerCase(),
       );
 
       if (config.usdToken) {
@@ -158,8 +172,8 @@ integration('Base protocol integration', () => {
       getBondAddress('base'),
       getTokenImplementation('base'),
       config.uniswap.v2Factory!,
-      config.uniswap.v3Quoter.address,
-      config.uniswap.v4Quoter,
+      config.uniswap.v3Quoter!.address,
+      config.uniswap.v4Quoter!,
     ]);
   });
 
@@ -200,8 +214,8 @@ integration('Robinhood protocol integration', () => {
       chain.contracts.bond,
       chain.contracts.tokenImplementation,
       chain.uniswap.v2Factory!,
-      chain.uniswap.v3Quoter.address,
-      chain.uniswap.v4Quoter,
+      chain.uniswap.v3Quoter!.address,
+      chain.uniswap.v4Quoter!,
       weth,
       usdg,
     ]);
@@ -323,5 +337,103 @@ integration('Robinhood protocol integration', () => {
 
     expect(creationFee).toBeGreaterThanOrEqual(0n);
     expect(Number(formatUnits(creationFee, 18))).toBeGreaterThanOrEqual(0);
+  });
+});
+
+integration('Elysium protocol integration', () => {
+  const chain = getChainConfig('elysium');
+  const whype = resolveToken('WHYPE', 'elysium');
+  const usdc = resolveToken('USDC', 'elysium');
+
+  it('has deployed Bond and canonical token contracts but no ZapV2 or Uniswap', async () => {
+    await expectContractCode('elysium', [
+      chain.contracts.bond,
+      chain.contracts.tokenImplementation,
+      ...Object.values(chain.tokens)
+        .map(({ address }) => address)
+        .filter((address) => address !== ZERO_ADDRESS),
+    ]);
+
+    expect(chain.contracts.zapV2).toBeNull();
+    expect(chain.uniswap).toEqual({
+      v2Factory: null,
+      v3Quoter: null,
+      v4Quoter: null,
+    });
+    expect(() => getZapV2Address('elysium')).toThrow(
+      'MCV2_ZapV2 is not configured on Elysium',
+    );
+  });
+
+  it('reads canonical WHYPE and USDC metadata', async () => {
+    const client = getPublicClient('elysium');
+    const [whypeSymbol, whypeDecimals, usdcSymbol, usdcDecimals] =
+      await Promise.all([
+        client.readContract({
+          address: whype,
+          abi: ERC20_ABI,
+          functionName: 'symbol',
+        }),
+        client.readContract({
+          address: whype,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }),
+        client.readContract({
+          address: usdc,
+          abi: ERC20_ABI,
+          functionName: 'symbol',
+        }),
+        client.readContract({
+          address: usdc,
+          abi: ERC20_ABI,
+          functionName: 'decimals',
+        }),
+      ]);
+
+    expect(whypeSymbol).toBe('WHYPE');
+    expect(whypeDecimals).toBe(18);
+    expect(usdcSymbol).toBe('USDC');
+    expect(usdcDecimals).toBe(6);
+  });
+
+  it('resolves a live Elysium Mint Club token symbol', async () => {
+    await expect(
+      resolveTokenAsync('BELLY', getPublicClient('elysium'), 'elysium'),
+    ).resolves.toBe(ELYSIUM_USDC_RESERVE_TOKEN);
+  });
+
+  it('reads live Mint Club mint quotes against the USDC reserve', async () => {
+    const client = getPublicClient('elysium');
+    const [bond, mint] = await Promise.all([
+      client.readContract({
+        address: getBondAddress('elysium'),
+        abi: BOND_ABI,
+        functionName: 'tokenBond',
+        args: [ELYSIUM_USDC_RESERVE_TOKEN],
+      }),
+      getMintCost(client, ELYSIUM_USDC_RESERVE_TOKEN, parseEther('1'), 'elysium'),
+    ]);
+
+    expect(bond[4].toLowerCase()).toBe(usdc.toLowerCase());
+    expect(mint.totalCost).toBe(mint.reserveAmount);
+    expect(mint.totalCost).toBeGreaterThan(mint.royalty);
+  });
+
+  it('charges the Bond creation fee in HYPE', async () => {
+    const creationFee = await getPublicClient('elysium').readContract({
+      address: getBondAddress('elysium'),
+      abi: BOND_ABI,
+      functionName: 'creationFee',
+    });
+
+    expect(creationFee).toBe(parseEther('0.01'));
+  });
+
+  it('prices WHYPE through its HyperEVM original on DefiLlama', async () => {
+    const price = await defillamaUsdRate('elysium', whype);
+
+    expect(price).not.toBeNull();
+    expect(price!).toBeGreaterThan(0);
   });
 });

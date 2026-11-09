@@ -14,7 +14,7 @@ npm install -g @mint.club/v2-cli
 mc --help
 ```
 
-Require Node.js 18 or later. Ask the user to configure `PRIVATE_KEY` themselves outside the agent, following the CLI wallet setup. Do not run or construct a wallet import command. Never request, print, log, or pass a private key through agent/tool arguments. Recommend a dedicated wallet with limited funds.
+Require Node.js 22.13 or later. Ask the user to configure `PRIVATE_KEY` themselves outside the agent, following the CLI wallet setup. Do not run or construct a wallet import command. Never request, print, log, or pass a private key through agent/tool arguments. Recommend a dedicated wallet with limited funds.
 
 ## Chain selection
 
@@ -28,9 +28,9 @@ mc --chain base-sepolia wallet
 
 Canonical chain values:
 
-`ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `zora`, `unichain`, `robinhood`, `sepolia`, `base-sepolia`.
+`ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `zora`, `unichain`, `robinhood`, `elysium`, `sepolia`, `base-sepolia`.
 
-Aliases and capabilities come from `@mint.club/v2-cli/chain-registry.json`. Blast is unsupported by this integration.
+Aliases and capabilities come from `@mint.club/v2-cli/chain-registry.json`. Blast is unsupported by this integration. Elysium has no `MCV2_ZapV2` deployment yet, so `zap-buy` and `zap-sell` fail there with a not-configured error; use direct `buy` and `sell` on Elysium.
 
 ## Read operations
 

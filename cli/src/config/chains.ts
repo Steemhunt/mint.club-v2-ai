@@ -46,8 +46,8 @@ export type ChainConfig = {
   };
   uniswap: {
     v2Factory: Address | null;
-    v3Quoter: V3QuoterConfig;
-    v4Quoter: Address;
+    v3Quoter: V3QuoterConfig | null;
+    v4Quoter: Address | null;
   };
   tokens: Record<string, KnownToken>;
   routeIntermediaries: readonly Address[];
@@ -75,6 +75,36 @@ export const robinhood = defineChain({
     default: {
       name: 'Robinhood Chain Explorer',
       url: 'https://robinhoodchain.blockscout.com',
+    },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+    },
+  },
+});
+
+export const elysium = defineChain({
+  id: 99901,
+  name: 'Elysium',
+  network: 'elysium',
+  nativeCurrency: {
+    name: 'HYPE',
+    symbol: 'HYPE',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.elysium.kinetiq.xyz'],
+    },
+    public: {
+      http: ['https://rpc.elysium.kinetiq.xyz'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Elysium Explorer',
+      url: 'https://elysium.kinetiq.xyz',
     },
   },
   contracts: {
@@ -478,6 +508,61 @@ export const CHAIN_CONFIGS = {
       '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
     ],
     usdToken: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
+  }),
+  // Kinetiq's Arbitrum Orbit L2 settling to HyperEVM. The Bond is live, but
+  // MCV2_ZapV2 and Uniswap are not deployed yet, so zap-buy and zap-sell fail
+  // closed with the "not configured" error until Uniswap finalises its router.
+  elysium: config({
+    chain: elysium,
+    rpcs: chainRpcs(elysium, [
+      'https://rpc.elysium.kinetiq.xyz',
+      'https://rpc-elysium-mainnet.t.conduit.xyz',
+    ]),
+    contracts: {
+      tokenImplementation: STANDARD_IMPLEMENTATION,
+      bond: STANDARD_BOND,
+      zapV2: null,
+    },
+    uniswap: {
+      v2Factory: null,
+      v3Quoter: null,
+      v4Quoter: null,
+    },
+    tokens: {
+      HYPE: { address: ZERO_ADDRESS, decimals: 18 },
+      WHYPE: {
+        address: '0xbA876237B0F021A6c6D852d6c26E107997cC5E81',
+        decimals: 18,
+        wrappedNative: true,
+      },
+      USDC: {
+        address: '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
+        decimals: 6,
+        stable: true,
+      },
+      KNTQ: {
+        address: '0xe45a355d9e9cAd2aD85F2d03E3eE3102A036acF0',
+        decimals: 18,
+      },
+      kHYPE: {
+        address: '0x248888D396A546A69A188f3Deb476964e581E9d0',
+        decimals: 18,
+      },
+      USDT0: {
+        address: '0x3BdE42a1dA8F1D95564f2c4a51a0cF73a725674C',
+        decimals: 6,
+      },
+      UBTC: {
+        address: '0xE9C29585EAe4B9a55b02a9605AEa892B40d972E8',
+        decimals: 8,
+      },
+      UETH: {
+        address: '0x7A66A75fe41Bc26867C17fe1bc7D1C076EBd4eCd',
+        decimals: 18,
+      },
+    },
+    routeIntermediaries: [],
+    usdToken: '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
   }),
   sepolia: config({
     chain: sepolia,

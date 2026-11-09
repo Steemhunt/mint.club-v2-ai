@@ -15,6 +15,7 @@ const expectedChains = [
   'zora',
   'unichain',
   'robinhood',
+  'elysium',
   'sepolia',
   'base-sepolia',
 ];
@@ -327,6 +328,9 @@ describe('Eliza action CLI mapping', () => {
       buildActionArgs('SEND_TOKEN', `Confirm: Send 1 NATIVE to ${recipient} on BSC`),
     ).toEqual(['--chain', 'bsc', 'send', recipient, '--amount', '1', '--yes']);
     expect(
+      buildActionArgs('SEND_TOKEN', `Confirm: Send 1 HYPE to ${recipient} on Elysium`),
+    ).toEqual(['--chain', 'elysium', 'send', recipient, '--amount', '1', '--yes']);
+    expect(
       buildActionArgs(
         'SEND_TOKEN',
         `Confirm: Send 1 native currency to ${recipient} on Base`,
@@ -361,6 +365,9 @@ describe('Eliza action CLI mapping', () => {
     expect(() =>
       buildActionArgs('SEND_TOKEN', `Confirm: Send 1 POL to ${recipient} on BSC`),
     ).toThrow('POL is not the native currency on bsc; use BNB or NATIVE');
+    expect(() =>
+      buildActionArgs('SEND_TOKEN', `Confirm: Send 1 HYPE to ${recipient} on Base`),
+    ).toThrow('HYPE is not the native currency on base; use ETH or NATIVE');
   });
 
   it('binds explicit token-creation royalties', () => {

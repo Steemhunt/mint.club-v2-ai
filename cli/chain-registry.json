@@ -152,6 +152,21 @@
       }
     },
     {
+      "key": "elysium",
+      "name": "Elysium",
+      "chainId": 99901,
+      "nativeSymbol": "HYPE",
+      "aliases": ["elysium", "elysium mainnet", "kinetiq elysium"],
+      "capabilities": {
+        "bond": true,
+        "zapV2Configured": false,
+        "uniswapV2": false,
+        "uniswapV3": false,
+        "uniswapV4": false,
+        "stableIntermediary": false
+      }
+    },
+    {
       "key": "sepolia",
       "name": "Sepolia",
       "chainId": 11155111,

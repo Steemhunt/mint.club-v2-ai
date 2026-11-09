@@ -1,6 +1,6 @@
 {
   "name": "@mint.club/v2-eliza-plugin",
-  "version": "2.0.3",
+  "version": "3.0.0",
   "description": "ElizaOS plugin for Mint Club V2 Bond operations and bounded local Uniswap ZapV2 routing across supported chains",
   "files": [
     "dist/",
@@ -18,8 +18,8 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@mint.club/v2-cli": "^2.0.3",
-    "zod": "^4.6.5"
+    "@mint.club/v2-cli": "^3.0.0",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@elizaos/core": "^1.7.2"

@@ -169,7 +169,7 @@ describe('Eliza action execution', () => {
     expect(result.text).toContain('ethereum, optimism, arbitrum');
     expect(result.text).toContain('base-sepolia');
     expect(result.values?.chains).toBe(
-      'ethereum,optimism,arbitrum,avalanche,base,polygon,bsc,zora,unichain,robinhood,sepolia,base-sepolia',
+      'ethereum,optimism,arbitrum,avalanche,base,polygon,bsc,zora,unichain,robinhood,elysium,sepolia,base-sepolia',
     );
     expect(mintclubPlugin.description).not.toContain('Base and Robinhood');
   });
