@@ -94,7 +94,7 @@ mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --yes
 ```
 
-Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
+Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below except Elysium: Uniswap has not finalised its Elysium Universal Router deployment, so `zap-buy` and `zap-sell` fail closed there with a not-configured error while direct Bond operations work. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
 ## Local routing model
 
@@ -158,6 +158,7 @@ MCP and Eliza invoke the CLI with argument arrays rather than shell-interpolated
 | Zora | `zora` | 7777777 |
 | Unichain | `unichain` | 130 |
 | Robinhood Chain | `robinhood` | 4663 |
+| Elysium | `elysium` | 99901 |
 | Sepolia | `sepolia` | 11155111 |
 | Base Sepolia | `base-sepolia` | 84532 |
 

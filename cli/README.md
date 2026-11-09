@@ -1,6 +1,6 @@
 # Mint Club V2 CLI
 
-A command-line client for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap routing across ten mainnets and two testnets.
+A command-line client for protocol-native [Mint Club V2](https://mint.club) operations and bounded local Uniswap routing across eleven mainnets and two testnets.
 
 [npm package](https://www.npmjs.com/package/@mint.club/v2-cli) · [repository](https://github.com/Steemhunt/mint.club-v2-ai) · [MCP server](../mcp) · [ElizaOS plugin](../eliza-plugin)
 
@@ -53,6 +53,7 @@ mc --chain robinhood wallet
 | Zora | `zora` | 7777777 | `ETH`, `WETH` |
 | Unichain | `unichain` | 130 | `ETH`, `WETH`, `USDC` |
 | Robinhood Chain | `robinhood` | 4663 | `ETH`, `WETH`, `USDG` |
+| Elysium | `elysium` | 99901 | `HYPE`, `WHYPE`, `USDC`, `KNTQ`, `kHYPE`, `USDT0`, `UBTC`, `UETH` |
 | Sepolia | `sepolia` | 11155111 | `ETH`, `WETH` |
 | Base Sepolia | `base-sepolia` | 84532 | `ETH`, `WETH` |
 
@@ -100,7 +101,7 @@ mc --chain ethereum price 0xTOKEN
 mc --chain robinhood wallet
 ```
 
-USD pricing uses chain-specific DefiLlama feeds where available. This is independent of routing; route quotes use RPC calls only.
+USD pricing uses chain-specific DefiLlama feeds where available; Elysium's bridged canonical tokens are priced through their HyperEVM originals. This is independent of routing; route quotes use RPC calls only.
 
 ## Confirm write operations
 
@@ -167,7 +168,7 @@ mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
 
 ### Deployment status
 
-`MCV2_ZapV2` is deployed on all supported chains in this document. Blast is intentionally unsupported by this integration.
+`MCV2_ZapV2` is deployed on all supported chains in this document except Elysium. Uniswap has not finalised its Elysium Universal Router deployment, so `zap-buy` and `zap-sell` fail closed there with `MCV2_ZapV2 is not configured on Elysium`; direct Bond `buy`, `sell`, and `create` work. Blast is intentionally unsupported by this integration.
 
 ## Local route discovery
 
@@ -255,6 +256,7 @@ Native and ERC-20 amounts use their token decimals. ERC-1155 `--amount` is an in
 | Zora | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17` |
 | Unichain | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x06FD26c092Db44E5491abB7cDC580CE24D93030c` |
 | Robinhood Chain | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387` | `0x621c335b4BD8f2165E120DC70d3AfcAfc6628681` |
+| Elysium | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | not deployed |
 | Sepolia | `0x8dce343A86Aa950d539eeE0e166AFfd0Ef515C0c` | `0x749bA94344521727f55a3007c777FbeB5F52C2Eb` | `0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9` |
 | Base Sepolia | `0x5dfA75b0185efBaEF286E80B847ce84ff8a62C2d` | `0x37F540de37afE8bDf6C722d87CB019F30e5E406a` | `0x60432191893c4F742205a2C834817a1891feC435` |
 

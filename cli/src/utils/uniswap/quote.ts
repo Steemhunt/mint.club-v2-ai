@@ -218,6 +218,7 @@ export function createOnchainQuoteBackend(
     candidate: RouteCandidate,
     amountIn: bigint,
   ): Promise<bigint | null> => {
+    if (!config.uniswap.v3Quoter) return null;
     try {
       const { address, version } = config.uniswap.v3Quoter;
       const simulation = await client.simulateContract({
@@ -241,6 +242,7 @@ export function createOnchainQuoteBackend(
     candidate: RouteCandidate,
     amountIn: bigint,
   ): Promise<bigint | null> => {
+    if (!config.uniswap.v4Quoter) return null;
     if (amountIn > MAX_UINT128) {
       throw new Error('V4 exact input exceeds uint128');
     }

@@ -28,13 +28,14 @@ const EXPECTED_CHAINS = [
   'zora',
   'unichain',
   'robinhood',
+  'elysium',
   'sepolia',
   'base-sepolia',
 ] as const;
 
 const EXPECTED_IDS = [
-  1, 10, 42161, 43114, 8453, 137, 56, 7777777, 130, 4663, 11155111,
-  84532,
+  1, 10, 42161, 43114, 8453, 137, 56, 7777777, 130, 4663, 99901,
+  11155111, 84532,
 ];
 
 const EXPECTED_ZAP_V2 = {
@@ -48,6 +49,7 @@ const EXPECTED_ZAP_V2 = {
   zora: '0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17',
   unichain: '0x06FD26c092Db44E5491abB7cDC580CE24D93030c',
   robinhood: '0x621c335b4BD8f2165E120DC70d3AfcAfc6628681',
+  elysium: null,
   sepolia: '0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9',
   'base-sepolia': '0x60432191893c4F742205a2C834817a1891feC435',
 } as const;
@@ -101,15 +103,28 @@ describe('chain configuration', () => {
       tokenImplementation: '0x37F540de37afE8bDf6C722d87CB019F30e5E406a',
       bond: '0x5dfA75b0185efBaEF286E80B847ce84ff8a62C2d',
     });
+    expect(getChainConfig('elysium').contracts).toEqual({
+      tokenImplementation: '0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df',
+      bond: '0xc5a076cad94176c2996B32d8466Be1cE757FAa27',
+      zapV2: null,
+    });
   });
 
-  it('uses the published ZapV2 deployment on every supported chain', () => {
+  it('uses the published ZapV2 deployment or fails closed where none exists', () => {
     for (const chain of EXPECTED_CHAINS) {
-      expect(CHAIN_CONFIGS[chain].contracts.zapV2).toBe(
-        EXPECTED_ZAP_V2[chain],
-      );
-      expect(getZapV2Address(chain)).toBe(EXPECTED_ZAP_V2[chain]);
+      const expected = EXPECTED_ZAP_V2[chain];
+      expect(CHAIN_CONFIGS[chain].contracts.zapV2).toBe(expected);
+      if (expected === null) {
+        expect(() => getZapV2Address(chain)).toThrow(
+          `MCV2_ZapV2 is not configured on ${CHAIN_CONFIGS[chain].chain.name}`,
+        );
+      } else {
+        expect(getZapV2Address(chain)).toBe(expected);
+      }
     }
+    expect(() => getZapV2Address('elysium')).toThrow(
+      'MCV2_ZapV2 is not configured on Elysium',
+    );
   });
 
   it('configures optional V2 plus V3 and V4 quoters per chain', () => {
@@ -150,12 +165,20 @@ describe('chain configuration', () => {
       },
       v4Quoter: '0x8dc178efb8111bb0973dd9d722ebeff267c98f94',
     });
+    expect(CHAIN_CONFIGS.elysium.uniswap).toEqual({
+      v2Factory: null,
+      v3Quoter: null,
+      v4Quoter: null,
+    });
+    expect(CHAIN_CONFIGS.elysium.routeIntermediaries).toEqual([]);
   });
 
   it('normalizes chain aliases and rejects unsupported Mint Club chains', () => {
     expect(validateChain('MAINNET')).toBe('ethereum');
     expect(validateChain('bnb chain')).toBe('bsc');
     expect(validateChain('Robinhood Chain')).toBe('robinhood');
+    expect(validateChain('Elysium')).toBe('elysium');
+    expect(validateChain('Kinetiq Elysium')).toBe('elysium');
     expect(validateChain('Base Sepolia')).toBe('base-sepolia');
     expect(validateChain('basesepolia')).toBe('base-sepolia');
     expect(validateChain('base_testnet')).toBe('base-sepolia');
@@ -175,6 +198,11 @@ describe('chain configuration', () => {
         false,
       );
     }
+
+    expect(CHAIN_CONFIGS.elysium.rpcs).toEqual([
+      'https://rpc.elysium.kinetiq.xyz',
+      'https://rpc-elysium-mainnet.t.conduit.xyz',
+    ]);
 
     process.env.MINTCLUB_RPC_BASE_SEPOLIA = 'https://override.example';
     try {
@@ -211,6 +239,18 @@ describe('chain configuration', () => {
     expect(getWrappedNativeAddress('base-sepolia')).toBe(
       '0x4200000000000000000000000000000000000006',
     );
+    expect(resolveToken('HYPE', 'elysium')).toBe(
+      '0x0000000000000000000000000000000000000000',
+    );
+    expect(getWrappedNativeAddress('elysium')).toBe(
+      '0xbA876237B0F021A6c6D852d6c26E107997cC5E81',
+    );
+    expect(resolveToken('khype', 'elysium')).toBe(
+      '0x248888D396A546A69A188f3Deb476964e581E9d0',
+    );
+    expect(CHAIN_CONFIGS.elysium.usdToken).toBe(
+      '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
+    );
     expect(CHAIN_CONFIGS.base.routeIntermediaries).toEqual([
       '0x4200000000000000000000000000000000000006',
       '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
@@ -221,8 +261,12 @@ describe('chain configuration', () => {
     expect(getPublicClient('ethereum').chain?.id).toBe(1);
     expect(getPublicClient('avalanche').chain?.id).toBe(43114);
     expect(getPublicClient('robinhood').chain?.id).toBe(4663);
+    expect(getPublicClient('elysium').chain?.id).toBe(99901);
     expect(getPublicClient('base-sepolia').chain?.id).toBe(84532);
     expect(txUrl('0xabc', 'arbitrum')).toBe('https://arbiscan.io/tx/0xabc');
+    expect(txUrl('0xabc', 'elysium')).toBe(
+      'https://elysium.kinetiq.xyz/tx/0xabc',
+    );
   });
 
   it('recognizes configured token symbols without an RPC read', async () => {
