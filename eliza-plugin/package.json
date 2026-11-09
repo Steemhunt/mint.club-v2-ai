@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@mint.club/v2-cli": "^2.1.0",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "@elizaos/core": "^1.7.2"
