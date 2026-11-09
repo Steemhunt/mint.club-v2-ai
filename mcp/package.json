@@ -50,10 +50,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "~1.29.0",
     "@mint.club/v2-cli": "^2.0.3"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@types/node": "^22.20.5",
     "bun": "^1.4.2",
     "bun-types": "^1.4.2",
