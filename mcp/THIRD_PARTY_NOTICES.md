@@ -7,7 +7,7 @@ The Mint Club MCP server bundle includes the following third-party packages:
 
 | Package | Version | Declared license |
 | --- | --- | --- |
-| `@modelcontextprotocol/sdk@1.29.0` | 1.29.0 | MIT |
+| `@modelcontextprotocol/sdk@1.32.2` | 1.32.2 | MIT |
 | `ajv-formats@3.0.1` | 3.0.1 | MIT |
 | `ajv@8.20.0` | 8.20.0 | MIT |
 | `fast-deep-equal@3.1.3` | 3.1.3 | MIT |
@@ -18,7 +18,7 @@ The Mint Club MCP server bundle includes the following third-party packages:
 
 ## License and notice texts
 
-### @modelcontextprotocol/sdk@1.29.0 (LICENSE)
+### @modelcontextprotocol/sdk@1.32.2 (LICENSE)
 
 <!-- sha256:8694aa57bec3f3e9ad0559e91c63a795904e967104efb9d6fc9d153e56f567c2 -->
 

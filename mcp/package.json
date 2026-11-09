@@ -50,7 +50,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "~1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@mint.club/v2-cli": "^2.1.0"
   },
   "devDependencies": {
@@ -64,6 +64,6 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.13.0"
   }
 }

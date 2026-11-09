@@ -8,7 +8,7 @@ The server delegates to [`@mint.club/v2-cli`](../cli), so the CLI remains the si
 
 ## Configure
 
-Requires Node.js 18 or later. Most MCP clients can launch the package directly with `npx`:
+Requires Node.js 22.13 or later. Most MCP clients can launch the package directly with `npx`:
 
 ```json
 {

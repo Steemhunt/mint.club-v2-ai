@@ -64,7 +64,7 @@ mc --chain arbitrum price 0xTOKEN
 mc --chain robinhood wallet
 ```
 
-The CLI and MCP server require Node.js 18 or later. The ElizaOS plugin and repository development require Node.js 22.13 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
+The CLI, MCP server, ElizaOS plugin, and repository development all require Node.js 22.13 or later. Generate a dedicated wallet with limited funds, or provide `PRIVATE_KEY` through a trusted secret manager; never paste a key into an agent conversation.
 
 Financial writes are fail-closed: CLI writes require `--yes` (while `create` keeps its interactive prompt), MCP write tools require explicit chain/assets plus `confirm: true` and must remain behind the host's destructive-tool approval, and Eliza writes require one affirmative original-user `Confirm:` statement with exactly one explicit chain and all effective limits, slippage, assets, and royalties.
 
@@ -180,7 +180,7 @@ npm run audit:full
 npm run test:release
 ```
 
-Repository development requires Node.js 22.13 or later. CI separately verifies the published CLI and MCP runtime paths on Node.js 18. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
+Repository development requires Node.js 22.13 or later. CI separately verifies the packed CLI and MCP tarballs with an `engine-strict` install on the same Node.js line. The default tests are deterministic and offline. `test:integration` performs read-only deployment and immutable checks across all supported networks plus live route quotes where a stable intermediary is configured. `test:fork` runs write flows against a pinned local Base fork and requires Anvil.
 
 For releases, update all three package versions, the CLI dependency ranges, and `mcp/server.json`, then commit and push the changes to `main`. After the main CI run passes, use the repository release command:
 

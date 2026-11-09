@@ -19,7 +19,7 @@ npm install -g @mint.club/v2-cli
 mc --help
 ```
 
-Requires Node.js 18 or later. The installed executable is `mc`.
+Requires Node.js 22.13 or later. The installed executable is `mc`.
 
 ## Wallet setup
 
