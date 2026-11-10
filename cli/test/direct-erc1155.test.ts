@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Address } from 'viem';
+// Static imports: Vitest hoists the vi.mock calls above them and loads them one
+// at a time, so every mock is registered before either command resolves its
+// dependencies. Concurrent dynamic imports raced that registration.
+import { buy } from '../src/commands/buy';
+import { sell } from '../src/commands/sell';
 
 const TOKEN = '0x1234567890123456789012345678901234567890' as Address;
 const RESERVE = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as Address;
@@ -41,11 +46,6 @@ vi.mock('../src/utils/approve', () => ({
   ensureApproval: mocks.ensureApproval,
   ensureERC1155Approval: mocks.ensureERC1155Approval,
 }));
-
-const [{ buy }, { sell }] = await Promise.all([
-  import('../src/commands/buy'),
-  import('../src/commands/sell'),
-]);
 
 describe('direct ERC-1155 Bond commands', () => {
   afterEach(() => {
