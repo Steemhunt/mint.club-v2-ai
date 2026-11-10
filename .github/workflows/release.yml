@@ -33,9 +33,11 @@ jobs:
           else
             VERSION="${GITHUB_REF_NAME#v}"
             NOTES="$(printf '## Packages\n\n- @mint.club/v2-cli@%s\n- @mint.club/v2-mcp@%s\n- @mint.club/v2-eliza-plugin@%s' "$VERSION" "$VERSION" "$VERSION")"
+            # GitHub's generated notes credit authors (per change and under New Contributors); keep only the changes.
+            GENERATED="$(gh api "repos/$GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$GITHUB_REF_NAME" --jq .body)"
+            CHANGES="$(sed -E -e '/^## New Contributors$/,/^$/d' -e 's# by @[^ ]+ in (https://github\.com/[^ ]+/pull/[0-9]+)$# in \1#' <<<"$GENERATED")"
             gh release create "$GITHUB_REF_NAME" \
               --verify-tag \
               --title "Mint Club V2 AI Tools $GITHUB_REF_NAME" \
-              --notes "$NOTES" \
-              --generate-notes
+              --notes "$(printf '%s\n\n%s' "$NOTES" "$CHANGES")"
           fi
