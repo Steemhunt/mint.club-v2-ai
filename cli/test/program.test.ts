@@ -216,27 +216,6 @@ describe('CLI program', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('fails closed on a chain without ZapV2 before any client or approval work', async () => {
-    vi.stubEnv('PRIVATE_KEY', PRIVATE_KEY);
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const commands = [
-      ['zap-buy', MC_TOKEN, '--input-token', 'WHYPE', '--input-amount', '1', '--yes'],
-      ['zap-sell', MC_TOKEN, '--amount', '1', '--output-token', 'USDC', '--yes'],
-    ];
-
-    for (const argv of commands) {
-      const program = createProgram('test');
-      await program.parseAsync(['node', 'mc', '--chain', 'elysium', ...argv]);
-    }
-
-    expect(console.error).toHaveBeenCalledTimes(commands.length);
-    expect(console.error).toHaveBeenCalledWith(
-      '❌',
-      'MCV2_ZapV2 is not configured on Elysium',
-    );
-    expect(process.exitCode).toBe(1);
-  });
-
   it('does not accept private keys through command-line arguments', async () => {
     const program = createProgram('test');
     const wallet = program.commands.find((command) => command.name() === 'wallet')!;

@@ -30,7 +30,7 @@ Canonical chain values:
 
 `ethereum`, `optimism`, `arbitrum`, `avalanche`, `base`, `polygon`, `bsc`, `zora`, `unichain`, `robinhood`, `elysium`, `sepolia`, `base-sepolia`.
 
-Aliases and capabilities come from `@mint.club/v2-cli/chain-registry.json`. Blast is unsupported by this integration. Elysium has no `MCV2_ZapV2` deployment yet, so `zap-buy` and `zap-sell` fail there with a not-configured error; use direct `buy` and `sell` on Elysium.
+Aliases and capabilities come from `@mint.club/v2-cli/chain-registry.json`. Blast is unsupported by this integration.
 
 ## Read operations
 

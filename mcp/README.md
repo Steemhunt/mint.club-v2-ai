@@ -93,7 +93,7 @@ The Mint Club token passed to `zap_buy` or `zap_sell` may be ERC-20 or ERC-1155;
 
 The CLI enumerates direct and one-intermediary homogeneous V2/V3/V4 candidates where configured, selects the greatest exact-input output among those candidates, and encodes it with the Universal Router SDK. It does not call an external routing API and does not claim global route optimality.
 
-ZapV2 is deployed on every supported chain listed above except Elysium, where `zap_buy` and `zap_sell` return the CLI error `MCV2_ZapV2 is not configured on Elysium` until Uniswap finalises its Elysium Universal Router deployment; the Bond tools work there. Deployment addresses are maintained by `@mint.club/v2-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
+ZapV2 is deployed on every supported chain listed above. Deployment addresses are maintained by `@mint.club/v2-cli`; see the [CLI contract table](../cli/README.md#mint-club-contract-configuration).
 
 ## Example requests
 

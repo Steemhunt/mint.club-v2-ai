@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Transport } from 'viem';
 import { getPublicClient } from '../src/client';
 import {
   CHAIN_CONFIGS,
   CHAIN_REGISTRY,
   SUPPORTED_CHAIN_KEYS,
+  createRequestPacer,
   getChainConfig,
   getTransport,
+  throttled,
   validateChain,
 } from '../src/config/chains';
 import {
@@ -49,12 +52,16 @@ const EXPECTED_ZAP_V2 = {
   zora: '0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17',
   unichain: '0x06FD26c092Db44E5491abB7cDC580CE24D93030c',
   robinhood: '0x621c335b4BD8f2165E120DC70d3AfcAfc6628681',
-  elysium: null,
+  elysium: '0xa4021a8907197Df92341F1218B32E26b250F6798',
   sepolia: '0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9',
   'base-sepolia': '0x60432191893c4F742205a2C834817a1891feC435',
 } as const;
 
 describe('chain configuration', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('exposes exactly the Mint Club and Uniswap chain intersection', () => {
     expect(SUPPORTED_CHAIN_KEYS).toEqual(EXPECTED_CHAINS);
     expect(Object.keys(CHAIN_CONFIGS)).toEqual(EXPECTED_CHAINS);
@@ -106,25 +113,41 @@ describe('chain configuration', () => {
     expect(getChainConfig('elysium').contracts).toEqual({
       tokenImplementation: '0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df',
       bond: '0xc5a076cad94176c2996B32d8466Be1cE757FAa27',
-      zapV2: null,
+      zapV2: '0xa4021a8907197Df92341F1218B32E26b250F6798',
     });
   });
 
-  it('uses the published ZapV2 deployment or fails closed where none exists', () => {
+  it('uses the published ZapV2 deployment on every supported chain', () => {
     for (const chain of EXPECTED_CHAINS) {
-      const expected = EXPECTED_ZAP_V2[chain];
-      expect(CHAIN_CONFIGS[chain].contracts.zapV2).toBe(expected);
-      if (expected === null) {
-        expect(() => getZapV2Address(chain)).toThrow(
-          `MCV2_ZapV2 is not configured on ${CHAIN_CONFIGS[chain].chain.name}`,
-        );
-      } else {
-        expect(getZapV2Address(chain)).toBe(expected);
-      }
+      expect(CHAIN_CONFIGS[chain].contracts.zapV2).toBe(
+        EXPECTED_ZAP_V2[chain],
+      );
+      expect(getZapV2Address(chain)).toBe(EXPECTED_ZAP_V2[chain]);
     }
-    expect(() => getZapV2Address('elysium')).toThrow(
-      'MCV2_ZapV2 is not configured on Elysium',
+  });
+
+  it('targets the Universal Router release behind each ZapV2 deployment', () => {
+    const versions = Object.fromEntries(
+      EXPECTED_CHAINS.map((chain) => [
+        chain,
+        CHAIN_CONFIGS[chain].uniswap.universalRouterVersion,
+      ]),
     );
+    expect(versions).toEqual({
+      ethereum: '2.0',
+      optimism: '2.0',
+      arbitrum: '2.0',
+      avalanche: '2.0',
+      base: '2.0',
+      polygon: '2.0',
+      bsc: '2.0',
+      zora: '2.0',
+      unichain: '2.0',
+      robinhood: '2.1.1',
+      elysium: '2.2.0',
+      sepolia: '2.0',
+      'base-sepolia': '2.0',
+    });
   });
 
   it('configures optional V2 plus V3 and V4 quoters per chain', () => {
@@ -166,11 +189,18 @@ describe('chain configuration', () => {
       v4Quoter: '0x8dc178efb8111bb0973dd9d722ebeff267c98f94',
     });
     expect(CHAIN_CONFIGS.elysium.uniswap).toEqual({
-      v2Factory: null,
-      v3Quoter: null,
-      v4Quoter: null,
+      universalRouterVersion: '2.2.0',
+      v2Factory: '0xBbBcC62853a5fA27b93d6Bab3E6F7ce841E25Df2',
+      v3Quoter: {
+        address: '0x204FAca1764B154221e35c0d20aBb3c525710498',
+        version: 'v2',
+      },
+      v4Quoter: '0x379F556c5a748BD7Cc9baF0F7A344094Ac1814f5',
     });
-    expect(CHAIN_CONFIGS.elysium.routeIntermediaries).toEqual([]);
+    expect(CHAIN_CONFIGS.elysium.routeIntermediaries).toEqual([
+      '0xbA876237B0F021A6c6D852d6c26E107997cC5E81',
+      '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
+    ]);
   });
 
   it('normalizes chain aliases and rejects unsupported Mint Club chains', () => {
@@ -217,6 +247,52 @@ describe('chain configuration', () => {
       expect(urls[0]).toBe('https://override.example');
     } finally {
       delete process.env.MINTCLUB_RPC_BASE_SEPOLIA;
+    }
+  });
+
+  it('paces requests to rate-limited public RPCs across clients and lifts it for overrides', async () => {
+    vi.useFakeTimers();
+    const sentAt: number[] = [];
+    const inner = (() => ({
+      config: { name: 'fake', type: 'fake' },
+      request: async () => {
+        sentAt.push(Date.now());
+        return null;
+      },
+    })) as unknown as Transport;
+    const pacer = createRequestPacer(300);
+    const first = throttled(inner, pacer)({});
+    const second = throttled(inner, pacer)({});
+
+    const requests = Promise.all([
+      first.request({ method: 'a' }),
+      second.request({ method: 'b' }),
+      first.request({ method: 'c' }),
+    ]);
+    await vi.advanceTimersByTimeAsync(1_000);
+    await requests;
+
+    expect(sentAt).toHaveLength(3);
+    expect(sentAt[1] - sentAt[0]).toBeGreaterThanOrEqual(300);
+    expect(sentAt[2] - sentAt[1]).toBeGreaterThanOrEqual(300);
+    expect(first.config.name).toBe('fake (paced 300ms)');
+
+    expect(CHAIN_CONFIGS.elysium.rpcMinIntervalMs).toBe(300);
+    expect(
+      Object.entries(CHAIN_CONFIGS)
+        .filter(([, config]) => config.rpcMinIntervalMs !== undefined)
+        .map(([key]) => key),
+    ).toEqual(['elysium']);
+    expect(getTransport('elysium')({}).config.name).toBe(
+      'Fallback (paced 300ms)',
+    );
+    expect(getTransport('robinhood')({}).config.name).toBe('Fallback');
+
+    process.env.MINTCLUB_RPC_ELYSIUM = 'https://override.example';
+    try {
+      expect(getTransport('elysium')({}).config.name).toBe('Fallback');
+    } finally {
+      delete process.env.MINTCLUB_RPC_ELYSIUM;
     }
   });
 

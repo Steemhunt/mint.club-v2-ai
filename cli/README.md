@@ -73,6 +73,8 @@ export MINTCLUB_RPC_BASE_SEPOLIA=https://your-rpc.example
 
 The variable format is `MINTCLUB_RPC_<UPPERCASE_CLI_KEY>`, with non-alphanumeric separators replaced by underscores (`base-sepolia` becomes `BASE_SEPOLIA`).
 
+The public Elysium RPCs reject bursts of more than about ten `eth_call` requests, so the CLI spaces its Elysium requests 300 ms apart. Set `MINTCLUB_RPC_ELYSIUM` to a private endpoint to lift that spacing.
+
 ## Wallet and private-key safety
 
 The CLI writes generated keys with file mode `0600`. Never commit `~/.mintclub/.env`, paste a funded key into an agent conversation, or place a key directly in a command argument.
@@ -168,7 +170,7 @@ mc --chain robinhood zap-sell 0xMINT_CLUB_TOKEN \
 
 ### Deployment status
 
-`MCV2_ZapV2` is deployed on all supported chains in this document except Elysium. Uniswap has not finalised its Elysium Universal Router deployment, so `zap-buy` and `zap-sell` fail closed there with `MCV2_ZapV2 is not configured on Elysium`; direct Bond `buy`, `sell`, and `create` work. Blast is intentionally unsupported by this integration.
+`MCV2_ZapV2` is deployed on all supported chains in this document. Each deployment targets one Universal Router release (2.0 on most chains, 2.1.1 on Robinhood Chain, 2.2.0 on Elysium), and the CLI encodes swap inputs for exactly that release. Blast is intentionally unsupported by this integration.
 
 ## Local route discovery
 
@@ -181,7 +183,7 @@ The route engine:
 5. Chooses the greatest exact-input output; ties prefer fewer hops and then `V2 → V3 → V4` deterministically.
 6. Uses `@uniswap/universal-router-sdk` only to encode the selected route.
 
-Universal Router encoding is pinned to V2.0 command semantics, uses router-held input (`payerIsUser = false`), sends swap output to ZapV2, rejects Permit2 ingress commands, and settles unused routed input directly back to the caller. Native V2/V3 refunds are unwrapped before delivery.
+Universal Router encoding follows the chain's configured router release: 2.1.1 and later add a `minHopPriceX36` field to V2, V3, and V4 swap inputs, which the encoder emits and the plan validator checks byte for byte. It uses router-held input (`payerIsUser = false`), sends swap output to ZapV2, rejects Permit2 ingress commands, and settles unused routed input directly back to the caller. Native V2/V3 refunds are unwrapped before delivery.
 
 Deliberate limits:
 
@@ -256,11 +258,11 @@ Native and ERC-20 amounts use their token decimals. ERC-1155 `--amount` is an in
 | Zora | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17` |
 | Unichain | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0x06FD26c092Db44E5491abB7cDC580CE24D93030c` |
 | Robinhood Chain | `0x91523b39813F3F4E406ECe406D0bEAaA9dE251fa` | `0xEb54dACB4C2ccb64F8074eceEa33b5eBb38E5387` | `0x621c335b4BD8f2165E120DC70d3AfcAfc6628681` |
-| Elysium | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | not deployed |
+| Elysium | `0xc5a076cad94176c2996B32d8466Be1cE757FAa27` | `0xAa70bC79fD1cB4a6FBA717018351F0C3c64B79Df` | `0xa4021a8907197Df92341F1218B32E26b250F6798` |
 | Sepolia | `0x8dce343A86Aa950d539eeE0e166AFfd0Ef515C0c` | `0x749bA94344521727f55a3007c777FbeB5F52C2Eb` | `0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9` |
 | Base Sepolia | `0x5dfA75b0185efBaEF286E80B847ce84ff8a62C2d` | `0x37F540de37afE8bDf6C722d87CB019F30e5E406a` | `0x60432191893c4F742205a2C834817a1891feC435` |
 
-Uniswap factory/quoter addresses and intermediary tokens are kept in `src/config/chains.ts` and capability summaries in `chain-registry.json`.
+Uniswap factory/quoter addresses, the Universal Router release each ZapV2 targets (2.1.1 on Robinhood Chain, 2.2.0 on Elysium, 2.0 elsewhere), and intermediary tokens are kept in `src/config/chains.ts`; capability summaries live in `chain-registry.json`.
 
 ## Development
 

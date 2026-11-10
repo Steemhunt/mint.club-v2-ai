@@ -82,7 +82,7 @@ Supported canonical chain keys:
 
 Natural-language aliases such as “Ethereum mainnet,” “Ethereum Sepolia,” “Base Sepolia,” “Arbitrum One,” “BNB Chain,” and “Robinhood Chain” are loaded from the central registry. Base is the default only for reads; every write confirmation must name one chain explicitly. Contradictory or repeated chain instructions are rejected rather than guessed.
 
-ZapV2 is deployed on every supported chain listed above except Elysium, where `ZAP_BUY` and `ZAP_SELL` fail with the CLI error `MCV2_ZapV2 is not configured on Elysium` until Uniswap finalises its Elysium Universal Router deployment. Blast is unsupported by this integration.
+ZapV2 is deployed on every supported chain listed above. Blast is unsupported by this integration.
 
 ## Development
 

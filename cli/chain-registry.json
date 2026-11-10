@@ -159,11 +159,11 @@
       "aliases": ["elysium", "elysium mainnet", "kinetiq elysium"],
       "capabilities": {
         "bond": true,
-        "zapV2Configured": false,
-        "uniswapV2": false,
-        "uniswapV3": false,
-        "uniswapV4": false,
-        "stableIntermediary": false
+        "zapV2Configured": true,
+        "uniswapV2": true,
+        "uniswapV3": true,
+        "uniswapV4": true,
+        "stableIntermediary": true
       }
     },
     {
