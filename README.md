@@ -94,7 +94,7 @@ mc --chain unichain zap-sell 0xMINT_CLUB_TOKEN \
   --yes
 ```
 
-Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below except Elysium: Uniswap has not finalised its Elysium Universal Router deployment, so `zap-buy` and `zap-sell` fail closed there with a not-configured error while direct Bond operations work. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
+Both ERC-20 and ERC-1155 Mint Club tokens can be direct Bond or Zap targets. Routed input and output assets must be native currency or ERC-20 tokens. ZapV2 is deployed on every supported chain listed below. Blast is intentionally unsupported because it is outside the official Uniswap deployment set used by this integration.
 
 ## Local routing model
 
@@ -106,7 +106,7 @@ Routing does not call the Uniswap Trading API, Smart Order Router, Mint Club rou
 4. Choose the highest exact-input output with deterministic tie-breaking.
 5. Encode only the selected path with `@uniswap/universal-router-sdk`.
 
-The encoder uses Universal Router V2.0 commands with router-balance payment (`payerIsUser = false`) and the ZapV2 contract as recipient. It rejects Permit2 ingress commands and settles any unused routed input directly back to the caller.
+The encoder targets each chain's Universal Router release (2.0 on most chains, 2.1.1 on Robinhood Chain, 2.2.0 on Elysium), which decides whether V2, V3, and V4 swap inputs carry the `minHopPriceX36` field, and uses router-balance payment (`payerIsUser = false`) with the ZapV2 contract as recipient. It rejects Permit2 ingress commands and settles any unused routed input directly back to the caller.
 
 Deliberate limits: no split routes, mixed-protocol paths, arbitrary-length graph search, dynamic-fee V4 pools, or hooked V4 pools. V4 discovery checks only canonical hookless fee/tick-spacing pairs. This repository does not expose a general-purpose swap command.
 

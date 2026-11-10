@@ -3,7 +3,7 @@ import {
   type Address,
 } from 'viem';
 import { ZAP_V2_ABI } from '../abi/zap-v2';
-import type { SupportedChain } from '../config/chains';
+import { CHAIN_CONFIGS, type SupportedChain } from '../config/chains';
 import { parseTokenAmount } from '../utils/format';
 import {
   DEFAULT_ZAP_DEPENDENCIES,
@@ -70,6 +70,7 @@ export async function zapSell(
   });
   const plan = dependencies.encodeUniversalRouterPlan(route, {
     recipient: zapV2,
+    universalRouterVersion: CHAIN_CONFIGS[chain].uniswap.universalRouterVersion,
     slippageBps: params.slippageBps,
     deadline,
     ...(route.protocol === 'none'

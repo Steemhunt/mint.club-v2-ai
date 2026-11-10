@@ -193,6 +193,7 @@ describe('zap-buy', () => {
     expect(deps.encodeUniversalRouterPlan).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
+        universalRouterVersion: '2.0',
         inputRefund: { token: INPUT, recipient: ACCOUNT },
       }),
     );
@@ -337,6 +338,7 @@ describe('zap-sell', () => {
     expect(deps.encodeUniversalRouterPlan).toHaveBeenCalledWith(
       route,
       expect.objectContaining({
+        universalRouterVersion: '2.0',
         inputRefund: {
           token: RESERVE,
           recipient: ACCOUNT,

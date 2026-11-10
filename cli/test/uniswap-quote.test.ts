@@ -183,40 +183,6 @@ describe('viem on-chain quote backend', () => {
     });
   });
 
-  it('finds no route and makes no RPC calls where Uniswap is not configured', async () => {
-    const readContract = vi.fn();
-    const simulateContract = vi.fn();
-    const backend = createOnchainQuoteBackend(
-      { readContract, simulateContract } as never,
-      'elysium',
-    );
-    const whype = '0xbA876237B0F021A6c6D852d6c26E107997cC5E81' as Address;
-    const usdc = '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65' as Address;
-    const candidate: RouteCandidate = {
-      protocol: 'v3',
-      currencies: [whype, usdc],
-      fees: [3000],
-      tickSpacings: [],
-    };
-
-    await expect(backend.getV2Pool(whype, usdc)).resolves.toBeNull();
-    await expect(backend.quoteV3(candidate, 100n)).resolves.toBeNull();
-    await expect(
-      backend.quoteV4({ ...candidate, protocol: 'v4', tickSpacings: [60] }, 100n),
-    ).resolves.toBeNull();
-    await expect(
-      findBestRoute({
-        chain: 'elysium',
-        input: whype,
-        output: usdc,
-        amountIn: 100n,
-        backend,
-      }),
-    ).rejects.toThrow('No bounded Uniswap route found on Elysium');
-    expect(readContract).not.toHaveBeenCalled();
-    expect(simulateContract).not.toHaveBeenCalled();
-  });
-
   it('builds V3 QuoterV2 exact-input calls and reads amountOut', async () => {
     const simulateContract = vi.fn(async () => ({
       result: [123n, [], [], 45_000n] as const,

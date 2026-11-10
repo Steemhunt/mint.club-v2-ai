@@ -1,13 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
-import { formatUnits, parseEther, type Address } from 'viem';
+import {
+  encodeFunctionData,
+  formatUnits,
+  parseAbi,
+  parseEther,
+  type Address,
+  type PublicClient,
+} from 'viem';
 import { getPublicClient } from '../src/client';
 import { BOND_ABI } from '../src/abi/bond';
 import { ERC20_ABI } from '../src/abi/erc20';
+import { ZAP_V2_ABI } from '../src/abi/zap-v2';
 import {
   getChainConfig,
   SUPPORTED_CHAIN_KEYS,
   ZERO_ADDRESS,
   type SupportedChain,
+  type UniversalRouterVersion,
 } from '../src/config/chains';
 import {
   getBondAddress,
@@ -20,15 +29,31 @@ import {
 import { getBurnRefund, getMintCost } from '../src/utils/bond';
 import { generateCurve } from '../src/utils/curves';
 import { defillamaUsdRate } from '../src/utils/price';
+import {
+  encodeUniversalRouterPlan,
+  type UniversalRouterPlan,
+} from '../src/utils/uniswap/encode';
 import { findBestRoute } from '../src/utils/uniswap/quote';
+import { previewTokensReceived } from '../src/utils/zap-v2';
 import { HUNT, SIGNET } from './helpers';
 
 const ROBINHOOD_WETH_RESERVE_TOKEN =
   '0x06797F32891DD210bA085A2aB39d204Df4f11488' as Address;
 const ELYSIUM_USDC_RESERVE_TOKEN =
   '0x5d32C26FF3866621Fd41289BE3bf384b938b3d03' as Address;
+const ELYSIUM_WHYPE_RESERVE_TOKEN =
+  '0x576D62e301e2317C203Dd70b0667470f4dDCa5A5' as Address;
 
-const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address | null> = {
+const UNIVERSAL_ROUTER_ABI = parseAbi([
+  'function execute(bytes commands, bytes[] inputs, uint256 deadline) payable',
+]);
+const REPLAY_ACCOUNT = '0x1111111111111111111111111111111111111111' as Address;
+const REPLAY_STATE_OVERRIDE = [
+  { address: REPLAY_ACCOUNT, balance: parseEther('10') },
+];
+const REPLAY_AMOUNT_IN = parseEther('0.01');
+
+const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address> = {
   ethereum: '0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af',
   optimism: '0x851116D9223fabED8E56C0E6b8Ad0c31d98B3507',
   arbitrum: '0xA51afAFe0263b40EdaEf0Df8781eA9aa03E381a3',
@@ -39,7 +64,7 @@ const UNIVERSAL_ROUTER_ADDRESSES: Record<SupportedChain, Address | null> = {
   zora: '0x3315ef7cA28dB74aBADC6c44570efDF06b04B020',
   unichain: '0xEf740bf23aCaE26f6492B10de645D6B98dC8Eaf3',
   robinhood: '0x8876789976dEcBfCbBbe364623C63652db8C0904',
-  elysium: null,
+  elysium: '0x1B341FDD55d56F8E08409A2C25DDFad93Eb03C1a',
   sepolia: '0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b',
   'base-sepolia': '0x492E6456D9528771018DeB9E87ef7750EF184104',
 };
@@ -79,13 +104,35 @@ async function expectContractCode(
   addresses: Address[],
 ) {
   const client = getPublicClient(chain);
-  const codes = await Promise.all(
-    addresses.map((address) => client.getCode({ address })),
-  );
-  for (const code of codes) {
+  for (const address of addresses) {
+    const code = await client.getCode({ address });
     expect(code).toBeTruthy();
     expect(code).not.toBe('0x');
   }
+}
+
+function replayDeadline(): bigint {
+  return BigInt(Math.floor(Date.now() / 1_000) + 1_200);
+}
+
+/** eth_call the live Universal Router with an encoded plan from a funded synthetic account. */
+function replayOnRouter(
+  client: PublicClient,
+  router: Address,
+  plan: UniversalRouterPlan,
+  deadline: bigint,
+) {
+  return client.call({
+    account: REPLAY_ACCOUNT,
+    to: router,
+    data: encodeFunctionData({
+      abi: UNIVERSAL_ROUTER_ABI,
+      functionName: 'execute',
+      args: [plan.commands, plan.inputs, deadline],
+    }),
+    value: plan.value,
+    stateOverride: REPLAY_STATE_OVERRIDE,
+  });
 }
 
 integration('Supported-chain deployment integration', () => {
@@ -108,15 +155,7 @@ integration('Supported-chain deployment integration', () => {
       const client = getPublicClient(chain);
       expect(await client.getChainId()).toBe(config.chain.id);
 
-      const zapV2 = config.contracts.zapV2;
-      if (!zapV2) {
-        expect(UNIVERSAL_ROUTER_ADDRESSES[chain]).toBeNull();
-        expect(() => getZapV2Address(chain)).toThrow(
-          `MCV2_ZapV2 is not configured on ${config.chain.name}`,
-        );
-        return;
-      }
-
+      const zapV2 = getZapV2Address(chain);
       const [bond, weth, universalRouter] = await Promise.all([
         client.readContract({
           address: zapV2,
@@ -140,26 +179,47 @@ integration('Supported-chain deployment integration', () => {
         getWrappedNativeAddress(chain).toLowerCase(),
       );
       expect(universalRouter.toLowerCase()).toBe(
-        UNIVERSAL_ROUTER_ADDRESSES[chain]!.toLowerCase(),
+        UNIVERSAL_ROUTER_ADDRESSES[chain].toLowerCase(),
       );
 
       if (config.usdToken) {
-        const wrappedNative = getWrappedNativeAddress(chain);
         const route = await findBestRoute({
           client,
           chain,
-          input: wrappedNative,
+          input: ZERO_ADDRESS,
           output: config.usdToken,
-          amountIn: parseEther('0.01'),
+          amountIn: REPLAY_AMOUNT_IN,
         });
         expect(route.protocol).not.toBe('none');
-        expect(route.inputToken.address.toLowerCase()).toBe(
-          wrappedNative.toLowerCase(),
-        );
+        expect(route.inputToken.address).toBe(ZERO_ADDRESS);
         expect(route.outputToken.address.toLowerCase()).toBe(
           config.usdToken.toLowerCase(),
         );
         expect(route.amountOut).toBeGreaterThan(0n);
+
+        // Replay the plan on the live router: the configured release must accept
+        // it, and a release with a different swap input layout must reject it.
+        const deadline = replayDeadline();
+        const planFor = (universalRouterVersion: UniversalRouterVersion) =>
+          encodeUniversalRouterPlan(route, {
+            recipient: zapV2,
+            universalRouterVersion,
+            slippageBps: 1_000,
+            deadline,
+            inputRefund: { token: ZERO_ADDRESS, recipient: REPLAY_ACCOUNT },
+          });
+        const router = UNIVERSAL_ROUTER_ADDRESSES[chain];
+        await replayOnRouter(
+          client,
+          router,
+          planFor(config.uniswap.universalRouterVersion),
+          deadline,
+        );
+        if (config.uniswap.universalRouterVersion !== '2.0') {
+          await expect(
+            replayOnRouter(client, router, planFor('2.0'), deadline),
+          ).rejects.toThrow();
+        }
       }
     });
   }
@@ -345,24 +405,15 @@ integration('Elysium protocol integration', () => {
   const whype = resolveToken('WHYPE', 'elysium');
   const usdc = resolveToken('USDC', 'elysium');
 
-  it('has deployed Bond and canonical token contracts but no ZapV2 or Uniswap', async () => {
-    await expectContractCode('elysium', [
-      chain.contracts.bond,
-      chain.contracts.tokenImplementation,
-      ...Object.values(chain.tokens)
+  it('has deployed the canonical token contracts and targets Universal Router 2.2.0', async () => {
+    await expectContractCode(
+      'elysium',
+      Object.values(chain.tokens)
         .map(({ address }) => address)
         .filter((address) => address !== ZERO_ADDRESS),
-    ]);
-
-    expect(chain.contracts.zapV2).toBeNull();
-    expect(chain.uniswap).toEqual({
-      v2Factory: null,
-      v3Quoter: null,
-      v4Quoter: null,
-    });
-    expect(() => getZapV2Address('elysium')).toThrow(
-      'MCV2_ZapV2 is not configured on Elysium',
     );
+
+    expect(chain.uniswap.universalRouterVersion).toBe('2.2.0');
   });
 
   it('reads canonical WHYPE and USDC metadata', async () => {
@@ -435,5 +486,73 @@ integration('Elysium protocol integration', () => {
 
     expect(price).not.toBeNull();
     expect(price!).toBeGreaterThan(0);
+  });
+
+  it('mints through ZapV2 with a 2.2.0 routed plan and rejects the 2.0 layout', async () => {
+    const client = getPublicClient('elysium');
+    const zapV2 = getZapV2Address('elysium');
+    const route = await findBestRoute({
+      client,
+      chain: 'elysium',
+      input: ZERO_ADDRESS,
+      output: usdc,
+      amountIn: REPLAY_AMOUNT_IN,
+    });
+    expect(route.protocol).not.toBe('none');
+
+    const deadline = replayDeadline();
+    const zapMint = (universalRouterVersion: UniversalRouterVersion) => {
+      const plan = encodeUniversalRouterPlan(route, {
+        recipient: zapV2,
+        universalRouterVersion,
+        slippageBps: 1_000,
+        deadline,
+        inputRefund: { token: ZERO_ADDRESS, recipient: REPLAY_ACCOUNT },
+      });
+      return client.simulateContract({
+        account: REPLAY_ACCOUNT,
+        address: zapV2,
+        abi: ZAP_V2_ABI,
+        functionName: 'zapMint',
+        args: [
+          ELYSIUM_USDC_RESERVE_TOKEN,
+          ZERO_ADDRESS,
+          REPLAY_AMOUNT_IN,
+          0n,
+          plan.commands,
+          plan.inputs,
+          deadline,
+          REPLAY_ACCOUNT,
+        ],
+        value: plan.value,
+        stateOverride: REPLAY_STATE_OVERRIDE,
+      });
+    };
+    const preview = await zapMint('2.2.0');
+    expect(previewTokensReceived(preview.result)).toBeGreaterThan(0n);
+    await expect(zapMint('2.0')).rejects.toThrow();
+  });
+
+  it('mints through ZapV2 with the direct wrap path for a WHYPE reserve', async () => {
+    const preview = await getPublicClient('elysium').simulateContract({
+      account: REPLAY_ACCOUNT,
+      address: getZapV2Address('elysium'),
+      abi: ZAP_V2_ABI,
+      functionName: 'zapMint',
+      args: [
+        ELYSIUM_WHYPE_RESERVE_TOKEN,
+        ZERO_ADDRESS,
+        REPLAY_AMOUNT_IN,
+        0n,
+        '0x',
+        [],
+        replayDeadline(),
+        REPLAY_ACCOUNT,
+      ],
+      value: REPLAY_AMOUNT_IN,
+      stateOverride: REPLAY_STATE_OVERRIDE,
+    });
+
+    expect(previewTokensReceived(preview.result)).toBeGreaterThan(0n);
   });
 });

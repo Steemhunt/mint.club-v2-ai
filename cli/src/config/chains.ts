@@ -36,15 +36,26 @@ export type V3QuoterConfig = {
   version: 'v1' | 'v2';
 };
 
+/**
+ * Universal Router release behind the chain's MCV2_ZapV2 (`UNIVERSAL_ROUTER()`),
+ * as published in Uniswap's universal-router deploy-addresses. Releases 2.1.1
+ * and later decode V2, V3, and V4 swap inputs with an extra minHopPriceX36
+ * field, so the plan encoder must target the exact release.
+ */
+export type UniversalRouterVersion = '2.0' | '2.1.1' | '2.1.2' | '2.2.0';
+
 export type ChainConfig = {
   chain: Chain;
   rpcs: readonly string[];
+  /** Minimum spacing between JSON-RPC requests to the public RPCs, for rate-limited chains. */
+  rpcMinIntervalMs?: number;
   contracts: {
     tokenImplementation: Address;
     bond: Address;
     zapV2: Address | null;
   };
   uniswap: {
+    universalRouterVersion: UniversalRouterVersion;
     v2Factory: Address | null;
     v3Quoter: V3QuoterConfig | null;
     v4Quoter: Address | null;
@@ -142,6 +153,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0xf7e2cDe9E603F15118E6E389cF14f11f19C1afbc',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f',
       v3Quoter: {
         address: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
@@ -189,6 +201,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x7B09b728ee8c6a714dC3F10367b5DF9b217FE633',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf',
       v3Quoter: {
         address: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
@@ -224,6 +237,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x3a8a4BFCC487d0FE9D342B6180bf0323989f251B',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0xf1D7CC64Fb4452F05c498126312eBE29f30Fbcf9',
       v3Quoter: {
         address: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
@@ -263,6 +277,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0xD0586d5F4ae18650340fFc6f3b1307AB2Ca334f4',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C',
       v3Quoter: {
         address: '0xbe0F5544EC67e9B3b2D979aaA43f18Fd87E6257F',
@@ -303,6 +318,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x96282046C0e19F727a92728198c0Dc4E260Ebe0b',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
       v3Quoter: {
         address: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a',
@@ -346,6 +362,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x664f626516c82772F0F492Ff64f6FA826C86F5e1',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x9e5A52f57b3038F1B8EeE45F28b3C1967e22799C',
       v3Quoter: {
         address: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
@@ -385,6 +402,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x68f54a53d3E69e2191bCF586fB507c81E5353413',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6',
       v3Quoter: {
         address: '0x78D78E420Da98ad378D7799bE8f4AF69033EB077',
@@ -423,6 +441,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x5b64cECC5cF3E4B1A668Abd895D16BdDC0c77a17',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x0F797dC7efaEA995bB916f268D919d0a1950eE3C',
       v3Quoter: {
         address: '0x11867e1b3348F3ce4FcC170BC5af3d23E07E64Df',
@@ -450,6 +469,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x06FD26c092Db44E5491abB7cDC580CE24D93030c',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0x1f98400000000000000000000000000000000002',
       v3Quoter: {
         address: '0x385a5cf5f83e99f7bb2852b6a19c3538b9fa7658',
@@ -483,6 +503,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x621c335b4BD8f2165E120DC70d3AfcAfc6628681',
     },
     uniswap: {
+      universalRouterVersion: '2.1.1',
       v2Factory: '0x8bceaa40b9acdfaedf85adf4ff01f5ad6517937f',
       v3Quoter: {
         address: '0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7',
@@ -509,24 +530,29 @@ export const CHAIN_CONFIGS = {
     ],
     usdToken: '0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168',
   }),
-  // Kinetiq's Arbitrum Orbit L2 settling to HyperEVM. The Bond is live, but
-  // MCV2_ZapV2 and Uniswap are not deployed yet, so zap-buy and zap-sell fail
-  // closed with the "not configured" error until Uniswap finalises its router.
+  // Kinetiq's Arbitrum Orbit L2 settling to HyperEVM. Its MCV2_ZapV2 targets
+  // Universal Router 2.2.0.
   elysium: config({
     chain: elysium,
     rpcs: chainRpcs(elysium, [
       'https://rpc.elysium.kinetiq.xyz',
       'https://rpc-elysium-mainnet.t.conduit.xyz',
     ]),
+    // Both public RPCs reject bursts of about ten eth_call requests; spaced calls pass.
+    rpcMinIntervalMs: 300,
     contracts: {
       tokenImplementation: STANDARD_IMPLEMENTATION,
       bond: STANDARD_BOND,
-      zapV2: null,
+      zapV2: '0xa4021a8907197Df92341F1218B32E26b250F6798',
     },
     uniswap: {
-      v2Factory: null,
-      v3Quoter: null,
-      v4Quoter: null,
+      universalRouterVersion: '2.2.0',
+      v2Factory: '0xBbBcC62853a5fA27b93d6Bab3E6F7ce841E25Df2',
+      v3Quoter: {
+        address: '0x204FAca1764B154221e35c0d20aBb3c525710498',
+        version: 'v2',
+      },
+      v4Quoter: '0x379F556c5a748BD7Cc9baF0F7A344094Ac1814f5',
     },
     tokens: {
       HYPE: { address: ZERO_ADDRESS, decimals: 18 },
@@ -561,7 +587,10 @@ export const CHAIN_CONFIGS = {
         decimals: 18,
       },
     },
-    routeIntermediaries: [],
+    routeIntermediaries: [
+      '0xbA876237B0F021A6c6D852d6c26E107997cC5E81',
+      '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
+    ],
     usdToken: '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65',
   }),
   sepolia: config({
@@ -577,6 +606,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x69c94AF858FeCA41f97ff7888e3B5104b95D66D9',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: '0xF62c03E08ada871A0bEb309762E260a7a6a880E6',
       v3Quoter: {
         address: '0xEd1f6473345F45b75F8179591dd5bA1888cf2FB3',
@@ -608,6 +638,7 @@ export const CHAIN_CONFIGS = {
       zapV2: '0x60432191893c4F742205a2C834817a1891feC435',
     },
     uniswap: {
+      universalRouterVersion: '2.0',
       v2Factory: null,
       v3Quoter: {
         address: '0xC5290058841028F1614F3A6F0F5816cAd0df5E27',
@@ -729,10 +760,71 @@ export function getTransport(chain: SupportedChain = 'base'): Transport {
     (url, index, all): url is string => Boolean(url) && all.indexOf(url) === index,
   );
 
-  return fallback(
+  const transport = fallback(
     urls.map((url) =>
       http(url, { retryCount: 0, timeout: 10_000, batch: true }),
     ),
     { rank: false },
   );
+  // A private override is assumed to have its own limits, so only the public RPCs are paced.
+  const minIntervalMs = CHAIN_CONFIGS[chain].rpcMinIntervalMs;
+  return minIntervalMs && !override
+    ? throttled(transport, chainRequestPacer(chain, minIntervalMs))
+    : transport;
+}
+
+/** Hands out request slots at least `minIntervalMs` apart, shared by every client of a chain. */
+export interface RequestPacer {
+  readonly minIntervalMs: number;
+  wait(): Promise<void>;
+}
+
+export function createRequestPacer(minIntervalMs: number): RequestPacer {
+  let gate: Promise<void> = Promise.resolve();
+  let lastSentAt = 0;
+  return {
+    minIntervalMs,
+    wait() {
+      const turn = gate.then(async () => {
+        const delay = lastSentAt + minIntervalMs - Date.now();
+        if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+        lastSentAt = Date.now();
+      });
+      gate = turn;
+      return turn;
+    },
+  };
+}
+
+const REQUEST_PACERS = new Map<SupportedChain, RequestPacer>();
+
+function chainRequestPacer(
+  chain: SupportedChain,
+  minIntervalMs: number,
+): RequestPacer {
+  let pacer = REQUEST_PACERS.get(chain);
+  if (!pacer) {
+    pacer = createRequestPacer(minIntervalMs);
+    REQUEST_PACERS.set(chain, pacer);
+  }
+  return pacer;
+}
+
+/** Route every request of a transport through a pacer. */
+export function throttled(transport: Transport, pacer: RequestPacer): Transport {
+  return (config) => {
+    const inner = transport(config);
+    const request: typeof inner.request = async (args) => {
+      await pacer.wait();
+      return inner.request(args);
+    };
+    return {
+      ...inner,
+      config: {
+        ...inner.config,
+        name: `${inner.config.name} (paced ${pacer.minIntervalMs}ms)`,
+      },
+      request,
+    };
+  };
 }

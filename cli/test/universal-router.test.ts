@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { WETH9 } from '@uniswap/sdk-core';
 import {
   decodeAbiParameters,
   encodeAbiParameters,
@@ -9,6 +10,7 @@ import {
   calculateMinimumAmountOut,
   assertZapCompatiblePlan,
   encodeUniversalRouterPlan,
+  type UniversalRouterPlanOptions,
 } from '../src/utils/uniswap/encode';
 import type {
   QuotedRoute,
@@ -54,8 +56,37 @@ function route(
 
 const options = {
   recipient: ZAP,
+  universalRouterVersion: '2.0',
   slippageBps: 100,
   deadline: 2_000_000_000n,
+} satisfies UniversalRouterPlanOptions;
+
+const v3Pool: QuotedRoute['pools'][number] = {
+  type: 'v3-pool',
+  tokenIn: weth,
+  tokenOut: usdg,
+  fee: '3000',
+  sqrtRatioX96: '79228162514264337593543950336',
+  liquidity: '1',
+  tickCurrent: '0',
+};
+const v2Pool: QuotedRoute['pools'][number] = {
+  type: 'v2-pool',
+  tokenIn: weth,
+  tokenOut: usdg,
+  reserve0: { token: weth, quotient: '1000000000000000000000' },
+  reserve1: { token: usdg, quotient: '1000000000' },
+};
+const v4Pool: QuotedRoute['pools'][number] = {
+  type: 'v4-pool',
+  tokenIn: eth,
+  tokenOut: usdg,
+  fee: '3000',
+  tickSpacing: '60',
+  hooks: ZERO,
+  sqrtRatioX96: '79228162514264337593543950336',
+  liquidity: '1',
+  tickCurrent: '0',
 };
 
 function routedOptions(inputToken: Address = WETH) {
@@ -302,6 +333,147 @@ describe('Universal Router SDK encoding for ZapV2', () => {
     expect(plan.value).toBe(1_000_000_000_000_000_000n);
   });
 
+  it.each(['2.1.1', '2.2.0'] as const)(
+    'encodes V2 and V3 swaps for Universal Router %s with an empty minHopPriceX36',
+    (universalRouterVersion) => {
+      const v3Plan = encodeUniversalRouterPlan(route('v3', [v3Pool]), {
+        ...routedOptions(),
+        universalRouterVersion,
+      });
+      expect(commandBytes(v3Plan.commands)).toEqual([0x00, 0x04]);
+      expect(v3Plan.inputs[0]).toHaveLength(2 + 320 * 2);
+      const [recipient, amountIn, amountOutMin, , payerIsUser, minHopPriceX36] =
+        decodeAbiParameters(
+          parseAbiParameters('address,uint256,uint256,bytes,bool,uint256[]'),
+          v3Plan.inputs[0],
+        );
+      expect(recipient).toBe(ZAP.toLowerCase());
+      expect(amountIn).toBe(1_000_000_000_000_000_000n);
+      expect(amountOutMin).toBe(990n);
+      expect(payerIsUser).toBe(false);
+      expect(minHopPriceX36).toEqual([]);
+
+      const v2Plan = encodeUniversalRouterPlan(
+        route('v2', [v2Pool], weth, usdg, 996_006n),
+        { ...routedOptions(), universalRouterVersion },
+      );
+      expect(commandBytes(v2Plan.commands)).toEqual([0x08, 0x04]);
+      const [, , v2AmountOutMin, path, , v2MinHopPriceX36] = decodeAbiParameters(
+        parseAbiParameters('address,uint256,uint256,address[],bool,uint256[]'),
+        v2Plan.inputs[0],
+      );
+      expect(v2AmountOutMin).toBe(986_045n);
+      expect(path).toEqual([WETH, USDG]);
+      expect(v2MinHopPriceX36).toEqual([]);
+    },
+  );
+
+  it('encodes a V4 swap for Universal Router 2.2.0 with the minHopPriceX36 struct field', () => {
+    const plan = encodeUniversalRouterPlan(route('v4', [v4Pool], eth), {
+      ...routedOptions(ZERO),
+      universalRouterVersion: '2.2.0',
+    });
+
+    expect(commandBytes(plan.commands)).toEqual([0x10, 0x04]);
+    const [actions, actionParams] = decodeAbiParameters(
+      parseAbiParameters('bytes,bytes[]'),
+      plan.inputs[0],
+    );
+    expect(actions).toBe('0x070b0e');
+    const [swap] = decodeAbiParameters(
+      parseAbiParameters(
+        '(address,(address,uint24,int24,address,bytes)[],uint256[],uint128,uint128)',
+      ),
+      actionParams[0],
+    );
+    expect(swap[2]).toEqual([]);
+    expect(swap[3]).toBe(1_000_000_000_000_000_000n);
+    expect(swap[4]).toBe(990n);
+    expect(plan.value).toBe(1_000_000_000_000_000_000n);
+  });
+
+  it('rejects swap inputs laid out for a different Universal Router release', () => {
+    const refund = { token: WETH, recipient: ACCOUNT };
+    const legacy = encodeUniversalRouterPlan(route('v3', [v3Pool]), routedOptions());
+    const current = encodeUniversalRouterPlan(route('v3', [v3Pool]), {
+      ...routedOptions(),
+      universalRouterVersion: '2.1.1',
+    });
+    expect(legacy.inputs[0]).toHaveLength(2 + 256 * 2);
+    expect(current.inputs[0]).toHaveLength(2 + 320 * 2);
+
+    expect(() =>
+      assertZapCompatiblePlan(legacy.commands, legacy.inputs, ZAP, '2.1.1', refund),
+    ).toThrow('does not match the configured router version layout');
+    expect(() =>
+      assertZapCompatiblePlan(current.commands, current.inputs, ZAP, '2.0', refund),
+    ).toThrow('does not match the configured router version layout');
+    expect(() =>
+      assertZapCompatiblePlan(current.commands, current.inputs, ZAP, '2.2.0', refund),
+    ).not.toThrow();
+
+    const v4Refund = { token: ZERO, recipient: ACCOUNT };
+    const legacyV4 = encodeUniversalRouterPlan(route('v4', [v4Pool], eth), routedOptions(ZERO));
+    const currentV4 = encodeUniversalRouterPlan(route('v4', [v4Pool], eth), {
+      ...routedOptions(ZERO),
+      universalRouterVersion: '2.2.0',
+    });
+    expect(() =>
+      assertZapCompatiblePlan(legacyV4.commands, legacyV4.inputs, ZAP, '2.2.0', v4Refund),
+    ).toThrow('does not match the configured router version layout');
+    expect(() =>
+      assertZapCompatiblePlan(currentV4.commands, currentV4.inputs, ZAP, '2.0', v4Refund),
+    ).toThrow('does not match the configured router version layout');
+  });
+
+  it('registers wrapped natives the Uniswap SDK does not ship so native routes encode on new chains', () => {
+    const WHYPE = '0xbA876237B0F021A6c6D852d6c26E107997cC5E81' as Address;
+    const ELYSIUM_USDC = '0xb47c4C8F73F009CC0C0d3f92B388d13E293F0B65' as Address;
+    expect(WETH9[99901]?.address.toLowerCase()).toBe(WHYPE.toLowerCase());
+
+    const whype: RoutingToken = {
+      address: WHYPE,
+      chainId: 99901,
+      symbol: 'WHYPE',
+      decimals: '18',
+    };
+    const plan = encodeUniversalRouterPlan(
+      {
+        protocol: 'v3',
+        inputToken: { ...whype, address: ZERO, symbol: 'HYPE' },
+        outputToken: {
+          address: ELYSIUM_USDC,
+          chainId: 99901,
+          symbol: 'USDC',
+          decimals: '6',
+        },
+        amountIn: 10_000_000_000_000_000n,
+        amountOut: 63_800n,
+        pools: [
+          {
+            type: 'v3-pool',
+            tokenIn: whype,
+            tokenOut: {
+              address: ELYSIUM_USDC,
+              chainId: 99901,
+              symbol: 'USDC',
+              decimals: '6',
+            },
+            fee: '10000',
+            sqrtRatioX96: '79228162514264337593543950336',
+            liquidity: '1',
+            tickCurrent: '0',
+          },
+        ],
+      },
+      { ...routedOptions(ZERO), universalRouterVersion: '2.2.0' },
+    );
+
+    expect(commandBytes(plan.commands)).toEqual([0x0b, 0x00, 0x0c]);
+    expect(plan.inputs[1]).toHaveLength(2 + 320 * 2);
+    expect(plan.value).toBe(10_000_000_000_000_000n);
+  });
+
   it('returns an empty plan for a no-swap reserve path', () => {
     const plan = encodeUniversalRouterPlan(
       {
@@ -346,7 +518,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
   });
 
   it('rejects Permit2 ingress and malicious payer or recipient fields', () => {
-    expect(() => assertZapCompatiblePlan('0x02', ['0x'], ZAP)).toThrow(
+    expect(() => assertZapCompatiblePlan('0x02', ['0x'], ZAP, '2.0')).toThrow(
       'forbidden Permit2 ingress',
     );
 
@@ -355,7 +527,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       [ZAP, 1n, 1n, '0x', true],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x00', [payerIsUser], ZAP),
+      assertZapCompatiblePlan('0x00', [payerIsUser], ZAP, '2.0'),
     ).toThrow('payerIsUser=true');
 
     const wrongRecipient = encodeAbiParameters(
@@ -369,10 +541,10 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       ],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x08', [wrongRecipient], ZAP),
+      assertZapCompatiblePlan('0x08', [wrongRecipient], ZAP, '2.0'),
     ).toThrow('does not target ZapV2');
 
-    expect(() => assertZapCompatiblePlan('0x05', ['0x'], ZAP)).toThrow(
+    expect(() => assertZapCompatiblePlan('0x05', ['0x'], ZAP, '2.0')).toThrow(
       'unsupported command 0x05',
     );
 
@@ -381,7 +553,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       [ACCOUNT, 1n],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x0b', [wrongWrapRecipient], ZAP),
+      assertZapCompatiblePlan('0x0b', [wrongWrapRecipient], ZAP, '2.0'),
     ).toThrow('WRAP_ETH does not target router custody');
 
     const maliciousSettle = encodeAbiParameters(
@@ -392,7 +564,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       parseAbiParameters('bytes,bytes[]'),
       ['0x0b', [maliciousSettle]],
     );
-    expect(() => assertZapCompatiblePlan('0x10', [v4Input], ZAP)).toThrow(
+    expect(() => assertZapCompatiblePlan('0x10', [v4Input], ZAP, '2.0')).toThrow(
       'V4 SETTLE payerIsUser=true',
     );
 
@@ -409,7 +581,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       ['0x0b0e', [validSettle, validTake]],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x10', [missingV4Swap], ZAP),
+      assertZapCompatiblePlan('0x10', [missingV4Swap], ZAP, '2.0'),
     ).toThrow('exactly one exact-input swap');
 
     const unknownV4Action = encodeAbiParameters(
@@ -417,7 +589,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       ['0x06', ['0x']],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x10', [unknownV4Action], ZAP),
+      assertZapCompatiblePlan('0x10', [unknownV4Action], ZAP, '2.0'),
     ).toThrow('unsupported action 0x06');
 
     const externalSweep = encodeAbiParameters(
@@ -425,16 +597,16 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       [WETH, ACCOUNT, 0n],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x04', [externalSweep], ZAP),
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, '2.0'),
     ).toThrow('does not target the input refund recipient');
     expect(() =>
-      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, {
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, '2.0', {
         token: USDG,
         recipient: ACCOUNT,
       }),
     ).toThrow('does not target the input refund recipient');
     expect(() =>
-      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, {
+      assertZapCompatiblePlan('0x04', [externalSweep], ZAP, '2.0', {
         token: WETH,
         recipient: ACCOUNT,
       }),
@@ -445,10 +617,10 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       [WETH, ZAP, 0n],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x04', [zapSweep], ZAP),
+      assertZapCompatiblePlan('0x04', [zapSweep], ZAP, '2.0'),
     ).toThrow('does not target the input refund recipient');
     expect(() =>
-      assertZapCompatiblePlan('0x04', [zapSweep], ZAP, {
+      assertZapCompatiblePlan('0x04', [zapSweep], ZAP, '2.0', {
         token: WETH,
         recipient: ACCOUNT,
       }),
@@ -459,7 +631,7 @@ describe('Universal Router SDK encoding for ZapV2', () => {
       [WETH, ZAP, 1n],
     );
     expect(() =>
-      assertZapCompatiblePlan('0x04', [nonzeroZapSweep], ZAP, {
+      assertZapCompatiblePlan('0x04', [nonzeroZapSweep], ZAP, '2.0', {
         token: WETH,
         recipient: ZAP,
       }),

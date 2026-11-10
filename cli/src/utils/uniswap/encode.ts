@@ -1,9 +1,9 @@
-import { Percent, TradeType } from '@uniswap/sdk-core';
+import { Percent, Token, TradeType, WETH9 } from '@uniswap/sdk-core';
 import {
   PoolType,
   RouterTradeAdapter,
   SwapRouter,
-  UniversalRouterVersion,
+  UniversalRouterVersion as SdkUniversalRouterVersion,
   type PartialClassicQuote,
   type V2PoolInRoute,
   type V3PoolInRoute,
@@ -13,13 +13,50 @@ import {
   decodeAbiParameters,
   encodeAbiParameters,
   parseAbiParameters,
+  type AbiParameter,
   type Address,
+  type DecodeAbiParametersReturnType,
   type Hex,
 } from 'viem';
-import { ZERO_ADDRESS } from '../../config/chains';
+import {
+  CHAIN_CONFIGS,
+  ZERO_ADDRESS,
+  type SupportedChain,
+  type UniversalRouterVersion,
+} from '../../config/chains';
+import { getWrappedNativeToken } from '../../config/contracts';
 import type { ClassicPool, QuotedRoute } from './types';
 
 const PERMIT2_INGRESS_COMMANDS = new Set([0x02, 0x03, 0x0a, 0x0d]);
+
+// sdk-core resolves a chain's native currency through its WETH9 table and only ships
+// the chains it knows, so register the configured wrapped native for the others.
+for (const [chain, config] of Object.entries(CHAIN_CONFIGS)) {
+  if (!WETH9[config.chain.id]) {
+    const wrapped = getWrappedNativeToken(chain as SupportedChain);
+    WETH9[config.chain.id] = new Token(
+      config.chain.id,
+      wrapped.address,
+      wrapped.decimals,
+      wrapped.symbol,
+    );
+  }
+}
+
+const SDK_ROUTER_VERSION: Record<
+  UniversalRouterVersion,
+  SdkUniversalRouterVersion
+> = {
+  '2.0': SdkUniversalRouterVersion.V2_0,
+  '2.1.1': SdkUniversalRouterVersion.V2_1_1,
+  '2.1.2': SdkUniversalRouterVersion.V2_1_2,
+  '2.2.0': SdkUniversalRouterVersion.V2_2_0,
+};
+
+/** Universal Router 2.1.1 and later append minHopPriceX36 to V2, V3, and V4 swap inputs. */
+function carriesMinHopPrices(version: UniversalRouterVersion): boolean {
+  return version !== '2.0';
+}
 
 export interface UniversalRouterPlan {
   commands: Hex;
@@ -31,6 +68,7 @@ export interface UniversalRouterPlan {
 
 export interface UniversalRouterPlanOptions {
   recipient: Address;
+  universalRouterVersion: UniversalRouterVersion;
   slippageBps: number;
   deadline: bigint;
   inputRefund?: {
@@ -89,18 +127,59 @@ const UNIVERSAL_ROUTER_SELF = '0x0000000000000000000000000000000000000002';
 const V2_SWAP_EXACT_IN_PARAMS = parseAbiParameters(
   'address,uint256,uint256,address[],bool',
 );
+const V2_SWAP_EXACT_IN_MIN_HOP_PARAMS = parseAbiParameters(
+  'address,uint256,uint256,address[],bool,uint256[]',
+);
 const V3_SWAP_EXACT_IN_PARAMS = parseAbiParameters(
   'address,uint256,uint256,bytes,bool',
+);
+const V3_SWAP_EXACT_IN_MIN_HOP_PARAMS = parseAbiParameters(
+  'address,uint256,uint256,bytes,bool,uint256[]',
 );
 const SWEEP_PARAMS = parseAbiParameters('address,address,uint256');
 const WRAP_ETH_PARAMS = parseAbiParameters('address,uint256');
 const UNWRAP_WETH_PARAMS = parseAbiParameters('address,uint256');
 const V4_COMMAND_PARAMS = parseAbiParameters('bytes,bytes[]');
+const V4_SWAP_EXACT_IN_PARAMS = parseAbiParameters(
+  '(address,(address,uint24,int24,address,bytes)[],uint128,uint128)',
+);
+const V4_SWAP_EXACT_IN_MIN_HOP_PARAMS = parseAbiParameters(
+  '(address,(address,uint24,int24,address,bytes)[],uint256[],uint128,uint128)',
+);
 const V4_SETTLE_PARAMS = parseAbiParameters('address,uint256,bool');
 const V4_TAKE_PARAMS = parseAbiParameters('address,address,uint256');
 
 function sameAddress(left: string, right: string): boolean {
   return left.toLowerCase() === right.toLowerCase();
+}
+
+/**
+ * Decode a command input and require it to re-encode byte for byte, so an input
+ * laid out for a different Universal Router release is rejected instead of
+ * being misread.
+ */
+function decodeExact<const params extends readonly AbiParameter[]>(
+  params: params,
+  input: Hex,
+): DecodeAbiParametersReturnType<params> {
+  const layoutError = (detail: string) =>
+    new Error(
+      `Universal Router input does not match the configured router version layout: ${detail}`,
+    );
+  let decoded: DecodeAbiParametersReturnType<params>;
+  try {
+    decoded = decodeAbiParameters(params, input);
+  } catch (error) {
+    throw layoutError(error instanceof Error ? error.message : String(error));
+  }
+  const reencoded = encodeAbiParameters(
+    params as readonly AbiParameter[],
+    decoded as readonly unknown[],
+  );
+  if (reencoded.toLowerCase() !== input.toLowerCase()) {
+    throw layoutError('re-encoding the decoded input changes its bytes');
+  }
+  return decoded;
 }
 
 function assertSwapRecipient(recipient: Address, zapV2: Address): boolean {
@@ -112,8 +191,9 @@ function assertSwapRecipient(recipient: Address, zapV2: Address): boolean {
 function assertV4Plan(
   input: Hex,
   zapV2: Address,
+  universalRouterVersion: UniversalRouterVersion,
 ): { usesRouterCustody: boolean } {
-  const [actions, params] = decodeAbiParameters(V4_COMMAND_PARAMS, input);
+  const [actions, params] = decodeExact(V4_COMMAND_PARAMS, input);
   const actionBytes = actions.slice(2).match(/.{2}/g) ?? [];
   if (actionBytes.length !== params.length) {
     throw new Error('V4 action/parameter length mismatch');
@@ -126,18 +206,21 @@ function assertV4Plan(
   for (let index = 0; index < actionBytes.length; index += 1) {
     const action = Number.parseInt(actionBytes[index], 16);
     if (action === 0x07) {
-      exactInputSwaps += 1;
-    } else if (action === 0x0b) {
-      const [, , payerIsUser] = decodeAbiParameters(
-        V4_SETTLE_PARAMS,
+      decodeExact(
+        carriesMinHopPrices(universalRouterVersion)
+          ? V4_SWAP_EXACT_IN_MIN_HOP_PARAMS
+          : V4_SWAP_EXACT_IN_PARAMS,
         params[index],
       );
+      exactInputSwaps += 1;
+    } else if (action === 0x0b) {
+      const [, , payerIsUser] = decodeExact(V4_SETTLE_PARAMS, params[index]);
       if (payerIsUser) throw new Error('V4 SETTLE payerIsUser=true');
       settlements += 1;
     } else if (action === 0x0c) {
       throw new Error('V4 SETTLE_ALL does not encode payerIsUser=false');
     } else if (action === 0x0e) {
-      const [, recipient] = decodeAbiParameters(V4_TAKE_PARAMS, params[index]);
+      const [, recipient] = decodeExact(V4_TAKE_PARAMS, params[index]);
       usesRouterCustody = assertSwapRecipient(recipient, zapV2);
       takes += 1;
     } else {
@@ -159,6 +242,7 @@ export function assertZapCompatiblePlan(
   commands: Hex,
   inputs: readonly Hex[],
   zapV2: Address,
+  universalRouterVersion: UniversalRouterVersion,
   inputRefund?: UniversalRouterPlanOptions['inputRefund'],
 ): void {
   const commandBytes = commands.slice(2).match(/.{2}/g) ?? [];
@@ -191,10 +275,17 @@ export function assertZapCompatiblePlan(
     }
 
     if (command === 0x00 || command === 0x08) {
-      const [recipient, , , , payerIsUser] = decodeAbiParameters(
-        command === 0x00 ? V3_SWAP_EXACT_IN_PARAMS : V2_SWAP_EXACT_IN_PARAMS,
-        inputs[index],
-      );
+      const minHop = carriesMinHopPrices(universalRouterVersion);
+      const [recipient, , , , payerIsUser] =
+        command === 0x00
+          ? decodeExact(
+              minHop ? V3_SWAP_EXACT_IN_MIN_HOP_PARAMS : V3_SWAP_EXACT_IN_PARAMS,
+              inputs[index],
+            )
+          : decodeExact(
+              minHop ? V2_SWAP_EXACT_IN_MIN_HOP_PARAMS : V2_SWAP_EXACT_IN_PARAMS,
+              inputs[index],
+            );
       if (payerIsUser) {
         throw new Error(
           `Universal Router command 0x${command.toString(16).padStart(2, '0')} has payerIsUser=true`,
@@ -203,7 +294,7 @@ export function assertZapCompatiblePlan(
       usesRouterCustody =
         assertSwapRecipient(recipient, zapV2) || usesRouterCustody;
     } else if (command === 0x04) {
-      const [token, recipient, amountMinimum] = decodeAbiParameters(
+      const [token, recipient, amountMinimum] = decodeExact(
         SWEEP_PARAMS,
         inputs[index],
       );
@@ -219,14 +310,14 @@ export function assertZapCompatiblePlan(
       }
       returnsInputRefund = true;
     } else if (command === 0x0b) {
-      const [recipient] = decodeAbiParameters(WRAP_ETH_PARAMS, inputs[index]);
+      const [recipient] = decodeExact(WRAP_ETH_PARAMS, inputs[index]);
       if (!sameAddress(recipient, UNIVERSAL_ROUTER_SELF)) {
         throw new Error(
           `Universal Router WRAP_ETH does not target router custody: ${recipient}`,
         );
       }
     } else if (command === 0x0c) {
-      const [recipient, amountMinimum] = decodeAbiParameters(
+      const [recipient, amountMinimum] = decodeExact(
         UNWRAP_WETH_PARAMS,
         inputs[index],
       );
@@ -245,7 +336,7 @@ export function assertZapCompatiblePlan(
         );
       }
     } else if (command === 0x10) {
-      const result = assertV4Plan(inputs[index], zapV2);
+      const result = assertV4Plan(inputs[index], zapV2, universalRouterVersion);
       usesRouterCustody = result.usesRouterCustody || usesRouterCustody;
     }
   }
@@ -308,7 +399,7 @@ export function encodeUniversalRouterPlan(
     recipient: options.recipient,
     useRouterBalance: true,
     deadlineOrPreviousBlockhash: options.deadline.toString(),
-    urVersion: UniversalRouterVersion.V2_0,
+    urVersion: SDK_ROUTER_VERSION[options.universalRouterVersion],
   });
   const decoded = SwapRouter.INTERFACE.decodeFunctionData(
     'execute(bytes,bytes[],uint256)',
@@ -322,7 +413,7 @@ export function encodeUniversalRouterPlan(
   for (let index = 0; index < commandBytes.length; index += 1) {
     const command = Number.parseInt(commandBytes[index], 16) & 0x3f;
     if (command === 0x04) {
-      const [token, recipient, amountMinimum] = decodeAbiParameters(
+      const [token, recipient, amountMinimum] = decodeExact(
         SWEEP_PARAMS,
         inputs[index],
       );
@@ -342,7 +433,7 @@ export function encodeUniversalRouterPlan(
       command === 0x0c &&
       sameAddress(options.inputRefund.token, ZERO_ADDRESS)
     ) {
-      const [recipient, amountMinimum] = decodeAbiParameters(
+      const [recipient, amountMinimum] = decodeExact(
         UNWRAP_WETH_PARAMS,
         inputs[index],
       );
@@ -383,6 +474,7 @@ export function encodeUniversalRouterPlan(
     commands,
     inputs,
     options.recipient,
+    options.universalRouterVersion,
     options.inputRefund,
   );
 
